@@ -255,3 +255,113 @@ export function drawPondSprite(ctx, theme, ox, oy) {
     [ox + 8, oy + 22, 6, 3, theme.waterLight]
   ));
 }
+
+// --- Building sprites (LOTR-flavoured, original names) -----------------------
+
+function roofCap(ctx, ox, oy, w, roof) {
+  drawPixels(ctx, rects([ox, oy, w, 2, roof]));
+}
+
+export function drawBuildingSprite(ctx, type, ox, oy, theme) {
+  switch (type) {
+    case 'smial': {
+      // round-doored hobbit smial, larger footprint
+      drawPixels(ctx, rects(
+        [ox + 4, oy + 26, 56, 18, PALETTE.wall],
+        [ox + 4, oy + 26, 56, 3, PALETTE.cream],
+        [ox + 16, oy + 6, 34, 22, theme.roof],
+        [ox + 24, oy + 14, 18, 12, theme.roof],
+        [ox + 28, oy + 34, 16, 16, PALETTE.door],
+        [ox + 30, oy + 38, 12, 10, PALETTE.doorLight],
+        [ox + 34, oy + 42, 3, 3, PALETTE.gold],
+        [ox + 14, oy + 44, 36, 6, PALETTE.stoneDark]
+      ));
+      ctx.fillStyle = PALETTE.doorLight;
+      ctx.beginPath();
+      ctx.arc(ox + 36, oy + 42, 8, Math.PI, 0);
+      ctx.lineTo(ox + 44, oy + 52);
+      ctx.lineTo(ox + 28, oy + 52);
+      ctx.closePath();
+      ctx.fill();
+      break;
+    }
+    case 'inn': {
+      drawPixels(ctx, rects(
+        [ox + 2, oy + 28, 76, 24, PALETTE.wall],
+        [ox + 2, oy + 28, 76, 3, PALETTE.cream],
+        [ox + 8, oy + 8, 64, 22, theme.roof],
+        [ox + 28, oy + 16, 24, 12, theme.roof],
+        [ox + 12, oy + 36, 12, 12, PALETTE.window],
+        [ox + 56, oy + 36, 12, 12, PALETTE.window],
+        [ox + 33, oy + 36, 14, 16, PALETTE.door],
+        [ox + 38, oy + 42, 3, 3, PALETTE.gold],
+        [ox + 16, oy + 50, 44, 4, PALETTE.stoneDark],
+        [ox + 4, oy + 24, 12, 4, PALETTE.gold],
+        [ox + 60, oy + 24, 12, 4, PALETTE.gold]
+      ));
+      break;
+    }
+    case 'smithy': {
+      drawPixels(ctx, rects(
+        [ox + 2, oy + 26, 60, 26, PALETTE.stone],
+        [ox + 2, oy + 26, 60, 3, PALETTE.stoneDark],
+        [ox + 10, oy + 6, 44, 22, '#5b4a3f'],
+        [ox + 14, oy + 14, 36, 12, '#5b4a3f'],
+        [ox + 24, oy + 34, 16, 18, PALETTE.door],
+        [ox + 30, oy + 40, 3, 3, PALETTE.gold],
+        [ox + 46, oy + 30, 10, 10, '#3a3a3a'],
+        [ox + 49, oy + 33, 4, 4, PALETTE.gold]
+      ));
+      break;
+    }
+    case 'market': {
+      drawPixels(ctx, rects(
+        [ox, oy + 36, 64, 16, PALETTE.plank],
+        [ox + 4, oy + 20, 56, 16, PALETTE.plankLight],
+        [ox + 8, oy + 8, 48, 12, '#b25f52'],
+        [ox + 12, oy + 12, 40, 6, PALETTE.gold],
+        [ox + 10, oy + 40, 6, 14, PALETTE.trunk],
+        [ox + 48, oy + 40, 6, 14, PALETTE.trunk],
+        [ox + 22, oy + 44, 18, 6, PALETTE.cream]
+      ));
+      break;
+    }
+    case 'barn': {
+      drawPixels(ctx, rects(
+        [ox + 2, oy + 24, 60, 28, '#9c5a3c'],
+        [ox + 2, oy + 24, 60, 3, '#b87a52'],
+        [ox + 12, oy + 6, 40, 20, '#7a4332'],
+        [ox + 26, oy + 32, 14, 20, PALETTE.door],
+        [ox + 30, oy + 38, 3, 3, PALETTE.gold],
+        [ox + 18, oy + 44, 28, 6, '#6b3c2a']
+      ));
+      break;
+    }
+    case 'library': {
+      drawPixels(ctx, rects(
+        [ox + 2, oy + 28, 60, 24, '#7c6f63'],
+        [ox + 2, oy + 28, 60, 3, '#9b8d7e'],
+        [ox + 8, oy + 8, 48, 22, theme.roof],
+        [ox + 12, oy + 36, 10, 12, PALETTE.window],
+        [ox + 44, oy + 36, 10, 12, PALETTE.window],
+        [ox + 28, oy + 36, 12, 16, PALETTE.door],
+        [ox + 32, oy + 42, 3, 3, PALETTE.gold]
+      ));
+      break;
+    }
+    case 'well': {
+      drawPixels(ctx, rects(
+        [ox, oy + 18, 16, 12, PALETTE.stone],
+        [ox, oy + 18, 16, 3, PALETTE.stoneDark],
+        [ox + 2, oy + 22, 12, 6, theme.water],
+        [ox - 2, oy + 2, 4, 18, PALETTE.trunk],
+        [ox + 14, oy + 2, 4, 18, PALETTE.trunk],
+        [ox - 4, oy, 24, 3, PALETTE.roofWood]
+      ));
+      break;
+    }
+    default: {
+      drawHouseSprite(ctx, theme, 'rounddoor', ox, oy);
+    }
+  }
+}

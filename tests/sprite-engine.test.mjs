@@ -3,12 +3,13 @@ import assert from 'node:assert/strict';
 import {
   drawHobbitSprite,
   drawTreeSprite,
+  drawBuildingSprite,
   getPaletteColor,
   GRID_H,
   GRID_W,
   TILE
 } from '../src/sprite-engine.js';
-import { createDefaultGameState, normalizeGameState, tileAt, resolveVillageTheme } from '../src/game-systems.js';
+import { createDefaultGameState, normalizeGameState, tileAt, resolveVillageTheme, BUILDINGS, NPCS, buildWorldGrid, WORLD_BLOCKED, WORLD_HEIGHT, WORLD_WIDTH } from '../src/game-systems.js';
 
 let before;
 
@@ -89,5 +90,46 @@ test('tileAt blocks water, fence, and borders but allows grass paths', () => {
   assert.equal(tileAt(0, 5, village), 't');
   assert.equal(tileAt(15, 10, village), 'p');
 });
+
+test('buildWorldGrid creates a larger explorable map with buildings and paths', () => {
+  const grid = buildWorldGrid({ landscape: 'heath' });
+  assert.equal(grid.length, WORLD_HEIGHT);
+  assert.equal(grid[0].length, WORLD_WIDTH);
+  // A building footprint is solid.
+  const home = BUILDINGS.find((b) => b.id === 'home');
+  assert.equal(grid[home.y][home.x], 'b');
+  // The gate stays walkable.
+  const gate = BUILDINGS.find((b) => b.id === 'gate');
+  assert.equal(grid[gate.y][gate.x], 'g');
+  // Paths exist near the centre.
+  assert.equal(grid[11][30], 'p');
+});
+
+test('world blocked set blocks trees, water, fences, and buildings', () => {
+  assert.ok(WORLD_BLOCKED.has('t'));
+  assert.ok(WORLD_BLOCKED.has('w'));
+  assert.ok(WORLD_BLOCKED.has('b'));
+  assert.ok(!WORLD_BLOCKED.has('p'));
+  assert.ok(!WORLD_BLOCKED.has('g'));
+});
+
+test('NPCs have unique ids, positions, and greetings', () => {
+  const ids = new Set(NPCS.map((n) => n.id));
+  assert.equal(ids.size, NPCS.length);
+  for (const npc of NPCS) {
+    assert.ok(typeof npc.greet === 'string' && npc.greet.length > 0);
+    assert.ok(npc.palette && npc.palette.coat);
+  }
+});
+
+test('building sprite paints without error for each type', () => {
+  const { context, ops } = makeContext();
+  const theme = resolveVillageTheme({ landscape: 'heath' });
+  for (const b of BUILDINGS) {
+    drawBuildingSprite(context, b.type, 0, 0, theme);
+  }
+  assert.ok(ops.length > BUILDINGS.length, 'expected building draw operations');
+});
+
 
 

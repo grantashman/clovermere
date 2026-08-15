@@ -41,7 +41,7 @@ export const DEFAULT_GAME_STATE = {
   creationComplete: false,
   hobbit: DEFAULT_HOBBIT,
   village: DEFAULT_VILLAGE,
-  player: { x: 15, y: 14 },
+  player: { x: 14, y: 11 },
   clock: 495,
   day: 3,
   tasks: { garden: false, pond: false, gate: false, noticeboard: false },
@@ -142,3 +142,90 @@ export function tileAt(x, y, village) {
   const treeSpots = new Set(['3,3', '4,3', '5,2', '28,3', '29,4', '30,5', '2,14', '3,15', '5,16', '25,15', '26,16', '29,16', '18,17', '20,16']);
   return treeSpots.has(`${x},${y}`) ? 't' : 'g';
 }
+
+// --- Expanded explorable world ---------------------------------------------
+
+export const WORLD_WIDTH = 64;
+export const WORLD_HEIGHT = 40;
+export const VIEW_W = MAP_WIDTH; // 32 tiles visible
+export const VIEW_H = MAP_HEIGHT; // 18 tiles visible
+
+export const BUILDINGS = [
+  { id: 'home', type: 'smial', x: 5, y: 5, w: 4, h: 3, name: 'Your Smial' },
+  { id: 'barn', type: 'barn', x: 10, y: 15, w: 4, h: 3, name: 'The Barn' },
+  { id: 'market', type: 'market', x: 22, y: 13, w: 4, h: 3, name: 'Market Stalls' },
+  { id: 'inn', type: 'inn', x: 27, y: 7, w: 5, h: 4, name: 'The Golden Perch' },
+  { id: 'smithy', type: 'smithy', x: 35, y: 10, w: 4, h: 3, name: 'The Forge' },
+  { id: 'library', type: 'library', x: 39, y: 16, w: 4, h: 3, name: 'The Library' },
+  { id: 'well', type: 'well', x: 30, y: 13, w: 1, h: 1, name: 'The Well' },
+  { id: 'gate', type: 'gate', x: 60, y: 20, w: 1, h: 2, name: 'The Gate' }
+];
+
+export const NPCS = [
+  { id: 'pim', name: 'Pim Thistledown', x: 9, y: 9, body: 'round', hair: 'waves', palette: { skin: '#d9a274', hair: '#5b3d32', coat: '#6c7f58', accent: '#d8a65b' }, greet: 'Morning! The beans are climbing the trellis at last.' },
+  { id: 'wren', name: 'Wren Applewood', x: 28, y: 12, body: 'sturdy', hair: 'curls', palette: { skin: '#e0b48a', hair: '#3f2e26', coat: '#8e5a4a', accent: '#e2b96e' }, greet: 'Welcome to the Perch. Pie is on at sunset, same as always.' },
+  { id: 'cedar', name: 'Old Cedar', x: 32, y: 14, body: 'lean', hair: 'bob', palette: { skin: '#c98f63', hair: '#6b5847', coat: '#4a3c4b', accent: '#9bb16e' }, greet: 'Sit a spell. The stars over the water are worth the wait.' },
+  { id: 'mossy', name: 'Mossy Greenhill', x: 36, y: 13, body: 'sturdy', hair: 'waves', palette: { skin: '#d9a274', hair: '#4a3326', coat: '#44566b', accent: '#d8a65b' }, greet: 'Need a hinge mended? Leave it by the anvil.' },
+  { id: 'daisy', name: 'Daisy Bramble', x: 23, y: 16, body: 'round', hair: 'curls', palette: { skin: '#e6bd95', hair: '#5b3d32', coat: '#b77b3f', accent: '#e29178' }, greet: 'Fresh moonberries, straight from the plot!' }
+];
+
+// Returns a WORLD_HEIGHT × WORLD_WIDTH grid of tile chars. Buildings occupy 'b'.
+export function buildWorldGrid(village) {
+  const grid = [];
+  for (let y = 0; y < WORLD_HEIGHT; y += 1) {
+    const row = [];
+    for (let x = 0; x < WORLD_WIDTH; x += 1) {
+      if (x < 1 || y < 1 || x >= WORLD_WIDTH - 1 || y >= WORLD_HEIGHT - 1) row.push('t');
+      else row.push('g');
+    }
+    grid.push(row);
+  }
+
+  // River on the east with a bridge crossing.
+  for (let y = 3; y <= 32; y += 1) {
+    for (let x = 45; x <= 47; x += 1) {
+      if (y === 18) continue;
+      grid[y][x] = 'w';
+    }
+  }
+  for (let x = 45; x <= 47; x += 1) {
+    grid[18][x] = 'p';
+    grid[17][x] = 'p';
+    grid[19][x] = 'p';
+  }
+
+  // Central path network.
+  const pathCells = [];
+  for (let x = 5; x <= 60; x += 1) pathCells.push([x, 11]);
+  for (let y = 5; y <= 22; y += 1) pathCells.push([30, y]);
+  for (let y = 5; y <= 18; y += 1) pathCells.push([14, y]);
+  for (let x = 5; x <= 22; x += 1) pathCells.push([x, 16]);
+  for (let x = 27; x <= 39; x += 1) pathCells.push([x, 14]);
+  for (const [x, y] of pathCells) {
+    if (grid[y] && grid[y][x] && grid[y][x] === 'g') grid[y][x] = 'p';
+  }
+
+  // Home garden + pond.
+  for (let y = 9; y <= 11; y += 1) for (let x = 5; x <= 11; x += 1) if (grid[y][x] === 'g') grid[y][x] = 'd';
+  for (let y = 3; y <= 5; y += 1) for (let x = 11; x <= 14; x += 1) grid[y][x] = 'w';
+
+  // Woodland treeline at the south.
+  const woods = new Set(['12,34', '14,35', '16,33', '20,36', '24,34', '27,37', '31,35', '35,36', '40,34', '44,35', '48,33', '52,36', '56,34', '8,36', '18,35', '38,34']);
+  woods.forEach((cell) => {
+    const [x, y] = cell.split(',').map(Number);
+    if (grid[y] && grid[y][x]) grid[y][x] = 't';
+  });
+
+  // Building footprints block movement.
+  for (const b of BUILDINGS) {
+    for (let y = b.y; y < b.y + b.h; y += 1) {
+      for (let x = b.x; x < b.x + b.w; x += 1) {
+        if (grid[y] && grid[y][x]) grid[y][x] = b.id === 'gate' ? 'g' : 'b';
+      }
+    }
+  }
+  return grid;
+}
+
+export const WORLD_BLOCKED = new Set(['t', 'w', 'f', 'b']);
+

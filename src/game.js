@@ -1,6 +1,8 @@
 import './game.css';
 import {
   advanceClock,
+  BUILDINGS,
+  buildWorldGrid,
   createDefaultGameState,
   createInviteCode,
   formatClock,
@@ -13,15 +15,19 @@ import {
   MAP_HEIGHT,
   MAP_WIDTH,
   movePlayer,
+  NPCS,
   normalizeGameState,
   resolveVillageTheme,
-  tileAt
+  tileAt,
+  VIEW_H,
+  VIEW_W,
+  WORLD_BLOCKED,
+  WORLD_HEIGHT,
+  WORLD_WIDTH
 } from './game-systems.js';
 import { supabase, supabaseConfigured } from './supabase-client.js';
 import {
-  GRID_W,
-  GRID_H,
-  TILE,
+  drawBuildingSprite,
   drawBridgeSprite,
   drawGateSprite,
   drawGardenSprite,
@@ -30,9 +36,13 @@ import {
   drawNoticeboardSprite,
   drawPixels,
   drawPondSprite,
-  drawTreeSprite
+  drawTreeSprite,
+  GRID_H,
+  GRID_W,
+  TILE
 } from './sprite-engine.js';
 
+const TILE_PX = TILE;
 const BLOCKED_TILES = new Set(['t', 'w', 'f']);
 const STORAGE_KEY = 'hobbit-moon-village-v2';
 const LEGACY_STORAGE_KEY = 'hobbit-moon-village-v1';
@@ -234,43 +244,88 @@ function tileRects(x, y, tile, theme, village) {
   return rects;
 }
 
-function drawWorld(ctx, theme, village, spec, player) {
+let worldGrid = null;
+
+function ensureWorldGrid() {
+  if (!worldGrid) worldGrid = buildWorldGrid(state.village);
+  return worldGrid;
+}
+
+function cameraForPlayer(player) {
+  const camX = Math.max(0, Math.min(player.x - Math.floor(VIEW_W / 2), WORLD_WIDTH - VIEW_W));
+  const camY = Math.max(0, Math.min(player.y - Math.floor(VIEW_H / 2), WORLD_HEIGHT - VIEW_H));
+  return { camX, camY };
+}
+
+function drawWorld(ctx, theme, village, spec, player, cam) {
   drawPixels(ctx, [[0, 0, GRID_W, GRID_H, theme.grass]]);
-  // far hills
+  // far hills along the top of the viewport
   for (let x = 0; x < GRID_W; x += 16) {
     const h = 26 + ((x * 7) % 14);
     drawPixels(ctx, [[x, 46 - h, 16, h, theme.distant]]);
   }
   drawPixels(ctx, [[0, 44, GRID_W, 4, theme.grass]]);
-  // ground tiles
-  for (let y = 1; y < MAP_HEIGHT - 1; y += 1) {
-    for (let x = 1; x < MAP_WIDTH - 1; x += 1) {
-      drawPixels(ctx, tileRects(x, y, tileAt(x, y, village), theme, village));
+
+  const { camX, camY } = cam;
+  // ground tiles within the viewport window
+  for (let sy = 0; sy < VIEW_H; sy += 1) {
+    const wy = camY + sy;
+    if (wy <= 0 || wy >= WORLD_HEIGHT - 1) continue;
+    for (let sx = 0; sx < VIEW_W; sx += 1) {
+      const wx = camX + sx;
+      if (wx <= 0 || wx >= WORLD_WIDTH - 1) continue;
+      drawPixels(ctx, tileRects(wx - camX, wy - camY, worldGrid[wy][wx], theme, village));
     }
   }
-  // props (offscreen logical coordinates)
-  drawHouseSprite(ctx, theme, village.house, 5 * TILE, 2 * TILE);
-  drawGardenSprite(ctx, theme, 4 * TILE, 11 * TILE);
-  drawPondSprite(ctx, theme, 21 * TILE, 3 * TILE);
-  drawBridgeSprite(ctx, theme, 23 * TILE, 8 * TILE);
-  drawNoticeboardSprite(ctx, 15 * TILE - 6, 8 * TILE - 24);
-  drawGateSprite(ctx, theme, 27 * TILE, 14 * TILE);
-  // trees (drawn after ground, before player where they occlude)
-  const treeCells = [[3, 3], [4, 3], [5, 2], [28, 3], [29, 4], [30, 5], [2, 14], [3, 15], [5, 16], [25, 15], [26, 16], [29, 16], [18, 17], [20, 16]];
-  treeCells.forEach(([tx, ty], index) => {
-    if (tileAt(tx, ty, village) === 't') drawTreeSprite(ctx, theme, tx * TILE, ty * TILE, index);
-  });
+
+  const worldToScreen = (wx, wy) => ({ sx: (wx - camX) * TILE, sy: (wy - camY) * TILE });
+
+  // buildings
+  for (const b of BUILDINGS) {
+    const { sx, sy } = worldToScreen(b.x, b.y);
+    if (sx < -80 || sy < -80 || sx > GRID_W || sy > GRID_H) continue;
+    drawBuildingSprite(ctx, b.type, sx, sy, theme);
+  }
+
+  // garden, pond, bridge, noticeboard, gate props near the starting area
+  const garden = worldToScreen(5, 9); drawGardenSprite(ctx, theme, garden.sx, garden.sy);
+  const pond = worldToScreen(11, 3); drawPondSprite(ctx, theme, pond.sx, pond.sy);
+  const bridge = worldToScreen(45, 17); drawBridgeSprite(ctx, theme, bridge.sx, bridge.sy);
+  const board = worldToScreen(30, 9); drawNoticeboardSprite(ctx, board.sx - 6, board.sy - 24);
+  const gate = worldToScreen(60, 20); drawGateSprite(ctx, theme, gate.sx, gate.sy);
+
+  // trees in the viewport
+  for (let wy = camY; wy < camY + VIEW_H; wy += 1) {
+    for (let wx = camX; wx < camX + VIEW_W; wx += 1) {
+      if (worldGrid[wy] && worldGrid[wy][wx] === 't') {
+        const { sx, sy } = worldToScreen(wx, wy);
+        drawTreeSprite(ctx, theme, sx, sy, (wx * 7 + wy * 13) % 5);
+      }
+    }
+  }
+
+  // NPCs
+  for (const npc of NPCS) {
+    const { sx, sy } = worldToScreen(npc.x, npc.y);
+    if (sx < -20 || sy < -30 || sx > GRID_W || sy > GRID_H) continue;
+    const feetY = sy * TILE + TILE / 2 + 4;
+    drawHobbitSprite(ctx, { body: npc.body, hair: npc.hair, palette: npc.palette }, sx * TILE + TILE / 2, feetY);
+  }
+
   // player
-  const playerFeet = player.y * TILE + TILE / 2 + 4;
-  drawHobbitSprite(ctx, spec, player.x * TILE + TILE / 2, playerFeet);
+  const p = worldToScreen(player.x, player.y);
+  const playerFeet = p.sy * TILE + TILE / 2 + 4;
+  drawHobbitSprite(ctx, spec, p.sx * TILE + TILE / 2, playerFeet);
 }
 
 function drawVillage() {
   if (!context || !bufferCtx) return;
   const theme = themeForVillage();
+  ensureWorldGrid();
+  const cam = cameraForPlayer(state.player);
   bufferCtx.imageSmoothingEnabled = false;
   bufferCtx.clearRect(0, 0, GRID_W, GRID_H);
-  drawWorld(bufferCtx, theme, state.village, state.hobbit, state.player);
+  drawWorld(bufferCtx, theme, state.village, state.hobbit, state.player, cam);
 
   context.imageSmoothingEnabled = false;
   context.clearRect(0, 0, canvas.width, canvas.height);
@@ -280,12 +335,17 @@ function drawVillage() {
 
 function drawInteractionPrompt() {
   if (!context) return;
-  const nearby = getInteraction(state.player, INTERACTIONS);
-  if (!nearby) return;
-  const cx = state.player.x * TILE + TILE / 2;
+  const cam = cameraForPlayer(state.player);
+  const npc = nearbyNpc();
+  const point = getInteraction(state.player, INTERACTIONS);
+  let label = null;
+  if (npc) label = `E · Talk to ${npc.name}`;
+  else if (point) label = `E · ${point.label}`;
+  if (!label) return;
+  const cx = (state.player.x - cam.camX) * TILE + TILE / 2;
+  const cy = (state.player.y - cam.camY) * TILE;
   const baseX = (cx / GRID_W) * canvas.width;
-  const baseY = ((state.player.y * TILE) / GRID_H) * canvas.height;
-  const label = `E · ${nearby.label}`;
+  const baseY = (cy / GRID_H) * canvas.height;
   const scaleX = canvas.width / GRID_W;
   const scaleY = canvas.height / GRID_H;
   context.font = `${Math.round(13 * scaleX)}px "DM Mono", monospace`;
@@ -299,6 +359,10 @@ function drawInteractionPrompt() {
   context.fillStyle = '#f8e7c4';
   context.textAlign = 'center';
   context.fillText(label, baseX, py + 15 * scaleY);
+}
+
+function nearbyNpc() {
+  return NPCS.find((npc) => Math.hypot(npc.x - state.player.x, npc.y - state.player.y) <= 1.5) ?? null;
 }
 
 function drawCreatorPreview() {
@@ -370,8 +434,8 @@ function addNote(message) {
 }
 
 function move(delta) {
-  const map = Array.from({ length: MAP_HEIGHT }, (_, y) => Array.from({ length: MAP_WIDTH }, (_, x) => tileAt(x, y, state.village)));
-  const next = movePlayer(state.player, delta, map, BLOCKED_TILES);
+  const grid = ensureWorldGrid();
+  const next = movePlayer(state.player, delta, grid, WORLD_BLOCKED);
   if (next.x === state.player.x && next.y === state.player.y) return;
   state.player = next;
   state.clock = advanceClock(state.clock, 10);
@@ -384,6 +448,14 @@ function move(delta) {
 }
 
 function interact() {
+  const npc = nearbyNpc();
+  if (npc) {
+    state.clock = advanceClock(state.clock, 5);
+    addNote(`${npc.name} says, “${npc.greet}”`);
+    drawVillage();
+    saveState();
+    return showToast(`${npc.name}: ${npc.greet}`);
+  }
   const point = getInteraction(state.player, INTERACTIONS);
   if (!point) return showToast('Nothing here but the evening breeze.');
   state.tasks[point.task] = true;
@@ -395,7 +467,7 @@ function interact() {
 }
 
 function resetDay() {
-  state = normalizeGameState({ ...state, player: { x: 15, y: 14 }, clock: 495, tasks: { garden: false, pond: false, gate: false, noticeboard: false }, notes: DEFAULT_NOTES });
+  state = normalizeGameState({ ...state, player: { x: 14, y: 11 }, clock: 495, tasks: { garden: false, pond: false, gate: false, noticeboard: false }, notes: DEFAULT_NOTES });
   updateHud();
   drawVillage();
   saveState();
