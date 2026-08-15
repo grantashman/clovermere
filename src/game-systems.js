@@ -1,5 +1,72 @@
 const INVITE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
+export const DEFAULT_HOBBIT = {
+  name: 'Merryweather',
+  body: 'round',
+  hair: 'waves',
+  hairColor: 'chestnut',
+  outfit: 'gardener',
+  palette: {
+    skin: '#d9a274',
+    hair: '#5b3d32',
+    coat: '#6c7f58',
+    accent: '#d8a65b'
+  }
+};
+
+export const DEFAULT_VILLAGE = {
+  name: 'Moonrise Hollow',
+  landscape: 'heath',
+  house: 'rounddoor',
+  path: 'honey',
+  roof: 'moss'
+};
+
+export const DEFAULT_GAME_STATE = {
+  version: 2,
+  creationComplete: false,
+  hobbit: DEFAULT_HOBBIT,
+  village: DEFAULT_VILLAGE,
+  player: { x: 15, y: 14 },
+  clock: 495,
+  day: 3,
+  tasks: { garden: false, pond: false, gate: false, noticeboard: false },
+  inviteCode: null,
+  notes: ['You arrived before the kettle boiled.', 'The hill is quiet. The good kind.']
+};
+
+export function createDefaultGameState() {
+  return structuredClone(DEFAULT_GAME_STATE);
+}
+
+export function normalizeGameState(input = {}) {
+  const source = input && typeof input === 'object' ? input : {};
+  const hobbit = source.hobbit && typeof source.hobbit === 'object' ? source.hobbit : {};
+  const village = source.village && typeof source.village === 'object' ? source.village : {};
+  const palette = hobbit.palette && typeof hobbit.palette === 'object' ? hobbit.palette : {};
+
+  return {
+    ...createDefaultGameState(),
+    ...source,
+    creationComplete: Boolean(source.creationComplete),
+    hobbit: {
+      ...DEFAULT_HOBBIT,
+      ...hobbit,
+      palette: { ...DEFAULT_HOBBIT.palette, ...palette }
+    },
+    village: { ...DEFAULT_VILLAGE, ...village },
+    player: { ...DEFAULT_GAME_STATE.player, ...(source.player ?? {}) },
+    tasks: { ...DEFAULT_GAME_STATE.tasks, ...(source.tasks ?? {}) },
+    notes: Array.isArray(source.notes) && source.notes.length ? source.notes.slice(0, 6) : [...DEFAULT_GAME_STATE.notes]
+  };
+}
+
+export function isCreationComplete(state) {
+  const hobbitName = state?.hobbit?.name?.trim?.() ?? '';
+  const villageName = state?.village?.name?.trim?.() ?? '';
+  return hobbitName.length >= 2 && villageName.length >= 2;
+}
+
 export function createInviteCode(random = Math.random) {
   let code = '';
   for (let index = 0; index < 6; index += 1) {

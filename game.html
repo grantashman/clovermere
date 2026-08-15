@@ -3,8 +3,8 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Walk the first Hobbit Moon village slice." />
-    <title>Walk the village — Hobbit Moon</title>
+    <meta name="description" content="Create your hobbit and shape your village in the Hobbit Moon prototype." />
+    <title>Make a life — Hobbit Moon</title>
     <link rel="icon" href="./favicon.svg" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -15,29 +15,62 @@
     <header class="game-header">
       <a class="game-wordmark" href="./"><span class="wordmark-mark" aria-hidden="true">⌂</span> Hobbit Moon</a>
       <div class="game-header-actions">
-        <span class="prototype-badge">Prototype 0.1</span>
+        <span class="prototype-badge">Prototype 0.2 · creator slice</span>
+        <button class="button button-quiet" id="fullscreen-button" type="button">Fullscreen <span aria-hidden="true">↗</span></button>
         <button class="button button-quiet" id="account-button" type="button">Account <span aria-hidden="true">↗</span></button>
         <a class="button button-quiet" href="./">Leave village</a>
       </div>
     </header>
 
-    <main id="game-main" class="game-layout">
-      <section class="game-stage" aria-label="Playable village">
-        <div class="stage-bar"><div><span class="stage-kicker">Hobbiton · Hill 3</span><strong id="day-label">Day 3 · Late Summer</strong></div><div class="stage-time"><span id="clock-label">8:15 AM</span><span class="weather-dot" aria-label="Clear weather"></span></div></div>
-        <div class="canvas-wrap"><canvas id="village-canvas" width="960" height="576" aria-label="A walkable village map. Use arrow keys or WASD to move."></canvas><div class="canvas-hint" id="canvas-hint">Use <kbd>WASD</kbd> or <kbd>←↑↓→</kbd> to wander</div></div>
-        <div class="stage-footer"><div class="controls"><span><kbd>WASD</kbd> Move</span><span><kbd>E</kbd> Interact</span><span><kbd>R</kbd> Reset</span></div><p id="save-status">Local demo · progress saves in this browser</p></div>
+    <main id="game-main">
+      <section id="setup-screen" class="setup-shell" aria-labelledby="setup-heading">
+        <div class="setup-preview-panel">
+          <div class="preview-topline"><span id="preview-kicker">Your first morning</span><span id="preview-location">Moonrise Hollow</span></div>
+          <div class="creator-art-wrap"><canvas id="creator-canvas" width="720" height="680" aria-label="Live pixel-art preview of your hobbit and village"></canvas><div class="preview-stamp"><span>Hobbit Moon</span><span>Field notes · 01</span></div></div>
+          <div class="preview-caption"><span id="preview-caption-title">A door of your own</span><span id="preview-caption-copy">Start with the little details.</span></div>
+        </div>
+        <div class="setup-panel">
+          <div class="setup-panel-head"><div><p class="eyebrow">The first morning</p><h1 id="setup-heading">Make your hobbit.</h1><p id="setup-intro">Choose the face, clothes, and small details you’ll see every day.</p></div><span class="step-count" id="step-count">01 / 02</span></div>
+          <ol class="creation-steps" aria-label="Creation steps"><li class="creation-step is-active" data-step-indicator="1"><span>01</span><strong>Your hobbit</strong></li><li class="creation-step" data-step-indicator="2"><span>02</span><strong>Your village</strong></li></ol>
+          <form id="creation-form" novalidate>
+            <div class="creation-pane" data-pane="1">
+              <label class="field-label" for="hobbit-name">What should people call you?</label>
+              <input class="text-input" id="hobbit-name" name="hobbit-name" maxlength="24" autocomplete="nickname" placeholder="A name for the village book" />
+              <div class="choice-section"><div class="choice-heading"><span>Build</span><small>the way you carry yourself</small></div><div class="choice-grid choice-grid-three" data-group="body"><button class="choice-card" type="button" data-value="round"><span class="choice-glyph glyph-round" aria-hidden="true"></span><strong>Round</strong><small>soft &amp; sturdy</small></button><button class="choice-card" type="button" data-value="lean"><span class="choice-glyph glyph-lean" aria-hidden="true"></span><strong>Long-limbed</strong><small>light on your feet</small></button><button class="choice-card" type="button" data-value="sturdy"><span class="choice-glyph glyph-sturdy" aria-hidden="true"></span><strong>Sturdy</strong><small>built for work</small></button></div></div>
+              <div class="choice-section"><div class="choice-heading"><span>Hair</span><small>something to catch the light</small></div><div class="choice-grid choice-grid-three" data-group="hair"><button class="choice-card" type="button" data-value="waves"><span class="choice-glyph hair-waves" aria-hidden="true"></span><strong>Waves</strong></button><button class="choice-card" type="button" data-value="curls"><span class="choice-glyph hair-curls" aria-hidden="true"></span><strong>Curls</strong></button><button class="choice-card" type="button" data-value="bob"><span class="choice-glyph hair-bob" aria-hidden="true"></span><strong>Short crop</strong></button></div></div>
+              <div class="choice-section"><div class="choice-heading"><span>Colours</span><small>your everyday palette</small></div><div class="swatch-row" data-group="palette.coat"><button class="swatch swatch-sage" type="button" data-value="#6c7f58" aria-label="Sage coat"></button><button class="swatch swatch-berry" type="button" data-value="#8e5a4a" aria-label="Berry coat"></button><button class="swatch swatch-ink" type="button" data-value="#44566b" aria-label="Ink blue coat"></button><button class="swatch swatch-honey" type="button" data-value="#b77b3f" aria-label="Honey coat"></button></div></div>
+            </div>
+            <div class="creation-pane" data-pane="2" hidden>
+              <label class="field-label" for="village-name">What is the name on your gate?</label>
+              <input class="text-input" id="village-name" name="village-name" maxlength="32" autocomplete="off" placeholder="A name worth putting on a sign" />
+              <div class="choice-section"><div class="choice-heading"><span>Landscape</span><small>the feeling beyond your door</small></div><div class="choice-grid choice-grid-three" data-group="landscape"><button class="choice-card landscape-card" type="button" data-value="heath"><span class="landscape-glyph landscape-heath" aria-hidden="true"></span><strong>Hedgerow</strong><small>sunny paths &amp; open hills</small></button><button class="choice-card landscape-card" type="button" data-value="river"><span class="landscape-glyph landscape-river" aria-hidden="true"></span><strong>Riverbend</strong><small>water, willows &amp; boats</small></button><button class="choice-card landscape-card" type="button" data-value="woodland"><span class="landscape-glyph landscape-woodland" aria-hidden="true"></span><strong>Deepwood</strong><small>moss, shade &amp; fern</small></button></div></div>
+              <div class="choice-section"><div class="choice-heading"><span>Home</span><small>the first shape people remember</small></div><div class="choice-grid choice-grid-three" data-group="house"><button class="choice-card house-card" type="button" data-value="rounddoor"><span class="house-glyph house-round" aria-hidden="true"></span><strong>Round door</strong><small>under the hill</small></button><button class="choice-card house-card" type="button" data-value="stone"><span class="house-glyph house-stone" aria-hidden="true"></span><strong>Stone cottage</strong><small>low &amp; warm</small></button><button class="choice-card house-card" type="button" data-value="gable"><span class="house-glyph house-gable" aria-hidden="true"></span><strong>Gable house</strong><small>bright windows</small></button></div></div>
+              <div class="choice-section"><div class="choice-heading"><span>Path</span><small>how the village meets the door</small></div><div class="path-options" data-group="path"><button class="path-choice" type="button" data-value="honey"><span class="path-line path-honey"></span><strong>Honeyed earth</strong></button><button class="path-choice" type="button" data-value="clover"><span class="path-line path-clover"></span><strong>Cloverstone</strong></button><button class="path-choice" type="button" data-value="rose"><span class="path-line path-rose"></span><strong>Rose clay</strong></button></div></div>
+            </div>
+            <div class="setup-actions"><button class="button button-quiet" id="setup-back" type="button" hidden>Back</button><button class="button button-primary" id="setup-next" type="submit">Continue to the village <span aria-hidden="true">→</span></button></div>
+          </form>
+          <button class="return-button" id="cancel-edit" type="button" hidden>Return to the village without saving</button>
+        </div>
       </section>
 
-      <aside class="village-sidebar" aria-label="Village details">
-        <div class="sidebar-card welcome-card"><p class="eyebrow">Your little corner</p><h1>Good morning,<br /><em>friend.</em></h1><p>You have a garden to check, a note to leave, and plenty of time to take the scenic route.</p></div>
-        <div class="sidebar-card task-card"><div class="card-heading"><h2>Today</h2><span id="task-count">0 / 3</span></div><ul class="task-list" id="task-list"><li data-task="garden"><span class="task-check">○</span><span>Check the garden</span></li><li data-task="pond"><span class="task-check">○</span><span>Visit the moon pond</span></li><li data-task="gate"><span class="task-check">○</span><span>Leave the gate open</span></li></ul></div>
-        <div class="sidebar-card invite-card"><div class="card-heading"><h2>Open your gate</h2><span class="online-dot">Local</span></div><p>Multiplayer is being built around small, private villages. For now, make a local invite card you can try with a friend.</p><button class="button button-primary button-full" id="invite-button" type="button">Make an invite code <span aria-hidden="true">↗</span></button><div class="invite-result" id="invite-result" hidden><span class="invite-label">Your village code</span><strong id="invite-code">—</strong><button class="copy-button" id="copy-code" type="button">Copy code</button></div></div>
-        <div class="sidebar-card log-card"><div class="card-heading"><h2>Village notes</h2><span aria-hidden="true">✦</span></div><ol id="village-log" class="village-log"><li>You arrived before the kettle boiled.</li><li>The hill is quiet. The good kind.</li></ol></div>
-      </aside>
+      <section id="play-screen" class="game-layout" hidden>
+        <section class="game-stage" aria-label="Playable village">
+          <div class="stage-bar"><div><span class="stage-kicker" id="stage-kicker">Moonrise Hollow · Hill 3</span><strong id="day-label">Day 3 · Late Summer</strong></div><div class="stage-time"><span id="clock-label">8:15 AM</span><span class="weather-dot" aria-label="Clear weather"></span></div></div>
+          <div class="canvas-wrap"><canvas id="village-canvas" width="1280" height="720" aria-label="A walkable pixel-art village map. Use arrow keys or WASD to move."></canvas><div class="canvas-hint" id="canvas-hint">Use <kbd>WASD</kbd> or <kbd>←↑↓→</kbd> to wander</div></div>
+          <div class="stage-footer"><div class="controls"><span><kbd>WASD</kbd> Move</span><span><kbd>E</kbd> Interact</span><span><kbd>R</kbd> Reset day</span></div><p id="save-status">Saved locally · prototype</p></div>
+        </section>
+
+        <aside class="village-sidebar" aria-label="Village details">
+          <div class="sidebar-card identity-card"><div class="identity-art"><canvas id="avatar-canvas" width="112" height="112" aria-label="Your customised hobbit"></canvas></div><div class="identity-copy"><p class="eyebrow">The village book</p><h1 id="hobbit-label">Merryweather</h1><p id="hobbit-detail">Gardener · Moonrise Hollow</p></div><button class="icon-button" id="edit-hobbit-button" type="button" aria-label="Edit your hobbit">✎</button></div>
+          <div class="sidebar-card today-card"><div class="card-heading"><div><p class="eyebrow">The shape of today</p><h2>Little things</h2></div><span id="task-count">0 / 4</span></div><ul class="task-list" id="task-list"><li data-task="garden"><span class="task-check">○</span><span>Check the garden</span></li><li data-task="pond"><span class="task-check">○</span><span>Visit the moon pond</span></li><li data-task="gate"><span class="task-check">○</span><span>Leave the gate open</span></li><li data-task="noticeboard"><span class="task-check">○</span><span>Read the noticeboard</span></li></ul></div>
+          <div class="sidebar-card village-card"><div class="card-heading"><div><p class="eyebrow">Your place</p><h2 id="village-label">Moonrise Hollow</h2></div><button class="icon-button" id="edit-village-button" type="button" aria-label="Edit your village">✎</button></div><div class="village-facts"><span id="village-landscape">Hedgerow</span><span id="village-house">Round door</span></div><button class="button button-quiet button-full" id="invite-button" type="button">Open the gate <span aria-hidden="true">↗</span></button><div class="invite-result" id="invite-result" hidden><span class="invite-label">Your village code</span><strong id="invite-code">—</strong><button class="copy-button" id="copy-code" type="button">Copy</button></div></div>
+          <div class="sidebar-card log-card"><div class="card-heading"><div><p class="eyebrow">Pinned by the hearth</p><h2>Village notes</h2></div><span aria-hidden="true">✦</span></div><ol id="village-log" class="village-log"><li>You arrived before the kettle boiled.</li><li>The hill is quiet. The good kind.</li></ol></div>
+        </aside>
+      </section>
     </main>
 
-    <dialog class="account-dialog" id="account-dialog"><form method="dialog"><div class="dialog-heading"><div><p class="eyebrow">Your front door</p><h2>Account &amp; village</h2></div><button class="dialog-close" value="cancel" aria-label="Close account dialog">×</button></div><p id="account-status">The prototype is running in local demo mode. Add Supabase values to `.env.local` when you are ready to turn on hosted accounts.</p><label for="email-input">Email for a magic-link sign in <span>(optional)</span></label><input id="email-input" type="email" placeholder="you@example.com" autocomplete="email" /><div class="dialog-actions"><button class="button button-quiet" value="cancel">Close</button><button class="button button-primary" id="sign-in-button" type="button">Send magic link <span aria-hidden="true">→</span></button></div></form></dialog>
+    <dialog class="account-dialog" id="account-dialog"><form method="dialog"><div class="dialog-heading"><div><p class="eyebrow">Your front door</p><h2>Account &amp; village</h2></div><button class="dialog-close" value="cancel" aria-label="Close account dialog">×</button></div><p id="account-status">The prototype is running locally. Add Supabase values to `.env.local` when you are ready to turn on hosted accounts.</p><label for="email-input">Email for a magic-link sign in <span>(optional)</span></label><input id="email-input" type="email" placeholder="you@example.com" autocomplete="email" /><div class="dialog-actions"><button class="button button-quiet" value="cancel">Close</button><button class="button button-primary" id="sign-in-button" type="button">Send magic link <span aria-hidden="true">→</span></button></div></form></dialog>
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
-    <script type="module" src="/src/game.js"></script>
+    <script type="module" src="./src/game.js"></script>
   </body>
 </html>
