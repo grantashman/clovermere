@@ -1,0 +1,20 @@
+{
+  "name": "hobbit-moon",
+  "version": "0.1.0",
+  "private": false,
+  "type": "module",
+  "description": "A cosy multiplayer village-life prototype set in an original take on Hobbiton.",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "vite build",
+    "preview": "vite preview --host 0.0.0.0",
+    "test": "node --test tests/*.test.mjs",
+    "check": "npm run test && npm run build"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.53.0"
+  },
+  "devDependencies": {
+    "vite": "^7.1.2"
+  }
+}
