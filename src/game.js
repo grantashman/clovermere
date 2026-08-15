@@ -28,15 +28,20 @@ import {
 import { supabase, supabaseConfigured } from './supabase-client.js';
 import {
   drawBuildingSprite,
+  drawBuildingShadow,
   drawBridgeSprite,
   drawGateSprite,
   drawGardenSprite,
+  drawHills,
   drawHobbitSprite,
   drawHouseSprite,
   drawNoticeboardSprite,
   drawPixels,
   drawPondSprite,
+  drawSky,
+  drawSoftShadow,
   drawTreeSprite,
+  drawVignette,
   GRID_H,
   GRID_W,
   TILE
@@ -133,7 +138,7 @@ function openCreator(step = 1, isEditing = false) {
 
 function closeCreator() {
   state.creationComplete = true;
-  state.player = { x: 15, y: 14 };
+  state.player = { x: 14, y: 11 };
   saveState();
   setupSnapshot = null;
   editing = false;
@@ -141,6 +146,7 @@ function closeCreator() {
   playScreen.hidden = false;
   updateHud();
   drawVillage();
+  requestPlayFullscreen();
   showToast(`Welcome to ${state.village.name}.`);
 }
 
@@ -152,6 +158,17 @@ function cancelCreator() {
   playScreen.hidden = false;
   updateHud();
   drawVillage();
+  requestPlayFullscreen();
+}
+
+// Play in fullscreen by default when the player enters the village.
+function requestPlayFullscreen() {
+  try {
+    if (!document.fullscreenElement && playScreen?.requestFullscreen) playScreen.requestFullscreen();
+  } catch {
+    /* fullscreen is optional; ignore if the browser blocks it */
+  }
+  updateFullscreenLabel();
 }
 
 function renderSetup() {
@@ -211,13 +228,34 @@ function themeForVillage() {
   return resolveVillageTheme(state.village);
 }
 
+// blend two #rrggbb colours (game.js-local helper)
+function mixHex(a, b, t) {
+  const ca = parseInt(a.slice(1), 16);
+  const cb = parseInt(b.slice(1), 16);
+  const ar = (ca >> 16) & 255, ag = (ca >> 8) & 255, ab = ca & 255;
+  const br = (cb >> 16) & 255, bg = (cb >> 8) & 255, bb = cb & 255;
+  return `rgb(${Math.round(ar + (br - ar) * t)},${Math.round(ag + (bg - ag) * t)},${Math.round(ab + (bb - ab) * t)})`;
+}
+
 // --- Pixel grid helpers ----------------------------------------------------
 
 function tileRects(x, y, tile, theme, village) {
   const px = x * TILE;
   const py = y * TILE;
-  const base = tile === 'w' ? theme.water : tile === 'p' ? theme.path : tile === 'd' ? theme.dirt : theme.grass;
+  const base = tile === 'w' ? theme.water : tile === 'p' ? theme.path : tile === 'd' ? theme.dirt : tile === 's' ? theme.sky : tile === 'h' ? theme.distant : theme.grass;
   const rects = [[px, py, TILE, TILE, base]];
+  if (tile === 's') {
+    // a couple of soft clouds
+    const c = (x * 13 + y * 7) % 9;
+    if (c === 2) rects.push([px + 3, py + 5, 9, 3, mixHex(theme.sky, '#ffffff', 0.5)]);
+    if (c === 5) rects.push([px + 6, py + 9, 6, 2, mixHex(theme.sky, '#ffffff', 0.4)]);
+    return rects;
+  }
+  if (tile === 'h') {
+    // distant hill speckle for texture
+    if ((x + y) % 3 === 0) rects.push([px + 4, py + 8, 2, 2, mixHex(theme.distant, theme.grass, 0.4)]);
+    return rects;
+  }
   if (tile === 'g') {
     const shade = (x * 17 + y * 31) % 5;
     if (shade !== 2) rects.push([px + 4 + (shade % 4) * 2, py + 6, 2, 4, theme.grassDark]);
@@ -258,14 +296,7 @@ function cameraForPlayer(player) {
 }
 
 function drawWorld(ctx, theme, village, spec, player, cam) {
-  drawPixels(ctx, [[0, 0, GRID_W, GRID_H, theme.grass]]);
-  // far hills along the top of the viewport
-  for (let x = 0; x < GRID_W; x += 16) {
-    const h = 26 + ((x * 7) % 14);
-    drawPixels(ctx, [[x, 46 - h, 16, h, theme.distant]]);
-  }
-  drawPixels(ctx, [[0, 44, GRID_W, 4, theme.grass]]);
-
+  // ground + horizon handled per-tile (sky/hill rows at the north edge)
   const { camX, camY } = cam;
   // ground tiles within the viewport window
   for (let sy = 0; sy < VIEW_H; sy += 1) {
@@ -277,8 +308,26 @@ function drawWorld(ctx, theme, village, spec, player, cam) {
       drawPixels(ctx, tileRects(wx - camX, wy - camY, worldGrid[wy][wx], theme, village));
     }
   }
+  // tile detail layer: grass tufts, pebbles, small flowers for texture
+  for (let sy = 0; sy < VIEW_H; sy += 1) {
+    const wy = camY + sy;
+    if (wy <= 0 || wy >= WORLD_HEIGHT - 1) continue;
+    for (let sx = 0; sx < VIEW_W; sx += 1) {
+      const wx = camX + sx;
+      if (wx <= 0 || wx >= WORLD_WIDTH - 1) continue;
+      const tile = worldGrid[wy][wx];
+      if (tile === 'g' || tile === 'p' || tile === 'd') drawTileDetail(ctx, wx - camX, wy - camY, wx, wy, theme, tile);
+    }
+  }
 
   const worldToScreen = (wx, wy) => ({ sx: (wx - camX) * TILE, sy: (wy - camY) * TILE });
+
+  // building floor shadows (drawn before the buildings)
+  for (const b of BUILDINGS) {
+    const { sx, sy } = worldToScreen(b.x, b.y);
+    if (sx < -80 || sy < -80 || sx > GRID_W || sy > GRID_H) continue;
+    drawBuildingShadow(ctx, sx, sy, b.w * TILE, b.h * TILE);
+  }
 
   // buildings
   for (const b of BUILDINGS) {
@@ -288,13 +337,13 @@ function drawWorld(ctx, theme, village, spec, player, cam) {
   }
 
   // garden, pond, bridge, noticeboard, gate props near the starting area
-  const garden = worldToScreen(5, 9); drawGardenSprite(ctx, theme, garden.sx, garden.sy);
+  const garden = worldToScreen(5, 9); drawSoftShadow(ctx, garden.sx + 3 * TILE, garden.sy + 3 * TILE, 3.4 * TILE, 5, 0.14); drawGardenSprite(ctx, theme, garden.sx, garden.sy);
   const pond = worldToScreen(11, 3); drawPondSprite(ctx, theme, pond.sx, pond.sy);
   const bridge = worldToScreen(45, 17); drawBridgeSprite(ctx, theme, bridge.sx, bridge.sy);
-  const board = worldToScreen(30, 9); drawNoticeboardSprite(ctx, board.sx - 6, board.sy - 24);
+  const board = worldToScreen(30, 9); drawSoftShadow(ctx, board.sx + 25, board.sy + 24, 26, 4, 0.18); drawNoticeboardSprite(ctx, board.sx - 6, board.sy - 24);
   const gate = worldToScreen(60, 20); drawGateSprite(ctx, theme, gate.sx, gate.sy);
 
-  // trees in the viewport
+  // trees in the viewport (with their own shadows inside)
   for (let wy = camY; wy < camY + VIEW_H; wy += 1) {
     for (let wx = camX; wx < camX + VIEW_W; wx += 1) {
       if (worldGrid[wy] && worldGrid[wy][wx] === 't') {
@@ -316,6 +365,32 @@ function drawWorld(ctx, theme, village, spec, player, cam) {
   const p = worldToScreen(player.x, player.y);
   const playerFeet = p.sy * TILE + TILE / 2 + 4;
   drawHobbitSprite(ctx, spec, p.sx * TILE + TILE / 2, playerFeet);
+
+  // depth vignette over the whole frame
+  drawVignette(ctx);
+}
+
+function drawTileDetail(ctx, sx, sy, wx, wy, theme, tile) {
+  const px = sx * TILE;
+  const py = sy * TILE;
+  const seed = (wx * 31 + wy * 17) % 11;
+  if (tile !== 'd') {
+    // grass tufts
+    if (seed < 5) drawPixels(ctx, [[px + 3 + (seed % 6), py + 11, 2, 3, theme.grassDark]]);
+    if (seed === 7) drawPixels(ctx, [[px + 10, py + 9, 2, 2, theme.grassLight]]);
+    if (seed === 9) drawPixels(ctx, [[px + 6, py + 5, 1, 2, '#b8c57e']]);
+    if (seed % 4 === 0) drawPixels(ctx, [[px + 12, py + 12, 2, 2, theme.flower ?? '#e29178']]);
+  } else {
+    // soil clods
+    if (seed < 6) drawPixels(ctx, [[px + 4 + (seed % 5), py + 6, 3, 2, '#6b4a39']]);
+  }
+  if (tile === 'p') {
+    if (seed % 3 === 0) drawPixels(ctx, [[px + 3, py + 12, 4, 1, mixPath(theme)]]);
+  }
+}
+
+function mixPath(theme) {
+  return theme.pathLight;
 }
 
 function drawVillage() {
@@ -571,4 +646,5 @@ else {
   updateHud();
   hydrateInvite();
   drawVillage();
+  requestPlayFullscreen();
 }

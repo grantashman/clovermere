@@ -176,13 +176,15 @@ export function buildWorldGrid(village) {
     const row = [];
     for (let x = 0; x < WORLD_WIDTH; x += 1) {
       if (x < 1 || y < 1 || x >= WORLD_WIDTH - 1 || y >= WORLD_HEIGHT - 1) row.push('t');
+      else if (y <= 2) row.push('s'); // open sky at the north edge
+      else if (y === 3) row.push('h'); // distant hills band
       else row.push('g');
     }
     grid.push(row);
   }
 
-  // River on the east with a bridge crossing.
-  for (let y = 3; y <= 32; y += 1) {
+  // River on the east with a bridge crossing (starts below the hills band).
+  for (let y = 5; y <= 32; y += 1) {
     for (let x = 45; x <= 47; x += 1) {
       if (y === 18) continue;
       grid[y][x] = 'w';
@@ -205,9 +207,9 @@ export function buildWorldGrid(village) {
     if (grid[y] && grid[y][x] && grid[y][x] === 'g') grid[y][x] = 'p';
   }
 
-  // Home garden + pond.
+  // Home garden + pond (pond sits just below the hills band).
   for (let y = 9; y <= 11; y += 1) for (let x = 5; x <= 11; x += 1) if (grid[y][x] === 'g') grid[y][x] = 'd';
-  for (let y = 3; y <= 5; y += 1) for (let x = 11; x <= 14; x += 1) grid[y][x] = 'w';
+  for (let y = 4; y <= 6; y += 1) for (let x = 11; x <= 14; x += 1) grid[y][x] = 'w';
 
   // Woodland treeline at the south.
   const woods = new Set(['12,34', '14,35', '16,33', '20,36', '24,34', '27,37', '31,35', '35,36', '40,34', '44,35', '48,33', '52,36', '56,34', '8,36', '18,35', '38,34']);
@@ -227,5 +229,5 @@ export function buildWorldGrid(village) {
   return grid;
 }
 
-export const WORLD_BLOCKED = new Set(['t', 'w', 'f', 'b']);
+export const WORLD_BLOCKED = new Set(['t', 'w', 'f', 'b', 's', 'h']);
 

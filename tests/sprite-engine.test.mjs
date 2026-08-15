@@ -4,6 +4,11 @@ import {
   drawHobbitSprite,
   drawTreeSprite,
   drawBuildingSprite,
+  drawBuildingShadow,
+  drawHills,
+  drawSky,
+  drawSoftShadow,
+  drawVignette,
   getPaletteColor,
   GRID_H,
   GRID_W,
@@ -34,7 +39,11 @@ function makeContext(width = GRID_W, height = GRID_H) {
     clearRect: () => ops.push(['clearRect']),
     save: () => ops.push(['save']),
     restore: () => ops.push(['restore']),
-    drawImage: () => ops.push(['drawImage'])
+    drawImage: () => ops.push(['drawImage']),
+    createLinearGradient: () => ({ addColorStop: () => {} }),
+    createRadialGradient: () => ({ addColorStop: () => {} }),
+    moveTo: () => ops.push(['moveTo']),
+    quadraticCurveTo: () => ops.push(['quadraticCurveTo'])
   };
   return { context, ops };
 }
@@ -131,5 +140,26 @@ test('building sprite paints without error for each type', () => {
   assert.ok(ops.length > BUILDINGS.length, 'expected building draw operations');
 });
 
+test('sky, hills, soft shadow, and vignette paint without error', () => {
+  const { context } = makeContext();
+  const theme = resolveVillageTheme({ landscape: 'heath' });
+  let calls = 0;
+  const wrap = (fn) => { fn(context, theme); calls += 1; };
+  wrap(drawSky);
+  wrap(drawHills);
+  drawSoftShadow(context, 50, 60, 12, 3, 0.2); calls += 1;
+  drawBuildingShadow(context, 10, 20, 64, 48); calls += 1;
+  drawVignette(context); calls += 1;
+  assert.ok(calls === 5, 'expected all new visual helpers to run');
+});
 
+test('buildWorldGrid reserves a sky/hill horizon at the north edge', () => {
+  const grid = buildWorldGrid({ landscape: 'heath' });
+  assert.equal(grid[1][10], 's', 'north row should be open sky');
+  assert.equal(grid[3][10], 'h', 'row just below sky should be distant hills');
+  assert.equal(grid[5][10], 'g', 'below the hills the ground begins');
+  // buildings no longer collide with the horizon band
+  const smial = BUILDINGS.find((b) => b.id === 'home');
+  assert.ok(smial.y >= 4, 'home sits below the hills band');
+});
 

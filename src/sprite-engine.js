@@ -51,6 +51,63 @@ function rects(...rows) {
   return rows;
 }
 
+// Soft elliptical ground shadow (transparent fill on the logical buffer).
+export function drawSoftShadow(ctx, cx, feetY, radiusX, radiusY = 3, alpha = 0.22) {
+  ctx.fillStyle = `rgba(31, 45, 40, ${alpha})`;
+  ctx.beginPath();
+  ctx.ellipse(cx, feetY + 1, radiusX, radiusY, 0, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+// Sky gradient + parallax hill bands drawn behind the world.
+export function drawSky(ctx, theme) {
+  const grad = ctx.createLinearGradient(0, 0, 0, 80);
+  grad.addColorStop(0, theme.sky);
+  grad.addColorStop(1, mix(theme.sky, theme.distant, 0.45));
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, GRID_W, 80);
+}
+
+export function drawHills(ctx, theme) {
+  // two calm parallax bands
+  for (let band = 0; band < 2; band += 1) {
+    const base = band === 0 ? 58 : 46;
+    const shade = band === 0 ? theme.distant : mix(theme.distant, theme.grass, 0.35);
+    for (let x = -8; x < GRID_W + 16; x += 24) {
+      const h = (band === 0 ? 18 : 26) + ((x * 13 + band * 7) % 12);
+      ctx.fillStyle = shade;
+      ctx.beginPath();
+      ctx.moveTo(x, base + 14);
+      ctx.quadraticCurveTo(x + 12, base - h + 14, x + 24, base + 14);
+      ctx.lineTo(x + 24, 80);
+      ctx.lineTo(x, 80);
+      ctx.closePath();
+      ctx.fill();
+    }
+  }
+}
+
+// subtle darkening at the edges for depth
+export function drawVignette(ctx) {
+  const grad = ctx.createRadialGradient(GRID_W / 2, GRID_H / 2, GRID_H * 0.35, GRID_W / 2, GRID_H / 2, GRID_H * 0.85);
+  grad.addColorStop(0, 'rgba(0,0,0,0)');
+  grad.addColorStop(1, 'rgba(20,30,26,0.20)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, GRID_W, GRID_H);
+}
+
+// blend two hex colours
+function mix(a, b, t) {
+  const ca = parseInt(a.slice(1), 16);
+  const cb = parseInt(b.slice(1), 16);
+  const ar = (ca >> 16) & 255, ag = (ca >> 8) & 255, ab = ca & 255;
+  const br = (cb >> 16) & 255, bg = (cb >> 8) & 255, bb = cb & 255;
+  const r = Math.round(ar + (br - ar) * t);
+  const g = Math.round(ag + (bg - ag) * t);
+  const bl = Math.round(ab + (bb - ab) * t);
+  return `rgb(${r},${g},${bl})`;
+}
+
 // --- Hobbit sprite ---------------------------------------------------------
 // 16 wide × 26 tall logical pixels, anchored so feet sit at (0, 0).
 function hairRects(spec) {
@@ -94,22 +151,22 @@ export function drawHobbitSprite(ctx, spec, cx, feetY, flip = false) {
   const left = Math.round(cx - bodyW / 2);
   const top = feetY - 26;
 
-  // shadow
-  ctx.fillStyle = 'rgba(31, 45, 40, .22)';
-  ctx.beginPath();
-  ctx.ellipse(cx, feetY + 1, bodyW * 0.7, 3, 0, 0, Math.PI * 2);
-  ctx.fill();
+  // ground shadow
+  drawSoftShadow(ctx, cx, feetY, bodyW * 0.72, 3, 0.24);
 
-  // feet
-  drawPixels(ctx, rects([left + 1, feetY - 2, 4, 2, PALETTE.door], [left + bodyW - 5, feetY - 2, 4, 2, PALETTE.door]));
-  // body / coat
+  // feet (with sole shading)
+  drawPixels(ctx, rects([left + 1, feetY - 2, 4, 2, PALETTE.door], [left + bodyW - 5, feetY - 2, 4, 2, PALETTE.door], [left + 1, feetY, 4, 1, PALETTE.shadow], [left + bodyW - 5, feetY, 4, 1, PALETTE.shadow]));
+  // body / coat (with a shaded right side for roundness)
   drawPixels(ctx, rects([left, top + 12, bodyW, 12, coat]));
+  drawPixels(ctx, rects([left + bodyW - 3, top + 12, 3, 12, mix(coat, '#1f2d28', 0.22)]));
   // arms
   drawPixels(ctx, rects([left - 2, top + 14, 2, 7, coat], [left + bodyW, top + 14, 2, 7, coat]));
-  // belt
-  drawPixels(ctx, rects([left, top + 20, bodyW, 2, accent]));
+  // belt (shadow line above + accent below)
+  drawPixels(ctx, rects([left, top + 19, bodyW, 1, mix(coat, '#1f2d28', 0.3)], [left, top + 20, bodyW, 2, accent]));
   // head
   drawPixels(ctx, rects([cx - 5, top, 10, 12, skin], [cx - 6, top + 3, 1, 4, skin], [cx + 5, top + 3, 1, 4, skin]));
+  // head shade on the right cheek
+  drawPixels(ctx, rects([cx + 3, top + 7, 2, 4, mix(skin, '#1f2d28', 0.16)]));
   // ears
   drawPixels(ctx, rects([cx - 7, top + 4, 2, 3, skin], [cx + 5, top + 4, 2, 3, skin]));
   // hair
@@ -118,9 +175,10 @@ export function drawHobbitSprite(ctx, spec, cx, feetY, flip = false) {
   drawPixels(ctx, rects([cx - 3, top + 6, 2, 2, PALETTE.ink], [cx + 1, top + 6, 2, 2, PALETTE.ink]));
   // nose/cheek
   drawPixels(ctx, rects([cx - 1, top + 8, 2, 1, PALETTE.skin2]));
+  // rim light down the left side
+  drawPixels(ctx, rects([left, top + 12, 1, 12, mix(coat, '#ffffff', 0.14)]));
 
   if (flip) {
-    // small tool accent on the side for a walking silhouette
     drawPixels(ctx, rects([left + bodyW + 2, top + 12, 1, 8, accent]));
   }
 }
@@ -178,19 +236,22 @@ export function drawHouseSprite(ctx, theme, house, ox, oy) {
 
 export function drawTreeSprite(ctx, theme, ox, oy, seed = 0) {
   const trunkX = ox + 9;
+  // ground shadow
+  drawSoftShadow(ctx, ox + 12, oy + 40, 13, 3, 0.2);
   drawPixels(ctx, rects(
     [trunkX, oy + 22, 6, 16, PALETTE.trunk],
     [trunkX - 1, oy + 38, 8, 3, PALETTE.trunkLight],
-    [ox + 2, oy + 6, 22, 20, theme.grassDark],
-    [ox + 6, oy + 0, 14, 18, theme.grassDark],
-    [ox + 10, oy - 4, 8, 14, theme.grassDark],
+    [ox + 2, oy + 6, 22, 20, mix(theme.grassDark, '#1f2d28', 0.12)],
+    [ox + 6, oy + 0, 14, 18, mix(theme.grassDark, '#1f2d28', 0.12)],
+    [ox + 10, oy - 4, 8, 14, mix(theme.grassDark, '#1f2d28', 0.12)],
     [ox + 4, oy + 5, 7, 7, theme.grassLight],
     [ox + 13, oy + 1, 6, 6, theme.grassLight]
   ));
-  // canopy dabs vary by seed
+  // canopy dabs vary by seed, with a lit top and shaded underside
   const dabs = [
     [ox + 2 + (seed % 3), oy + 8, 3, 3, PALETTE.bushLight],
-    [ox + 18 - (seed % 4), oy + 12, 3, 3, PALETTE.bushLight]
+    [ox + 18 - (seed % 4), oy + 12, 3, 3, PALETTE.bushLight],
+    [ox + 8, oy + 18, 4, 3, mix(theme.grassDark, '#1f2d28', 0.3)]
   ];
   drawPixels(ctx, dabs);
 }
@@ -258,6 +319,14 @@ export function drawPondSprite(ctx, theme, ox, oy) {
 
 // --- Building sprites (LOTR-flavoured, original names) -----------------------
 
+// Ambient-occlusion floor shadow under a building footprint (drawn before the building).
+export function drawBuildingShadow(ctx, ox, oy, w, h) {
+  ctx.fillStyle = 'rgba(31, 45, 40, 0.16)';
+  ctx.beginPath();
+  ctx.ellipse(ox + w / 2, oy + h - 2, w * 0.55, 7, 0, 0, Math.PI * 2);
+  ctx.fill();
+}
+
 function roofCap(ctx, ox, oy, w, roof) {
   drawPixels(ctx, rects([ox, oy, w, 2, roof]));
 }
@@ -276,6 +345,8 @@ export function drawBuildingSprite(ctx, type, ox, oy, theme) {
         [ox + 34, oy + 42, 3, 3, PALETTE.gold],
         [ox + 14, oy + 44, 36, 6, PALETTE.stoneDark]
       ));
+      // roof highlight + warm window glow
+      drawPixels(ctx, rects([ox + 18, oy + 7, 30, 2, mix(theme.roof, '#ffffff', 0.18)], [ox + 26, oy + 36, 20, 8, 'rgba(241, 212, 154, 0.22)']));
       ctx.fillStyle = PALETTE.doorLight;
       ctx.beginPath();
       ctx.arc(ox + 36, oy + 42, 8, Math.PI, 0);
@@ -299,6 +370,8 @@ export function drawBuildingSprite(ctx, type, ox, oy, theme) {
         [ox + 4, oy + 24, 12, 4, PALETTE.gold],
         [ox + 60, oy + 24, 12, 4, PALETTE.gold]
       ));
+      // roof highlight + warm window glow
+      drawPixels(ctx, rects([ox + 10, oy + 9, 60, 2, mix(theme.roof, '#ffffff', 0.18)], [ox + 12, oy + 36, 12, 12, 'rgba(198, 226, 212, 0.25)'], [ox + 56, oy + 36, 12, 12, 'rgba(198, 226, 212, 0.25)']));
       break;
     }
     case 'smithy': {
