@@ -29,7 +29,7 @@ import {
   GRID_W,
   TILE
 } from '../src/sprite-engine.js';
-import { createDefaultGameState, normalizeGameState, tileAt, resolveVillageTheme, BUILDINGS, NPCS, buildWorldGrid, WORLD_BLOCKED, WORLD_HEIGHT, WORLD_WIDTH, timeOfDay, lightingFor, npcPositionAt, worldPixelPosition } from '../src/game-systems.js';
+import { createDefaultGameState, normalizeGameState, tileAt, resolveVillageTheme, BUILDINGS, NPCS, buildWorldGrid, WORLD_BLOCKED, WORLD_HEIGHT, WORLD_WIDTH, SETTLEMENT_ORIGIN, timeOfDay, lightingFor, npcPositionAt, worldPixelPosition } from '../src/game-systems.js';
 
 let before;
 
@@ -130,8 +130,10 @@ test('buildWorldGrid creates a larger explorable map with buildings and paths', 
   const grid = buildWorldGrid({ landscape: 'heath' });
   assert.equal(grid.length, WORLD_HEIGHT);
   assert.equal(grid[0].length, WORLD_WIDTH);
-  assert.ok(WORLD_WIDTH >= 90, 'the world should be substantially wider than the original slice');
-  assert.ok(WORLD_HEIGHT >= 60, 'the world should be substantially taller than the original slice');
+  assert.ok(WORLD_WIDTH >= 200, 'the world should be genuinely huge horizontally');
+  assert.ok(WORLD_HEIGHT >= 140, 'the world should be genuinely huge vertically');
+  const terrain = new Set(grid.flat());
+  assert.ok(terrain.has('g') && terrain.has('m') && terrain.has('r') && terrain.has('w') && terrain.has('t'), 'procedural world should contain varied terrain and organic life');
   // A building footprint is solid.
   const home = BUILDINGS.find((b) => b.id === 'home');
   assert.equal(grid[home.y][home.x], 'b');
@@ -139,7 +141,7 @@ test('buildWorldGrid creates a larger explorable map with buildings and paths', 
   const gate = BUILDINGS.find((b) => b.id === 'gate');
   assert.equal(grid[gate.y][gate.x], 'g');
   // Paths exist near the centre.
-  assert.equal(grid[11][30], 'p');
+  assert.equal(grid[SETTLEMENT_ORIGIN.y + 11][SETTLEMENT_ORIGIN.x + 30], 'p');
 });
 
 test('world blocked set blocks trees, water, fences, and buildings', () => {
@@ -258,7 +260,7 @@ test('buildWorldGrid reserves a sky/hill horizon at the north edge', () => {
   const grid = buildWorldGrid({ landscape: 'heath' });
   assert.equal(grid[1][10], 's', 'north row should be open sky');
   assert.equal(grid[5][10], 'h', 'row below the expanded sky band should be distant hills');
-  assert.equal(grid[6][10], 'g', 'below the hills the ground begins');
+  assert.ok(['g', 'm', 'r', 't', 'w', 'p'].includes(grid[6][10]), 'below the hills the generated terrain begins');
   // buildings no longer collide with the horizon band
   const smial = BUILDINGS.find((b) => b.id === 'home');
   assert.ok(smial.y >= 4, 'home sits below the hills band');
@@ -275,7 +277,7 @@ test('timeOfDay maps the clock to dawn/day/dusk/night phases', () => {
 test('lightingFor returns a tint and torch state per phase', () => {
   assert.equal(lightingFor(12 * 60).alpha, 0, 'day has no colour wash');
   assert.equal(lightingFor(12 * 60).torch, false, 'day has no torches');
-  assert.ok(lightingFor(23 * 60).alpha > 0.3, 'night is strongly tinted');
+  assert.equal(lightingFor(23 * 60).alpha, 0, 'night should not add an automatic colour wash');
   assert.equal(lightingFor(19 * 60).torch, true, 'dusk lights the lanterns');
 });
 

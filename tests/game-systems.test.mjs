@@ -18,7 +18,13 @@ import {
   npcGreetingFor,
   INTERIOR_DEFINITIONS,
   enterInterior,
-  exitInterior
+  exitInterior,
+  lightingFor,
+  buildWorldGrid,
+  START_POSITION,
+  WORLD_WIDTH,
+  WORLD_HEIGHT,
+  SETTLEMENT_ORIGIN
 } from '../src/game-systems.js';
 
 const map = [
@@ -62,7 +68,7 @@ test('normalizeGameState preserves custom choices while filling new defaults', (
 
 test('normalizeGameState migrates older saves into the daily loop without overwriting explicit resources', () => {
   const migrated = normalizeGameState({ version: 2, inventory: {}, energy: 42, coins: 5, garden: { planted: true, watered: false, ready: false } });
-  assert.equal(migrated.version, 5);
+  assert.equal(migrated.version, 6);
   assert.equal(migrated.energy, 42);
   assert.equal(migrated.coins, 5);
   assert.deepEqual(migrated.inventory, {});
@@ -71,6 +77,29 @@ test('normalizeGameState migrates older saves into the daily loop without overwr
   assert.equal(migrated.season, 'Late Summer');
   assert.ok(['clear', 'mist', 'rain', 'golden-wind'].includes(migrated.weather));
   assert.deepEqual(migrated.onboarding, { garden: false, outing: false, villager: false, rest: false });
+});
+
+test('lighting keeps world colours unfiltered until the lighting pass is redesigned', () => {
+  for (const clock of [360, 495, 900, 1080, 1380]) {
+    assert.equal(lightingFor(clock).alpha, 0, `clock ${clock} should not tint the world`);
+  }
+});
+
+test('the generated world is huge, varied, deterministic, and starts near its centre', () => {
+  const first = buildWorldGrid({ name: 'Moonrise Hollow', landscape: 'heath' });
+  const second = buildWorldGrid({ name: 'Moonrise Hollow', landscape: 'heath' });
+  assert.equal(first.length, WORLD_HEIGHT);
+  assert.equal(first[0].length, WORLD_WIDTH);
+  assert.deepEqual(first, second);
+  const terrain = new Set(first.flat());
+  assert.ok(WORLD_WIDTH >= 200 && WORLD_HEIGHT >= 140);
+  assert.ok(['g', 'm', 'r', 't', 'w'].every((tile) => terrain.has(tile)));
+  assert.ok(Math.abs(START_POSITION.x - WORLD_WIDTH / 2) < WORLD_WIDTH * 0.12);
+  assert.ok(Math.abs(START_POSITION.y - WORLD_HEIGHT / 2) < WORLD_HEIGHT * 0.12);
+  assert.equal(first[START_POSITION.y][START_POSITION.x], 'p');
+  const legacy = normalizeGameState({ version: 5, player: { x: 14, y: 11 } });
+  assert.deepEqual(legacy.player, START_POSITION);
+  assert.equal(SETTLEMENT_ORIGIN.x + 14, START_POSITION.x);
 });
 
 test('onboarding objective order guides a new player through the first day', () => {

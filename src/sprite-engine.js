@@ -216,6 +216,28 @@ export function drawTerrainDetail(ctx, theme, tile, ox, oy, seed = 0, time = 0) 
         [ox + 12, oy + 13, 2, 1, mix(theme.grass, PALETTE.stone, 0.35)]
       ));
     }
+  } else if (tile === 'm') {
+    const moss = theme.moss ?? grassMid;
+    const mossLight = theme.mossLight ?? theme.grassLight;
+    drawPixels(ctx, rects(
+      [ox + 1 + (variant % 5), oy + 3, 5, 1, mix(moss, mossLight, 0.28)],
+      [ox + 9, oy + 6 + (grain % 3), 4, 2, theme.grassDark],
+      [ox + 3, oy + 12, 2, 3, mossLight],
+      [ox + 7 + (variant % 4), oy + 10, 1, 4, grassShade],
+      [ox + 12, oy + 2 + (variant % 4), 2, 2, mix(moss, theme.grassLight, 0.38)]
+    ));
+    if (variant % 5 === 0) drawPixels(ctx, rects([ox + 5, oy + 7, 2, 2, flower], [ox + 7, oy + 5, 1, 2, mossLight]));
+  } else if (tile === 'r') {
+    const rock = theme.rock ?? PALETTE.stone;
+    const rockLight = theme.rockLight ?? PALETTE.stone;
+    const lichen = theme.mossLight ?? grassMid;
+    drawPixels(ctx, rects(
+      [ox + 2, oy + 8, 7, 5, rock],
+      [ox + 4, oy + 6, 4, 2, rockLight],
+      [ox + 9, oy + 11, 4, 3, mix(rock, PALETTE.shadow, 0.28)],
+      [ox + 3, oy + 13, 3, 1, lichen],
+      [ox + 11, oy + 7, 2, 2, mix(rockLight, theme.grass, 0.3)]
+    ));
   } else if (tile === 'p') {
     drawPixels(ctx, rects(
       [ox + 1, oy + 1, 14, 1, mix(theme.path, theme.grassDark, 0.18)],

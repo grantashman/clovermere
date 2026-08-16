@@ -305,3 +305,9 @@ body.game-page:has(#play-screen:not([hidden])) .game-header-actions { display: n
 .canvas-wrap.is-interior .minimap-shell { display: none; }
 @media (max-width: 900px) { .window-hud-top { right: .9rem; } .window-hud-brand { min-width: 9rem; } .window-hud-actions { max-width: calc(100% - 10rem); } .window-hud-bottom { right: .9rem; } .game-book { top: 18rem; width: min(350px, 42%); } }
 @media (max-width: 720px) { .window-hud-top { top: .55rem; left: .55rem; right: .55rem; gap: .4rem; } .window-hud-brand { min-width: 0; padding: .42rem .5rem; } .window-hud-brand b { font-size: .46rem; } .window-hud-brand small { font-size: .52rem; } .window-hud-actions { max-width: none; overflow-x: auto; flex-wrap: nowrap; } .hud-button { white-space: nowrap; } .window-hud-bottom { left: .55rem; right: .55rem; bottom: .55rem; align-items: stretch; flex-direction: column; } .hud-status { max-width: 100%; } .hud-actions { align-self: flex-start; max-width: 100%; overflow-x: auto; } .minimap-shell { top: 5.1rem; right: .55rem; width: min(220px, calc(100% - 1.1rem)); } .minimap-reopen { top: 5.1rem; right: .55rem; } .game-book { top: 14.5rem; right: .55rem; bottom: .55rem; width: calc(100% - 1.1rem); } }
+
+/* The playable prototype is a viewport-filling game surface. The Village Book
+   keeps its own scroll container; the document itself must not grow below it. */
+body.game-page:has(#play-screen:not([hidden])) { height: 100vh; min-height: 0; overflow: hidden; }
+body.game-page:has(#play-screen:not([hidden])) #play-screen { height: calc(100vh - 84px); min-height: 0; margin-bottom: 0; }
+body.game-page:has(#play-screen:not([hidden])) #play-screen .game-stage { min-height: 0; height: 100%; }

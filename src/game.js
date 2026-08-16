@@ -35,6 +35,8 @@ import {
   WORLD_HEIGHT,
   WORLD_LANDMARKS,
   WORLD_WIDTH,
+  START_POSITION,
+  SETTLEMENT_ORIGIN,
   worldPixelPosition
 } from './game-systems.js';
 import { supabase, supabaseConfigured } from './supabase-client.js';
@@ -75,7 +77,7 @@ const BLOCKED_TILES = new Set(['t', 'w', 'f']);
 const STORAGE_KEY = 'hobbit-moon-village-v2';
 const LEGACY_STORAGE_KEY = 'hobbit-moon-village-v1';
 const DEFAULT_NOTES = ['You arrived before the kettle boiled.', 'The hill is quiet. The good kind.'];
-const COLONY_PROPS = [
+const LOCAL_COLONY_PROPS = [
   { type: 'hedge', x: 1, y: 4 },
   { type: 'hedge', x: 1, y: 5 },
   { type: 'hedge', x: 2, y: 4 },
@@ -93,6 +95,8 @@ const COLONY_PROPS = [
   { type: 'hedge', x: 28, y: 17 },
   { type: 'hedge', x: 30, y: 17 }
 ];
+const settlementPoint = (x, y) => ({ x: x + SETTLEMENT_ORIGIN.x, y: y + SETTLEMENT_ORIGIN.y });
+const COLONY_PROPS = LOCAL_COLONY_PROPS.map((prop) => ({ ...prop, x: prop.x + SETTLEMENT_ORIGIN.x, y: prop.y + SETTLEMENT_ORIGIN.y }));
 
 const canvas = document.querySelector('#village-canvas');
 const context = canvas?.getContext('2d');
@@ -109,16 +113,22 @@ const playScreen = document.querySelector('#play-screen');
 // but is rasterised at 5× so a future desktop shell and high-DPI display retain
 // crisp edges without changing the world-coordinate contract.
 const RENDER_SCALE = 5;
-const ZOOM_MIN = 0.75;
-const ZOOM_MAX = 1.25;
+const ZOOM_MIN = 0.5;
+const ZOOM_MAX = 2;
 const ZOOM_STEP = 0.1;
-const DEFAULT_ZOOM = 0.88;
+const DEFAULT_ZOOM = 0.5;
 const buffer = document.createElement('canvas');
 buffer.width = GRID_W * RENDER_SCALE;
 buffer.height = GRID_H * RENDER_SCALE;
 const bufferCtx = buffer?.getContext('2d');
 
 let state = loadState();
+try {
+  // Persist migrations immediately so v5 saves do not remain at the old edge spawn.
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+} catch {
+  /* local storage is optional in private/browser-restricted contexts */
+}
 let setupStep = 1;
 let editing = false;
 let setupSnapshot = null;
@@ -272,7 +282,7 @@ function openCreator(step = 1, isEditing = false) {
 function closeCreator() {
   const wasEditing = editing;
   state.creationComplete = true;
-  state.player = { x: 14, y: 11 };
+  state.player = { ...START_POSITION };
   syncPlayerMotion();
   saveState();
   setupSnapshot = null;
@@ -383,7 +393,7 @@ function mixHex(a, b, t) {
 function tileRects(x, y, tile, theme, village) {
   const px = x * TILE;
   const py = y * TILE;
-  const base = tile === 'w' ? theme.water : tile === 'p' ? theme.path : tile === 'd' ? theme.dirt : tile === 's' ? theme.sky : tile === 'h' ? theme.distant : theme.grass;
+  const base = tile === 'w' ? theme.water : tile === 'p' ? theme.path : tile === 'd' ? theme.dirt : tile === 's' ? theme.sky : tile === 'h' ? theme.distant : tile === 'm' ? (theme.moss ?? theme.grass) : tile === 'r' ? (theme.rock ?? theme.grassDark) : theme.grass;
   const rects = [[px, py, TILE, TILE, base]];
   if (tile === 's') {
     // a couple of soft clouds
@@ -403,6 +413,15 @@ function tileRects(x, y, tile, theme, village) {
     rects.push([px + 11 - (y % 3) * 2, py + 11, 2, 3, theme.grassLight]);
     if ((x + y) % 7 === 0) rects.push([px + 12, py + 4, 2, 2, '#b8c57e']);
     if ((x * 3 + y) % 11 === 0) rects.push([px + 6, py + 9, 2, 2, theme.flower ?? '#e29178']);
+  }
+  if (tile === 'm') {
+    const moss = theme.mossLight ?? theme.grassLight;
+    rects.push([px + 2 + (x % 4), py + 4, 3, 2, moss]);
+    rects.push([px + 9, py + 10 + (y % 3), 4, 2, theme.grassDark]);
+  }
+  if (tile === 'r') {
+    rects.push([px + 2, py + 7, 6, 5, theme.rockLight ?? '#b8aa8c']);
+    rects.push([px + 8, py + 4, 5, 3, theme.rock ?? theme.grassDark]);
   }
   if (tile === 'p') {
     rects.push([px + 2, py + 5 + (x % 3), 6, 2, theme.pathLight]);
@@ -474,8 +493,8 @@ function drawWorld(ctx, theme, village, spec, player, cam, time = 0, zoom = came
       const wx = baseCamX + sx;
       if (wx <= 0 || wx >= WORLD_WIDTH - 1) continue;
       const tile = worldGrid[wy][wx];
-      if (tile === 'g' || tile === 'p' || tile === 'd') drawTileDetail(ctx, wx - camX, wy - camY, wx, wy, theme, tile);
-      if (tile === 'g' || tile === 'p' || tile === 'd' || tile === 'w') {
+      if (tile === 'g' || tile === 'm' || tile === 'p' || tile === 'd' || tile === 'r') drawTileDetail(ctx, wx - camX, wy - camY, wx, wy, theme, tile);
+      if (tile === 'g' || tile === 'm' || tile === 'p' || tile === 'd' || tile === 'w' || tile === 'r') {
         drawTerrainDetail(ctx, theme, tile, (wx - camX) * TILE, (wy - camY) * TILE, wx * 31 + wy * 17, time);
       }
     }
@@ -510,12 +529,12 @@ function drawWorld(ctx, theme, village, spec, player, cam, time = 0, zoom = came
     drawBuildingDetail(ctx, b.type, sx, sy, theme, time);
   }
 
-  // garden, pond, bridge, noticeboard, gate props near the starting area
-  const garden = worldToScreen(5, 9); drawSoftShadow(ctx, garden.sx + 3 * TILE, garden.sy + 3 * TILE, 3.4 * TILE, 5, 0.14); drawGardenSprite(ctx, theme, garden.sx, garden.sy, 7, 3, state.garden.stage);
-  const pond = worldToScreen(11, 3); drawPondSprite(ctx, theme, pond.sx, pond.sy, time);
-  const bridge = worldToScreen(67, 30); drawBridgeSprite(ctx, theme, bridge.sx, bridge.sy);
-  const board = worldToScreen(30, 9); drawSoftShadow(ctx, board.sx + 25, board.sy + 24, 26, 4, 0.18); drawNoticeboardSprite(ctx, board.sx - 6, board.sy - 24);
-  const gate = worldToScreen(60, 20); drawGateSprite(ctx, theme, gate.sx, gate.sy);
+  // garden, pond, bridge, noticeboard, gate props near the central settlement
+  const gardenWorld = settlementPoint(5, 9); const garden = worldToScreen(gardenWorld.x, gardenWorld.y); drawSoftShadow(ctx, garden.sx + 3 * TILE, garden.sy + 3 * TILE, 3.4 * TILE, 5, 0.14); drawGardenSprite(ctx, theme, garden.sx, garden.sy, 7, 3, state.garden.stage);
+  const pondWorld = settlementPoint(11, 3); const pond = worldToScreen(pondWorld.x, pondWorld.y); drawPondSprite(ctx, theme, pond.sx, pond.sy, time);
+  const bridgeWorld = settlementPoint(67, 30); const bridge = worldToScreen(bridgeWorld.x, bridgeWorld.y); drawBridgeSprite(ctx, theme, bridge.sx, bridge.sy);
+  const boardWorld = settlementPoint(30, 9); const board = worldToScreen(boardWorld.x, boardWorld.y); drawSoftShadow(ctx, board.sx + 25, board.sy + 24, 26, 4, 0.18); drawNoticeboardSprite(ctx, board.sx - 6, board.sy - 24);
+  const gateWorld = settlementPoint(60, 20); const gate = worldToScreen(gateWorld.x, gateWorld.y); drawGateSprite(ctx, theme, gate.sx, gate.sy);
 
   // authored settlement dressing: hedges, work clutter, benches, flowerbeds, and lamps
   for (const [index, prop] of COLONY_PROPS.entries()) {
@@ -524,10 +543,14 @@ function drawWorld(ctx, theme, village, spec, player, cam, time = 0, zoom = came
     drawColonyProp(ctx, theme, prop.type, sx, sy, index + prop.x * 7 + prop.y * 13, time);
   }
 
-  const homeLabel = worldToScreen(7, 5);
-  const gardenLabel = worldToScreen(8, 9);
-  const pondLabel = worldToScreen(12, 4);
-  const marketLabel = worldToScreen(24, 13);
+  const homePosition = settlementPoint(7, 5);
+  const gardenPosition = settlementPoint(8, 9);
+  const pondPosition = settlementPoint(12, 4);
+  const marketPosition = settlementPoint(24, 13);
+  const homeLabel = worldToScreen(homePosition.x, homePosition.y);
+  const gardenLabel = worldToScreen(gardenPosition.x, gardenPosition.y);
+  const pondLabel = worldToScreen(pondPosition.x, pondPosition.y);
+  const marketLabel = worldToScreen(marketPosition.x, marketPosition.y);
   drawWorldLabel(ctx, 'Your smial', homeLabel.sx + TILE / 2, homeLabel.sy - 10, '#f0d487');
   drawWorldLabel(ctx, 'Garden beds', gardenLabel.sx + TILE / 2, gardenLabel.sy - 8, '#b8c785');
   drawWorldLabel(ctx, 'Moon pond', pondLabel.sx + TILE / 2, pondLabel.sy - 8, '#b9d9d0');
@@ -578,16 +601,8 @@ function drawWorld(ctx, theme, village, spec, player, cam, time = 0, zoom = came
     }
   }
 
-  // depth vignette over the whole frame
-  drawVignette(ctx);
-
-  // time-of-day colour wash
-  if (lighting.alpha > 0) {
-    ctx.fillStyle = lighting.tint;
-    ctx.globalAlpha = lighting.alpha;
-    ctx.fillRect(0, 0, GRID_W, GRID_H);
-    ctx.globalAlpha = 1;
-  }
+  // Deliberately no automatic daytime/afternoon colour wash. Weather and
+  // authored light sources remain readable without tinting the whole world.
   drawWeatherOverlay(ctx, state.weather, time);
 }
 
@@ -636,6 +651,8 @@ function drawMinimap() {
   ctx.fillRect(0, 0, width, height);
   const colors = {
     g: theme.grass,
+    m: theme.moss ?? theme.grass,
+    r: theme.rock ?? theme.grassDark,
     p: theme.path,
     d: theme.dirt,
     w: theme.water,
@@ -704,11 +721,18 @@ function drawVillage(time = 0) {
   bufferCtx.fillStyle = state.location === 'village' ? theme.grass : '#261f25';
   bufferCtx.fillRect(0, 0, GRID_W, GRID_H);
   bufferCtx.save();
-  bufferCtx.translate(GRID_W / 2, GRID_H / 2);
-  bufferCtx.scale(cameraZoom, cameraZoom);
-  bufferCtx.translate(-GRID_W / 2, -GRID_H / 2);
-  if (state.location === 'village') drawWorld(bufferCtx, theme, state.village, state.hobbit, playerMotion, cam, time, cameraZoom);
-  else drawInteriorWorld(bufferCtx, time);
+  if (state.location === 'village') {
+    // The camera window already includes the zoom factor. Scaling from its
+    // top-left keeps a clamped edge flush with the canvas instead of revealing
+    // the grass backfill around a centre-scaled tile rectangle.
+    bufferCtx.scale(cameraZoom, cameraZoom);
+    drawWorld(bufferCtx, theme, state.village, state.hobbit, playerMotion, cam, time, cameraZoom);
+  } else {
+    bufferCtx.translate(GRID_W / 2, GRID_H / 2);
+    bufferCtx.scale(cameraZoom, cameraZoom);
+    bufferCtx.translate(-GRID_W / 2, -GRID_H / 2);
+    drawInteriorWorld(bufferCtx, time);
+  }
   bufferCtx.restore();
   endLogicalBuffer();
 
@@ -1163,7 +1187,7 @@ function interact() {
 }
 
 function resetDay() {
-  state = normalizeGameState({ ...state, ...createDailyState({ day: 3, landscape: state.village.landscape }), player: { x: 14, y: 11 }, clock: 495, day: 3, tasks: { garden: false, pond: false, gate: false, noticeboard: false }, notes: DEFAULT_NOTES });
+  state = normalizeGameState({ ...state, ...createDailyState({ day: 3, landscape: state.village.landscape }), player: { ...START_POSITION }, clock: 495, day: 3, tasks: { garden: false, pond: false, gate: false, noticeboard: false }, notes: DEFAULT_NOTES });
   syncPlayerMotion();
   dialogue = null;
   updateHud();

@@ -4,12 +4,16 @@ const INVITE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
 export const MAP_WIDTH = 32;
 export const MAP_HEIGHT = 18;
+export const WORLD_WIDTH = 240;
+export const WORLD_HEIGHT = 160;
+export const SETTLEMENT_ORIGIN = { x: 108, y: 71 };
+export const START_POSITION = { x: SETTLEMENT_ORIGIN.x + 14, y: SETTLEMENT_ORIGIN.y + 11 };
 
 export const LANDSCAPE_LABELS = { heath: 'Hedgerow', river: 'Riverbend', woodland: 'Deepwood' };
 export const HOUSE_LABELS = { rounddoor: 'Round door', stone: 'Stone cottage', gable: 'Gable house' };
 export const HAIR_LABELS = { waves: 'Waves', curls: 'Curls', bob: 'Short crop' };
 
-export const INTERACTIONS = [
+const LOCAL_INTERACTIONS = [
   { x: 7, y: 8, activity: 'rest', interior: 'home', label: 'your smial', message: 'The hearth is banked and the bed is warm. You can rest here when the day has asked enough of you.' },
   { x: 10, y: 8, activity: 'cook', interior: 'home', label: 'hearth', message: 'The hearth is warm enough for a small meal.' },
   { x: 27, y: 11, interior: 'inn', label: 'Golden Perch', message: 'The inn is warm and Wren has left a place by the window.' },
@@ -19,6 +23,10 @@ export const INTERACTIONS = [
   { x: 28, y: 14, task: 'gate', label: 'village gate', message: 'You leave the gate unlatched. A friend should never have to knock twice.' },
   { x: 15, y: 8, task: 'noticeboard', label: 'noticeboard', message: 'The noticeboard has a new note: “Pie tasting at the long table, sunset.”' }
 ];
+
+const offsetPoint = (point) => ({ ...point, x: point.x + SETTLEMENT_ORIGIN.x, y: point.y + SETTLEMENT_ORIGIN.y });
+const offsetSchedule = (schedule) => Object.fromEntries(Object.entries(schedule).map(([phase, point]) => [phase, offsetPoint(point)]));
+export const INTERACTIONS = LOCAL_INTERACTIONS.map(offsetPoint);
 
 export const INTERIOR_DEFINITIONS = {
   home: { id: 'home', title: 'Your Smial', subtitle: 'A low room, a warm hearth, and a door you can always close.', palette: 'home', objects: ['hearth', 'table', 'bed', 'satchel'] },
@@ -79,11 +87,11 @@ export const DEFAULT_VILLAGE = {
 };
 
 export const DEFAULT_GAME_STATE = {
-  version: 5,
+  version: 6,
   creationComplete: false,
   hobbit: DEFAULT_HOBBIT,
   village: DEFAULT_VILLAGE,
-  player: { x: 14, y: 11 },
+  player: START_POSITION,
   location: 'village',
   interior: null,
   clock: 495,
@@ -98,6 +106,17 @@ export function createDefaultGameState() {
   return structuredClone(DEFAULT_GAME_STATE);
 }
 
+function normalizePlayerPosition(source) {
+  const raw = source.player && typeof source.player === 'object' ? source.player : {};
+  const x = Number.isFinite(Number(raw.x)) ? Number(raw.x) : START_POSITION.x;
+  const y = Number.isFinite(Number(raw.y)) ? Number(raw.y) : START_POSITION.y;
+  const isLegacyWorld = Number(source.version ?? 0) < 6;
+  return {
+    x: Number((isLegacyWorld ? x + SETTLEMENT_ORIGIN.x : x).toFixed(4)),
+    y: Number((isLegacyWorld ? y + SETTLEMENT_ORIGIN.y : y).toFixed(4))
+  };
+}
+
 export function normalizeGameState(input = {}) {
   const source = input && typeof input === 'object' ? input : {};
   const hobbit = source.hobbit && typeof source.hobbit === 'object' ? source.hobbit : {};
@@ -107,7 +126,7 @@ export function normalizeGameState(input = {}) {
   return {
     ...createDefaultGameState(),
     ...source,
-    version: 5,
+    version: 6,
     creationComplete: Boolean(source.creationComplete),
     hobbit: {
       ...DEFAULT_HOBBIT,
@@ -115,7 +134,7 @@ export function normalizeGameState(input = {}) {
       palette: { ...DEFAULT_HOBBIT.palette, ...palette }
     },
     village: { ...DEFAULT_VILLAGE, ...village },
-    player: { ...DEFAULT_GAME_STATE.player, ...(source.player ?? {}) },
+    player: normalizePlayerPosition(source),
     location: source.location === 'home' || source.location === 'inn' ? source.location : 'village',
     interior: source.location === 'home' || source.location === 'inn' ? { ...INTERIOR_DEFINITIONS[source.location] } : null,
     ...normalizeDailyState(source),
@@ -206,10 +225,10 @@ export function timeOfDay(clock) {
 export function lightingFor(clock) {
   const phase = timeOfDay(clock);
   const table = {
-    dawn: { tint: 'rgb(255, 196, 140)', alpha: 0.16, torch: false },
-    day: { tint: 'rgb(255, 255, 255)', alpha: 0.0, torch: false },
-    dusk: { tint: 'rgb(232, 142, 86)', alpha: 0.26, torch: true },
-    night: { tint: 'rgb(40, 58, 96)', alpha: 0.42, torch: true }
+    dawn: { tint: null, alpha: 0, torch: false },
+    day: { tint: null, alpha: 0, torch: false },
+    dusk: { tint: null, alpha: 0, torch: true },
+    night: { tint: null, alpha: 0, torch: true }
   };
   return { phase, ...table[phase] };
 }
@@ -218,7 +237,7 @@ export function resolveVillageTheme(village) {
   const landscape = village?.landscape ?? 'heath';
   const roof = village?.roof === 'plum' ? 'plum' : 'moss';
   const themes = {
-    heath: { sky: '#a8d8df', distant: '#6fa574', grass: '#5e994f', grassMid: '#7eaf57', grassLight: '#add565', grassDark: '#2f6844', grassShade: '#3f7d43', flower: '#e29178', water: '#3d9daa', waterLight: '#b6ead2', dirt: '#ad6848', path: '#dfb25e', pathLight: '#f6d98c', roof: roof === 'moss' ? '#356744' : '#68445f', paper: '#f7e8c6' },
+    heath: { sky: '#a8d8df', distant: '#6fa574', grass: '#5e994f', grassMid: '#7eaf57', grassLight: '#add565', grassDark: '#2f6844', grassShade: '#3f7d43', moss: '#789c52', mossLight: '#a8c96a', rock: '#827c68', rockLight: '#b3a987', flower: '#e29178', water: '#3d9daa', waterLight: '#b6ead2', dirt: '#ad6848', path: '#dfb25e', pathLight: '#f6d98c', roof: roof === 'moss' ? '#356744' : '#68445f', paper: '#f7e8c6' },
     river: { sky: '#91cfe0', distant: '#6097a1', grass: '#4f9679', grassMid: '#70ad78', grassLight: '#91c86d', grassDark: '#286450', grassShade: '#3b7d64', flower: '#eaa27d', water: '#348eac', waterLight: '#a9e7dd', dirt: '#ad6848', path: '#dbbe78', pathLight: '#f3e0a7', roof: roof === 'moss' ? '#2e625c' : '#654c68', paper: '#eef5e8' },
     woodland: { sky: '#a8cba8', distant: '#5f8f65', grass: '#4b8b4d', grassMid: '#6eaa52', grassLight: '#94c75f', grassDark: '#285d3c', grassShade: '#3c763e', flower: '#d88d8d', water: '#3d8498', waterLight: '#9bd8b7', dirt: '#9c654c', path: '#d0ad68', pathLight: '#ecd28d', roof: roof === 'moss' ? '#2f5c42' : '#60465d', paper: '#edf0d4' }
   };
@@ -239,16 +258,14 @@ export function tileAt(x, y, village) {
 
 // --- Expanded explorable world ---------------------------------------------
 
-export const WORLD_WIDTH = 96;
-export const WORLD_HEIGHT = 64;
-export const VIEW_W = MAP_WIDTH; // 32 tiles visible
-export const VIEW_H = MAP_HEIGHT; // 18 tiles visible
+export const VIEW_W = MAP_WIDTH;
+export const VIEW_H = MAP_HEIGHT;
 
 export const WORLD_LANDMARKS = [
-  { id: 'apple-orchard', type: 'orchard', x: 50, y: 6, w: 14, h: 9, label: 'Apple Orchard', accent: '#e5bd6b' },
-  { id: 'willowmere', type: 'willowmere', x: 77, y: 7, w: 14, h: 11, label: 'Willowmere', accent: '#a8d8c3' },
-  { id: 'stonecutters-hollow', type: 'quarry', x: 73, y: 38, w: 15, h: 10, label: 'Stonecutter’s Hollow', accent: '#d6c39d' },
-  { id: 'west-lookout', type: 'lookout', x: 7, y: 49, w: 12, h: 9, label: 'West Lookout', accent: '#d4ad63' }
+  { id: 'apple-orchard', type: 'orchard', x: 32, y: 22, w: 18, h: 13, label: 'Apple Orchard', accent: '#e5bd6b' },
+  { id: 'willowmere', type: 'willowmere', x: 190, y: 20, w: 21, h: 16, label: 'Willowmere', accent: '#a8d8c3' },
+  { id: 'stonecutters-hollow', type: 'quarry', x: 182, y: 112, w: 23, h: 16, label: 'Stonecutter’s Hollow', accent: '#d6c39d' },
+  { id: 'west-lookout', type: 'lookout', x: 25, y: 116, w: 18, h: 14, label: 'West Lookout', accent: '#d4ad63' }
 ];
 
 // Convert a world tile coordinate to logical-pixel screen coordinates once.
@@ -256,7 +273,7 @@ export function worldPixelPosition(wx, wy, camX, camY, tileSize = 16) {
   return { x: (wx - camX) * tileSize, y: (wy - camY) * tileSize };
 }
 
-export const BUILDINGS = [
+const LOCAL_BUILDINGS = [
   { id: 'home', type: 'smial', x: 5, y: 5, w: 4, h: 3, name: 'Your Smial' },
   { id: 'barn', type: 'barn', x: 10, y: 15, w: 4, h: 3, name: 'The Barn' },
   { id: 'market', type: 'market', x: 22, y: 13, w: 4, h: 3, name: 'Market Stalls' },
@@ -267,7 +284,13 @@ export const BUILDINGS = [
   { id: 'gate', type: 'gate', x: 60, y: 20, w: 1, h: 2, name: 'The Gate' }
 ];
 
-export const NPCS = [
+export const BUILDINGS = LOCAL_BUILDINGS.map((building) => ({
+  ...building,
+  x: building.x + SETTLEMENT_ORIGIN.x,
+  y: building.y + SETTLEMENT_ORIGIN.y
+}));
+
+const LOCAL_NPCS = [
   {
     id: 'pim', name: 'Pim Thistledown',
     x: 9, y: 9, body: 'round', hair: 'waves',
@@ -304,6 +327,13 @@ export const NPCS = [
     schedule: { dawn: { x: 23, y: 16 }, day: { x: 23, y: 16 }, dusk: { x: 24, y: 16 }, night: { x: 22, y: 16 } }
   }
 ];
+
+export const NPCS = LOCAL_NPCS.map((npc) => ({
+  ...npc,
+  x: npc.x + SETTLEMENT_ORIGIN.x,
+  y: npc.y + SETTLEMENT_ORIGIN.y,
+  schedule: offsetSchedule(npc.schedule)
+}));
 
 export const NPC_WEATHER_GREETINGS = {
   rain: {
@@ -364,87 +394,133 @@ export function wrapDialogueText(text, maxCharacters = 42) {
   return lines;
 }
 
-// Returns a WORLD_HEIGHT × WORLD_WIDTH grid of tile chars. Buildings occupy 'b'.
-export function buildWorldGrid(village) {
+function seedFromText(value = '') {
+  let seed = 2166136261;
+  for (const character of String(value)) {
+    seed ^= character.charCodeAt(0);
+    seed = Math.imul(seed, 16777619);
+  }
+  return seed >>> 0;
+}
+
+function hash2d(x, y, seed) {
+  let value = Math.imul(x ^ seed, 374761393) ^ Math.imul(y + seed, 668265263);
+  value = Math.imul(value ^ (value >>> 13), 1274126177);
+  return ((value ^ (value >>> 16)) >>> 0) / 4294967295;
+}
+
+function smoothNoise(x, y, scale, seed) {
+  const gx = Math.floor(x / scale);
+  const gy = Math.floor(y / scale);
+  const fx = (x / scale) - gx;
+  const fy = (y / scale) - gy;
+  const fade = (value) => value * value * (3 - 2 * value);
+  const sx = fade(fx);
+  const sy = fade(fy);
+  const a = hash2d(gx, gy, seed);
+  const b = hash2d(gx + 1, gy, seed);
+  const c = hash2d(gx, gy + 1, seed);
+  const d = hash2d(gx + 1, gy + 1, seed);
+  return (a + (b - a) * sx) + ((c + (d - c) * sx) - (a + (b - a) * sx)) * sy;
+}
+
+function setWorldCell(grid, x, y, tile) {
+  if (x > 0 && y > 5 && x < WORLD_WIDTH - 1 && y < WORLD_HEIGHT - 1) grid[y][x] = tile;
+}
+
+function carveEllipse(grid, cx, cy, radiusX, radiusY, tile = 'w') {
+  for (let y = Math.floor(cy - radiusY); y <= Math.ceil(cy + radiusY); y += 1) {
+    for (let x = Math.floor(cx - radiusX); x <= Math.ceil(cx + radiusX); x += 1) {
+      const dx = (x - cx) / radiusX;
+      const dy = (y - cy) / radiusY;
+      if (dx * dx + dy * dy <= 1 && hash2d(x, y, 91) > 0.12) setWorldCell(grid, x, y, tile);
+    }
+  }
+}
+
+function paintCorridor(grid, startX, startY, endX, endY, width = 1, bridge = false) {
+  const distance = Math.max(Math.abs(endX - startX), Math.abs(endY - startY));
+  for (let step = 0; step <= distance; step += 1) {
+    const t = distance ? step / distance : 0;
+    const x = Math.round(startX + (endX - startX) * t);
+    const y = Math.round(startY + (endY - startY) * t);
+    for (let oy = -width; oy <= width; oy += 1) {
+      for (let ox = -width; ox <= width; ox += 1) {
+        const current = grid[y + oy]?.[x + ox];
+        if (current && (bridge || current !== 'w')) setWorldCell(grid, x + ox, y + oy, 'p');
+      }
+    }
+  }
+}
+
+// Returns a deterministic, large world with several low-frequency biomes. The
+// settlement remains authored, but everything beyond it grows from the village
+// identity so saves get a stable world without shipping a giant map asset.
+export function buildWorldGrid(village = {}) {
+  const seed = seedFromText(`${village.name ?? 'Moonrise Hollow'}:${village.landscape ?? 'heath'}`);
   const grid = [];
   for (let y = 0; y < WORLD_HEIGHT; y += 1) {
     const row = [];
     for (let x = 0; x < WORLD_WIDTH; x += 1) {
       if (x < 1 || y < 1 || x >= WORLD_WIDTH - 1 || y >= WORLD_HEIGHT - 1) row.push('t');
-      else if (y <= 4) row.push('s'); // open sky at the north edge
-      else if (y === 5) row.push('h'); // distant hills band
-      else row.push('g');
+      else if (y <= 4) row.push('s');
+      else if (y === 5) row.push('h');
+      else {
+        const forest = smoothNoise(x + 18, y - 7, 17, seed + 11);
+        const moisture = smoothNoise(x - 23, y + 31, 23, seed + 29);
+        const ridge = smoothNoise(x + 61, y + 9, 11, seed + 47);
+        if (ridge < 0.16) row.push('r');
+        else if (forest > 0.68) row.push('t');
+        else if (moisture > 0.76 && forest < 0.54) row.push('w');
+        else if (moisture > 0.54 || ridge > 0.71) row.push('m');
+        else row.push('g');
+      }
     }
     grid.push(row);
   }
 
-  // Main river on the east with a broad bridge crossing.
-  for (let y = 7; y <= 56; y += 1) {
-    for (let x = 67; x <= 70; x += 1) {
-      if (y === 31 || y === 32) continue;
-      grid[y][x] = 'w';
-    }
-  }
-  for (let x = 67; x <= 70; x += 1) {
-    grid[31][x] = 'p';
-    grid[32][x] = 'p';
-    grid[30][x] = 'p';
-    grid[33][x] = 'p';
+  // Large water bodies and a meandering river provide unmistakable landmarks.
+  carveEllipse(grid, 44, 38, 17, 12);
+  carveEllipse(grid, 198, 39, 20, 14);
+  carveEllipse(grid, 192, 124, 15, 10);
+  for (let y = 7; y < WORLD_HEIGHT - 7; y += 1) {
+    const centre = 176 + Math.round(Math.sin(y / 15) * 6 + Math.sin(y / 31) * 4);
+    for (let x = centre - 2; x <= centre + 2; x += 1) setWorldCell(grid, x, y, 'w');
   }
 
-  // Willowmere, a shallow lake in the north-east, keeps the new regions from
-  // feeling like an empty rectangle while remaining a readable blocked shape.
-  for (let y = 8; y <= 17; y += 1) {
-    for (let x = 77; x <= 89; x += 1) {
-      const edge = (x === 77 || x === 89 || y === 8 || y === 17);
-      const notch = (x === 78 && y === 8) || (x === 88 && y === 17) || (x === 82 && y === 8);
-      if (!notch && (!edge || (x + y) % 3 !== 0)) grid[y][x] = 'w';
-    }
+  // Clear and build the central settlement bowl, keeping the player near the
+  // true world centre while retaining room on every side for exploration.
+  const ox = SETTLEMENT_ORIGIN.x;
+  const oy = SETTLEMENT_ORIGIN.y;
+  for (let y = oy - 4; y <= oy + 53; y += 1) {
+    for (let x = ox - 4; x <= ox + 64; x += 1) setWorldCell(grid, x, y, 'g');
+  }
+  for (let y = oy + 2; y <= oy + 5; y += 1) for (let x = ox + 11; x <= ox + 14; x += 1) setWorldCell(grid, x, y, 'w');
+
+  // Village paths and outward trails. The long corridors deliberately bridge
+  // water crossings so each named destination can be reached on foot.
+  paintCorridor(grid, ox + 5, oy + 11, ox + 66, oy + 11, 1);
+  paintCorridor(grid, ox + 30, oy + 5, ox + 30, oy + 50, 1);
+  paintCorridor(grid, ox + 14, oy + 6, ox + 14, oy + 18, 1);
+  paintCorridor(grid, ox + 5, oy + 16, ox + 24, oy + 16, 1);
+  paintCorridor(grid, ox + 27, oy + 14, ox + 39, oy + 14, 1);
+  paintCorridor(grid, ox + 30, oy + 31, ox + 67, oy + 31, 1, true);
+  paintCorridor(grid, ox + 53, oy + 31, ox + 53, oy + 44, 1);
+  paintCorridor(grid, ox + 12, oy + 44, ox + 61, oy + 44, 1);
+  paintCorridor(grid, ox + 60, oy + 52, ox + 88, oy + 52, 1);
+  const trailStart = { x: ox + 31, y: oy + 15 };
+  for (const landmark of WORLD_LANDMARKS) {
+    paintCorridor(grid, trailStart.x, trailStart.y, landmark.x + Math.floor(landmark.w / 2), landmark.y + Math.floor(landmark.h / 2), 1, true);
   }
 
-  // Central path network.
-  const pathCells = [];
-  for (let x = 5; x <= 66; x += 1) pathCells.push([x, 11]);
-  for (let y = 6; y <= 48; y += 1) pathCells.push([30, y]);
-  for (let y = 6; y <= 18; y += 1) pathCells.push([14, y]);
-  for (let x = 5; x <= 22; x += 1) pathCells.push([x, 16]);
-  for (let x = 27; x <= 39; x += 1) pathCells.push([x, 14]);
-  for (let x = 30; x <= 67; x += 1) pathCells.push([x, 31]);
-  for (let y = 31; y <= 44; y += 1) pathCells.push([53, y]);
-  for (let x = 12; x <= 61; x += 1) pathCells.push([x, 44]);
-  for (let x = 60; x <= 88; x += 1) pathCells.push([x, 52]);
-  for (const [x, y] of pathCells) {
-    if (grid[y] && grid[y][x] && grid[y][x] === 'g') grid[y][x] = 'p';
-  }
-
-  // Home garden + pond (pond sits just below the hills band).
-  for (let y = 9; y <= 11; y += 1) for (let x = 5; x <= 11; x += 1) if (grid[y][x] === 'g') grid[y][x] = 'd';
-  for (let y = 4; y <= 6; y += 1) for (let x = 11; x <= 14; x += 1) grid[y][x] = 'w';
-
-  // Orchard, southern deepwood, west ridge, and the far riverbank provide
-  // blocked silhouettes and varied travel routes across the larger map.
-  for (let y = 7; y <= 14; y += 1) {
-    for (let x = 50; x <= 63; x += 1) {
-      if (grid[y][x] === 'g' && (x * 5 + y * 3) % 4 !== 0) grid[y][x] = 't';
+  // The home garden and far regions use explicit organic silhouettes on top of
+  // the noise field, preventing a lucky seed from erasing the authored anchors.
+  for (let y = oy + 9; y <= oy + 11; y += 1) for (let x = ox + 5; x <= ox + 11; x += 1) setWorldCell(grid, x, y, 'd');
+  for (let y = 0; y < WORLD_HEIGHT; y += 1) {
+    for (let x = 0; x < WORLD_WIDTH; x += 1) {
+      if (grid[y][x] === 'w' && x > ox - 4 && x < ox + 64 && y > oy - 4 && y < oy + 53) grid[y][x] = 'g';
     }
   }
-  for (let y = 47; y <= 61; y += 1) {
-    for (let x = 4; x <= 25; x += 1) {
-      if (grid[y][x] === 'g' && (x * 7 + y * 11) % 5 < 3) grid[y][x] = 't';
-    }
-  }
-  for (let y = 35; y <= 60; y += 1) {
-    for (let x = 77; x <= 93; x += 1) {
-      if (grid[y][x] === 'g' && (x * 3 + y * 5) % 4 !== 1) grid[y][x] = 't';
-    }
-  }
-  for (let y = 22; y <= 30; y += 1) {
-    for (let x = 4; x <= 11; x += 1) {
-      if (grid[y][x] === 'g' && (x + y) % 3 !== 0) grid[y][x] = 't';
-    }
-  }
-
-  // Building footprints block movement.
   for (const b of BUILDINGS) {
     for (let y = b.y; y < b.y + b.h; y += 1) {
       for (let x = b.x; x < b.x + b.w; x += 1) {
@@ -455,5 +531,5 @@ export function buildWorldGrid(village) {
   return grid;
 }
 
-export const WORLD_BLOCKED = new Set(['t', 'w', 'f', 'b', 's', 'h']);
+export const WORLD_BLOCKED = new Set(['t', 'w', 'r', 'f', 'b', 's', 'h']);
 

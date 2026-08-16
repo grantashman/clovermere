@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
 const html = fs.readFileSync(new URL('../game.html', import.meta.url), 'utf8');
+const gameScript = fs.readFileSync(new URL('../src/game.js', import.meta.url), 'utf8');
 
 function elementBody(id) {
   const match = html.match(new RegExp(`<[^>]+id=["']${id}["'][^>]*>[\\s\\S]*?</(?:div|aside|dialog)>`, 'i'));
@@ -30,4 +31,10 @@ test('play controls and web panels are contained by the game window', () => {
   assert.match(gameWindow, /id="minimap-canvas"/, 'the minimap should render to its own canvas');
   assert.match(gameWindow, /id="minimap-close"/, 'the minimap should be closable');
   assert.match(gameWindow, /id="minimap-reopen"/, 'a closed minimap should have a reopen affordance');
+});
+
+test('game starts at half zoom and exposes the complete zoom range', () => {
+  assert.match(gameScript, /const ZOOM_MIN = 0\.5;/);
+  assert.match(gameScript, /const ZOOM_MAX = 2;/);
+  assert.match(gameScript, /const DEFAULT_ZOOM = 0\.5;/);
 });
