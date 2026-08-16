@@ -8,7 +8,7 @@ The first milestone is intentionally small and playable in a browser. It is the 
 
 ## What is here now
 
-- A handcrafted canvas village slice at [`/game`](./game.html): walk, explore, interact, track the day, and generate a local invite code.
+- A handcrafted canvas village slice at [`/game`](./game.html): realtime movement, in-world dialogue, garden/pond/market activities, cooking, meals, weather, a guided first-day path, save-backed day rollover, and a local invite code.
 - A public-facing marketing page at [`/`](./index.html).
 - A Supabase-ready multiplayer schema in [`supabase/migrations/0001_hobbit_moon.sql`](./supabase/migrations/0001_hobbit_moon.sql).
 - A graceful local demo mode when Supabase environment variables are not configured.
@@ -45,7 +45,8 @@ The schema is deliberately limited to profiles, villages, membership, and invite
 - [x] Establish the visual direction and playable movement slice
 - [x] Add local invite-code flow and hosted-schema foundation
 - [ ] Add a real account flow and persistent village saves
-- [ ] Add gardening, inventory, shop, weather, and NPC schedules
+- [x] Add gardening, inventory, shop, weather, NPC schedules, and the first cooking/meal loop
+- [ ] Expand the solo loop with relationships, requests, seasonal content, and deeper interiors
 - [ ] Add invite redemption and multiplayer permissions
 - [ ] Add a desktop shell and downloadable test build
 - [ ] Replace prototype art with an original production asset pack

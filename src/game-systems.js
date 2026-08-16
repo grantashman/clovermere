@@ -11,12 +11,34 @@ export const HAIR_LABELS = { waves: 'Waves', curls: 'Curls', bob: 'Short crop' }
 
 export const INTERACTIONS = [
   { x: 7, y: 8, activity: 'rest', label: 'your smial', message: 'The hearth is banked and the bed is warm. You can rest here when the day has asked enough of you.' },
+  { x: 10, y: 8, activity: 'cook', label: 'hearth', message: 'The hearth is warm enough for a small meal.' },
   { x: 7, y: 12, activity: 'garden', task: 'garden', label: 'garden beds', message: 'The moonberries are taking. You pinch back a leaf and give the soil a careful drink.' },
   { x: 13, y: 7, activity: 'fish', task: 'pond', label: 'moon pond', message: 'A silver fish turns under the water. The whole pond keeps the secret with you.' },
   { x: 24, y: 12, activity: 'market', label: 'market stalls', message: 'Daisy has seed packets laid out beneath the striped awning.' },
   { x: 28, y: 14, task: 'gate', label: 'village gate', message: 'You leave the gate unlatched. A friend should never have to knock twice.' },
   { x: 15, y: 8, task: 'noticeboard', label: 'noticeboard', message: 'The noticeboard has a new note: “Pie tasting at the long table, sunset.”' }
 ];
+
+export const ONBOARDING_OBJECTIVES = [
+  { id: 'garden', label: 'Inspect the garden beds', hint: 'Start close to home: press E at the garden.' },
+  { id: 'outing', label: 'Visit the moon pond or market', hint: 'Choose a little outing: fish at the pond or visit the market.' },
+  { id: 'villager', label: 'Speak with one villager', hint: 'Look for a resident with a gold ring and press E.' },
+  { id: 'rest', label: 'Rest at home', hint: 'Return to your smial and press E when the day is done.' }
+];
+
+export function normalizeOnboarding(source = {}) {
+  return {
+    garden: Boolean(source?.garden),
+    outing: Boolean(source?.outing),
+    villager: Boolean(source?.villager),
+    rest: Boolean(source?.rest)
+  };
+}
+
+export function nextOnboardingObjective(state = {}) {
+  const onboarding = normalizeOnboarding(state.onboarding);
+  return ONBOARDING_OBJECTIVES.find((objective) => !onboarding[objective.id]) ?? null;
+}
 
 export const DEFAULT_HOBBIT = {
   name: 'Merryweather',
@@ -41,7 +63,7 @@ export const DEFAULT_VILLAGE = {
 };
 
 export const DEFAULT_GAME_STATE = {
-  version: 3,
+  version: 4,
   creationComplete: false,
   hobbit: DEFAULT_HOBBIT,
   village: DEFAULT_VILLAGE,
@@ -67,7 +89,7 @@ export function normalizeGameState(input = {}) {
   return {
     ...createDefaultGameState(),
     ...source,
-    version: 3,
+    version: 4,
     creationComplete: Boolean(source.creationComplete),
     hobbit: {
       ...DEFAULT_HOBBIT,
@@ -255,6 +277,23 @@ export const NPCS = [
     schedule: { dawn: { x: 23, y: 16 }, day: { x: 23, y: 16 }, dusk: { x: 24, y: 16 }, night: { x: 22, y: 16 } }
   }
 ];
+
+export const NPC_WEATHER_GREETINGS = {
+  rain: {
+    pim: 'The rain is doing good work for the beans. Bring your coat next time!',
+    wren: 'A soft rain makes the Perch smell wonderfully of warm bread.'
+  },
+  mist: {
+    cedar: 'The mist keeps the pond quiet. Listen and you can hear the fish turn.'
+  },
+  'golden-wind': {
+    daisy: 'The golden wind is carrying petals across the market. Mind your hat!'
+  }
+};
+
+export function npcGreetingFor(npc, weather = 'clear') {
+  return NPC_WEATHER_GREETINGS[weather]?.[npc.id] ?? npc.greet;
+}
 
 // Where an NPC stands at a given clock (snaps to their phase waypoint).
 export function npcPositionAt(npc, clock) {

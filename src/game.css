@@ -169,3 +169,17 @@ body.game-page:has(#play-screen:not([hidden])) .icon-button { color: #d6b76a; bo
 #play-screen:fullscreen .canvas-wrap canvas { width: 100%; height: 100%; object-fit: contain; }
 #play-screen:fullscreen .village-sidebar { overflow: auto; }
 #play-screen:fullscreen .stage-footer { display: none; }
+
+.objective-block { margin: .9rem 0 1rem; padding: .75rem; border: 1px solid rgba(212,173,99,.28); border-left: 3px solid #d4ad63; background: rgba(212,173,99,.08); }
+.objective-heading { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
+.objective-heading .eyebrow { margin: 0; color: #d4b86f; }
+.objective-heading > span:last-child { color: #9dad98; font: .55rem var(--mono); }
+.objective-block strong { display: block; color: #f3e6c4; font: 600 .76rem var(--body); }
+.objective-block p { margin: .35rem 0 0; color: #9eab9d; font-size: .62rem; line-height: 1.5; }
+.inventory-card .eat-button { margin-top: .7rem; color: #e5ca84; background: #26342e; border-color: rgba(212,173,99,.3); }
+.inventory-card .eat-button:hover:not(:disabled) { color: #18211f; background: #d4ad63; }
+.inventory-card .eat-button:disabled { cursor: not-allowed; opacity: .45; }
+#weather-label { color: #b8c785; }
+
+@media (max-width: 1120px) { .colony-readout { justify-content: flex-end; flex-wrap: wrap; } }
+@media (max-width: 720px) { .stage-time { gap: .35rem; font-size: .58rem; } .colony-readout { display: none; } }

@@ -18,6 +18,8 @@ import {
   movePlayer,
   movePlayerRealtime,
   NPCS,
+  nextOnboardingObjective,
+  npcGreetingFor,
   npcMotionAt,
   npcPositionAt,
   normalizeGameState,
@@ -33,7 +35,7 @@ import {
   worldPixelPosition
 } from './game-systems.js';
 import { supabase, supabaseConfigured } from './supabase-client.js';
-import { createDailyState, ITEMS, performActivity } from './daily-loop.js';
+import { createDailyState, ITEMS, performActivity, WEATHER_LABELS } from './daily-loop.js';
 import {
   drawBuildingSprite,
   drawBuildingShadow,
@@ -56,6 +58,8 @@ import {
   drawVignette,
   drawNameplate,
   drawSelectionRing,
+  drawWeatherOverlay,
+  drawWorldLabel,
   GRID_H,
   GRID_W,
   TILE
@@ -422,6 +426,15 @@ function drawWorld(ctx, theme, village, spec, player, cam, time = 0) {
     drawColonyProp(ctx, theme, prop.type, sx, sy, index + prop.x * 7 + prop.y * 13, time);
   }
 
+  const homeLabel = worldToScreen(7, 5);
+  const gardenLabel = worldToScreen(8, 9);
+  const pondLabel = worldToScreen(12, 4);
+  const marketLabel = worldToScreen(24, 13);
+  drawWorldLabel(ctx, 'Your smial', homeLabel.sx + TILE / 2, homeLabel.sy - 10, '#f0d487');
+  drawWorldLabel(ctx, 'Garden beds', gardenLabel.sx + TILE / 2, gardenLabel.sy - 8, '#b8c785');
+  drawWorldLabel(ctx, 'Moon pond', pondLabel.sx + TILE / 2, pondLabel.sy - 8, '#b9d9d0');
+  drawWorldLabel(ctx, 'Market', marketLabel.sx + TILE / 2, marketLabel.sy - 8, '#e2b96e');
+
   // trees in the viewport (with their own shadows inside)
   for (let wy = camY; wy < camY + VIEW_H; wy += 1) {
     for (let wx = camX; wx < camX + VIEW_W; wx += 1) {
@@ -472,6 +485,7 @@ function drawWorld(ctx, theme, village, spec, player, cam, time = 0) {
     ctx.fillRect(0, 0, GRID_W, GRID_H);
     ctx.globalAlpha = 1;
   }
+  drawWeatherOverlay(ctx, state.weather, time);
 }
 
 function drawTileDetail(ctx, sx, sy, wx, wy, theme, tile) {
@@ -586,17 +600,17 @@ function drawInteractionPrompt() {
   const baseY = (cy / GRID_H) * canvas.height;
   const scaleX = canvas.width / GRID_W;
   const scaleY = canvas.height / GRID_H;
-  context.font = `${Math.round(13 * scaleX)}px "DM Mono", monospace`;
-  const textWidth = context.measureText(label).width + 22 * scaleX;
+  context.font = `${Math.round(8 * scaleX)}px "DM Mono", monospace`;
+  const textWidth = context.measureText(label).width + 16 * scaleX;
   const px = baseX - textWidth / 2;
-  const py = baseY - 30 * scaleY;
+  const py = baseY - 25 * scaleY;
   context.fillStyle = 'rgba(36, 54, 47, .28)';
-  context.fillRect(px + 3, py + 3, textWidth, 22 * scaleY);
+  context.fillRect(px + 3, py + 3, textWidth, 18 * scaleY);
   context.fillStyle = '#24362f';
-  context.fillRect(px, py, textWidth, 22 * scaleY);
+  context.fillRect(px, py, textWidth, 18 * scaleY);
   context.fillStyle = '#f8e7c4';
   context.textAlign = 'center';
-  context.fillText(label, baseX, py + 15 * scaleY);
+  context.fillText(label, baseX, py + 12 * scaleY);
 }
 
 function drawDialogueOverlay() {
@@ -672,12 +686,17 @@ function updateHud() {
   const landscapeLabel = LANDSCAPE_LABELS[state.village.landscape];
   document.querySelector('#stage-kicker').textContent = `${state.village.name} · ${landscapeLabel}`;
   document.querySelector('#clock-label').textContent = formatClock(state.clock);
-  document.querySelector('#day-label').textContent = `Day ${state.day} · Late Summer`;
+  document.querySelector('#day-label').textContent = `Day ${state.day} · ${state.season}`;
   document.querySelector('#colony-population').textContent = String(NPCS.length + 1);
   document.querySelector('#colony-phase').textContent = timeOfDay(state.clock);
   document.querySelector('#colony-save').textContent = supabaseConfigured ? 'HOSTED' : 'LOCAL';
   document.querySelector('#energy-label').textContent = `${Math.floor(state.energy)} / ${state.maxEnergy}`;
   document.querySelector('#coin-label').textContent = String(state.coins);
+  const weatherLabel = WEATHER_LABELS[state.weather] ?? 'Clear';
+  const weatherNode = document.querySelector('#weather-label');
+  if (weatherNode) weatherNode.textContent = weatherLabel;
+  const weatherDot = document.querySelector('#weather-dot');
+  if (weatherDot) weatherDot.setAttribute('aria-label', `${weatherLabel} weather`);
   document.querySelector('#hobbit-label').textContent = state.hobbit.name;
   document.querySelector('#hobbit-detail').textContent = `${HAIR_LABELS[state.hobbit.hair]} · ${state.village.name}`;
   document.querySelector('#village-label').textContent = state.village.name;
@@ -692,14 +711,28 @@ function updateHud() {
     node.classList.toggle('is-complete', done);
     node.querySelector('.task-check').textContent = done ? '✓' : '○';
   });
+  const objective = nextOnboardingObjective(state);
+  const objectiveLabel = document.querySelector('#objective-label');
+  const objectiveHint = document.querySelector('#objective-hint');
+  const objectiveCount = document.querySelector('#objective-count');
+  const onboardingCount = Object.values(state.onboarding ?? {}).filter(Boolean).length;
+  if (objectiveLabel) objectiveLabel.textContent = objective ? objective.label : 'First-day path complete';
+  if (objectiveHint) objectiveHint.textContent = objective ? objective.hint : 'The village is yours to shape. Choose what feels good today.';
+  if (objectiveCount) objectiveCount.textContent = `${onboardingCount} / 4`;
   const inventoryNode = document.querySelector('#inventory-list');
   if (inventoryNode) {
     const items = Object.entries(state.inventory).filter(([itemId, quantity]) => quantity > 0 && ITEMS[itemId]);
     inventoryNode.innerHTML = items.length ? items.map(([itemId, quantity]) => `<li><span>${escapeHtml(ITEMS[itemId].name)}</span><b>${quantity}</b></li>`).join('') : '<li class="empty"><span>Nothing tucked away yet</span><b>—</b></li>';
   }
+  const mealQuantity = Number(state.inventory.pondside_stew ?? 0);
+  const eatButton = document.querySelector('#eat-button');
+  if (eatButton) {
+    eatButton.disabled = mealQuantity < 1;
+    eatButton.textContent = mealQuantity > 0 ? `Eat stew · +28 energy (${mealQuantity})` : 'No stew ready yet';
+  }
   const gardenStatus = state.garden.ready ? 'Ready to harvest' : state.garden.planted ? (state.garden.watered ? 'Growing · watered' : 'Needs water') : 'Empty bed';
   document.querySelector('#garden-status').textContent = gardenStatus;
-  document.querySelector('#activity-status').textContent = state.garden.ready ? 'The moonberries are ready. Return to the garden and press E.' : 'Walk to a place of work and press E.';
+  document.querySelector('#activity-status').textContent = state.garden.ready ? 'The moonberries are ready. Return to the garden and press E.' : objective?.hint ?? 'Choose a place to work and press E.';
   document.querySelector('#village-log').innerHTML = state.notes.map((note) => `<li>${escapeHtml(note)}</li>`).join('');
   if (avatarContext && bufferCtx) {
     beginLogicalBuffer();
@@ -716,6 +749,29 @@ function updateHud() {
 function addNote(message) {
   state.notes = [message, ...state.notes].slice(0, 6);
   updateHud();
+}
+
+function markOnboardingStep(step) {
+  if (!state.onboarding || state.onboarding[step]) return;
+  state.onboarding = { ...state.onboarding, [step]: true };
+  updateHud();
+}
+
+function performMealActivity(activityId, speaker = 'Satchel') {
+  const result = performActivity(state, activityId);
+  if (!result.ok) {
+    showToast(result.message);
+    return openDialogue(speaker, result.message);
+  }
+  state = normalizeGameState({ ...state, ...result.state });
+  addNote(result.message);
+  persistPlayerMotion();
+  saveState();
+  openDialogue(speaker, result.message);
+}
+
+function eatMeal() {
+  performMealActivity('eat');
 }
 
 function move(delta) {
@@ -755,6 +811,9 @@ function performPointActivity(point) {
     return openDialogue(point.label, result.message);
   }
   state = normalizeGameState({ ...state, ...result.state });
+  if (point.activity === 'garden') markOnboardingStep('garden');
+  if (point.activity === 'fish' || point.activity === 'market') markOnboardingStep('outing');
+  if (point.activity === 'rest') markOnboardingStep('rest');
   if (point.task) state.tasks[point.task] = true;
   addNote(result.message);
   persistPlayerMotion();
@@ -767,10 +826,12 @@ function interact() {
   const npc = nearbyNpc();
   if (npc) {
     state.clock = advanceClock(state.clock, 5);
-    addNote(`${npc.name} says, “${npc.greet}”`);
+    const greeting = npcGreetingFor(npc, state.weather);
+    markOnboardingStep('villager');
+    addNote(`${npc.name} says, “${greeting}”`);
     persistPlayerMotion();
     saveState();
-    return openDialogue(npc.name, npc.greet);
+    return openDialogue(npc.name, greeting);
   }
   const point = getInteraction(playerMotion, INTERACTIONS);
   if (!point) return showToast('Nothing here but the evening breeze.');
@@ -784,7 +845,7 @@ function interact() {
 }
 
 function resetDay() {
-  state = normalizeGameState({ ...state, ...createDailyState(), player: { x: 14, y: 11 }, clock: 495, day: 3, tasks: { garden: false, pond: false, gate: false, noticeboard: false }, notes: DEFAULT_NOTES });
+  state = normalizeGameState({ ...state, ...createDailyState({ day: 3, landscape: state.village.landscape }), player: { x: 14, y: 11 }, clock: 495, day: 3, tasks: { garden: false, pond: false, gate: false, noticeboard: false }, notes: DEFAULT_NOTES });
   syncPlayerMotion();
   dialogue = null;
   updateHud();
@@ -886,6 +947,7 @@ document.querySelectorAll('[data-group]').forEach((group) => group.addEventListe
 document.querySelector('#edit-hobbit-button').addEventListener('click', () => openCreator(1, true));
 document.querySelector('#edit-village-button').addEventListener('click', () => openCreator(2, true));
 document.querySelector('#invite-button').addEventListener('click', makeInvite);
+document.querySelector('#eat-button')?.addEventListener('click', eatMeal);
 document.querySelector('#copy-code').addEventListener('click', copyInvite);
 document.querySelector('#sign-in-button').addEventListener('click', sendMagicLink);
 document.querySelector('#fullscreen-button')?.addEventListener('click', toggleFullscreen);

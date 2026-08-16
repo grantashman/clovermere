@@ -16,6 +16,8 @@ import {
   drawVignette,
   drawNameplate,
   drawSelectionRing,
+  drawWeatherOverlay,
+  drawWorldLabel,
   waterShimmer,
   getPaletteColor,
   GRID_H,
@@ -200,6 +202,14 @@ test('rich facade, pond bank, and colony prop helpers paint layered scene detail
   const fills = ops.filter(([name]) => name === 'fillRect');
   assert.ok(fills.some(([, , , w, h]) => w >= 60 && h >= 40), 'pond should mask its rectangular source tiles');
   assert.ok(ops.some(([name]) => name === 'quadraticCurveTo'), 'pond bank should have an irregular silhouette');
+});
+
+test('weather overlays and world labels paint atmospheric guidance without errors', () => {
+  const { context, ops } = makeContext();
+  for (const weather of ['clear', 'mist', 'rain', 'golden-wind']) drawWeatherOverlay(context, weather, 1200);
+  drawWorldLabel(context, 'Garden beds', 40, 60, '#f0d487');
+  assert.ok(ops.some(([name]) => name === 'stroke'), 'rain should draw streaks');
+  assert.ok(ops.some(([name]) => name === 'fillText'), 'world labels should be readable');
 });
 
 test('buildWorldGrid reserves a sky/hill horizon at the north edge', () => {

@@ -11,7 +11,11 @@ import {
   advanceClock,
   movePlayerRealtime,
   npcMotionAt,
-  wrapDialogueText
+  NPCS,
+  wrapDialogueText,
+  nextOnboardingObjective,
+  normalizeOnboarding,
+  npcGreetingFor
 } from '../src/game-systems.js';
 
 const map = [
@@ -55,12 +59,30 @@ test('normalizeGameState preserves custom choices while filling new defaults', (
 
 test('normalizeGameState migrates older saves into the daily loop without overwriting explicit resources', () => {
   const migrated = normalizeGameState({ version: 2, inventory: {}, energy: 42, coins: 5, garden: { planted: true, watered: false, ready: false } });
-  assert.equal(migrated.version, 3);
+  assert.equal(migrated.version, 4);
   assert.equal(migrated.energy, 42);
   assert.equal(migrated.coins, 5);
   assert.deepEqual(migrated.inventory, {});
   assert.deepEqual(migrated.garden, { planted: true, watered: false, ready: false });
   assert.equal(normalizeGameState({ version: 2 }).inventory.seed_packet, 1);
+  assert.equal(migrated.season, 'Late Summer');
+  assert.ok(['clear', 'mist', 'rain', 'golden-wind'].includes(migrated.weather));
+  assert.deepEqual(migrated.onboarding, { garden: false, outing: false, villager: false, rest: false });
+});
+
+test('onboarding objective order guides a new player through the first day', () => {
+  const state = createDefaultGameState();
+  assert.equal(nextOnboardingObjective(state).id, 'garden');
+  const progressed = { ...state, onboarding: normalizeOnboarding({ garden: true }) };
+  assert.equal(nextOnboardingObjective(progressed).id, 'outing');
+  assert.equal(nextOnboardingObjective({ ...progressed, onboarding: { garden: true, outing: true, villager: true, rest: true } }), null);
+});
+
+test('weather-aware greetings retain the authored greeting and add a readable response', () => {
+  const pim = NPCS.find((npc) => npc.id === 'pim');
+  assert.equal(npcGreetingFor(pim, 'clear'), pim.greet);
+  assert.notEqual(npcGreetingFor(pim, 'rain'), pim.greet);
+  assert.match(npcGreetingFor(pim, 'rain'), /rain/i);
 });
 
 test('isCreationComplete requires both a hobbit and village name', () => {

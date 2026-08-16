@@ -7,7 +7,10 @@ import {
   createDailyState,
   inventoryQuantity,
   performActivity,
-  removeItem
+  removeItem,
+  RECIPES,
+  seasonForDay,
+  weatherForDay
 } from '../src/daily-loop.js';
 
 function state(overrides = {}) {
@@ -19,6 +22,8 @@ function state(overrides = {}) {
     coins: 12,
     inventory: { seed_packet: 1 },
     garden: { planted: false, watered: false, ready: false },
+    day: 3,
+    village: { landscape: 'heath' },
     ...overrides
   };
 }
@@ -29,8 +34,19 @@ test('daily state starts with energy, coins, one seed, and an empty garden', () 
     maxEnergy: 100,
     coins: 12,
     inventory: { seed_packet: 1 },
-    garden: { planted: false, watered: false, ready: false }
+    garden: { planted: false, watered: false, ready: false },
+    season: 'Late Summer',
+    weather: 'clear',
+    weatherSeed: 93,
+    onboarding: { garden: false, outing: false, villager: false, rest: false }
   });
+});
+
+test('weather and season are deterministic for a day and landscape', () => {
+  assert.equal(seasonForDay(3), 'Late Summer');
+  assert.deepEqual(weatherForDay(8, 'river'), weatherForDay(8, 'river'));
+  assert.notEqual(weatherForDay(8, 'river').weather, weatherForDay(9, 'river').weather);
+  assert.ok(['clear', 'mist', 'rain', 'golden-wind'].includes(weatherForDay(8, 'river').weather));
 });
 
 test('inventory stacks items and refuses removal beyond the held quantity', () => {
@@ -63,6 +79,8 @@ test('watering a planted crop once per day is idempotent and harvest follows day
   assert.equal(nextDay.clock, 360);
   assert.equal(nextDay.energy, 100);
   assert.deepEqual(nextDay.garden, { planted: true, watered: false, ready: true });
+  assert.equal(nextDay.season, seasonForDay(4));
+  assert.equal(nextDay.weather, weatherForDay(4, 'heath').weather);
 
   const harvest = performActivity(nextDay, 'garden');
   assert.equal(harvest.ok, true);
@@ -108,4 +126,30 @@ test('rest activity advances the day and restores energy through the shared acti
   assert.equal(result.state.energy, 100);
   assert.deepEqual(result.state.garden, { planted: true, watered: false, ready: true });
   assert.equal(ACTIVITY_DEFINITIONS.rest.minutes, 0);
+});
+
+test('cook turns a berry and fish into one pondside stew', () => {
+  const result = performActivity(state({ energy: 60, inventory: { moonberry: 1, silver_fish: 1 } }), 'cook');
+  assert.equal(result.ok, true);
+  assert.equal(result.state.energy, 56);
+  assert.equal(result.state.clock, 710);
+  assert.deepEqual(result.state.inventory, { pondside_stew: 1 });
+  assert.equal(RECIPES.pondside_stew.result, 'pondside_stew');
+});
+
+test('cook fails without ingredients and does not spend energy or time', () => {
+  const result = performActivity(state({ inventory: { moonberry: 1 } }), 'cook');
+  assert.equal(result.ok, false);
+  assert.equal(result.state.energy, 100);
+  assert.equal(result.state.clock, 680);
+  assert.deepEqual(result.state.inventory, { moonberry: 1 });
+  assert.match(result.message, /fish/i);
+});
+
+test('eat consumes one stew and caps restored energy at max energy', () => {
+  const result = performActivity(state({ energy: 82, inventory: { pondside_stew: 1 } }), 'eat');
+  assert.equal(result.ok, true);
+  assert.equal(result.state.energy, 100);
+  assert.equal(result.state.clock, 685);
+  assert.deepEqual(result.state.inventory, {});
 });

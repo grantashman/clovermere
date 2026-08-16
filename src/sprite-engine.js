@@ -203,6 +203,60 @@ export function drawNameplate(ctx, label, cx, topY, active = false) {
   ctx.restore();
 }
 
+export function drawWorldLabel(ctx, label, cx, topY, accent = '#f0d487') {
+  ctx.save();
+  ctx.font = '6px "DM Mono", monospace';
+  ctx.textAlign = 'center';
+  const width = Math.max(34, ctx.measureText(label).width + 8);
+  ctx.fillStyle = 'rgba(24, 33, 31, .84)';
+  ctx.fillRect(cx - width / 2 + 2, topY + 2, width, 10);
+  ctx.fillStyle = '#18211f';
+  ctx.fillRect(cx - width / 2, topY, width, 10);
+  ctx.fillStyle = accent;
+  ctx.fillText(label, cx, topY + 7);
+  ctx.restore();
+}
+
+export function drawWeatherOverlay(ctx, weather = 'clear', time = 0) {
+  if (!weather || weather === 'clear') return;
+  ctx.save();
+  if (weather === 'mist') {
+    ctx.globalAlpha = 0.14;
+    ctx.fillStyle = '#e6ead6';
+    ctx.fillRect(0, 42, GRID_W, GRID_H - 42);
+    ctx.globalAlpha = 0.08;
+    for (let band = 0; band < 4; band += 1) {
+      ctx.fillRect(-20 + ((time / 18 + band * 75) % (GRID_W + 40)), 74 + band * 34, 88, 6);
+    }
+  } else if (weather === 'rain') {
+    ctx.globalAlpha = 0.12;
+    ctx.fillStyle = '#6b99a7';
+    ctx.fillRect(0, 0, GRID_W, GRID_H);
+    ctx.globalAlpha = 0.5;
+    ctx.strokeStyle = '#b9d9d0';
+    ctx.lineWidth = 1;
+    for (let index = 0; index < 28; index += 1) {
+      const x = (index * 37 + Math.floor(time / 18)) % (GRID_W + 18) - 9;
+      const y = (index * 19) % GRID_H;
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineTo(x - 3, y + 8);
+      ctx.stroke();
+    }
+  } else if (weather === 'golden-wind') {
+    ctx.globalAlpha = 0.22;
+    ctx.fillStyle = '#e2b96e';
+    ctx.fillRect(0, 0, GRID_W, 20);
+    ctx.globalAlpha = 0.9;
+    for (let index = 0; index < 16; index += 1) {
+      const x = (index * 47 + Math.floor(time / 22)) % (GRID_W + 20) - 10;
+      const y = 48 + ((index * 23) % 180);
+      drawPixels(ctx, [[x, y, 3, 2, index % 2 ? '#f1d49a' : '#c99a57']]);
+    }
+  }
+  ctx.restore();
+}
+
 // subtle darkening at the edges for depth
 export function drawVignette(ctx) {
   const grad = ctx.createRadialGradient(GRID_W / 2, GRID_H / 2, GRID_H * 0.35, GRID_W / 2, GRID_H / 2, GRID_H * 0.85);
