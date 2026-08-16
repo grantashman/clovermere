@@ -1,5 +1,5 @@
 extends CanvasLayer
-class_name HobbitMoonUi
+class_name ClovermereUi
 
 signal new_journey_requested
 signal continue_requested
@@ -22,6 +22,7 @@ const PARCHMENT_DARK := Color("#bda875")
 const BRASS := Color("#f0d487")
 const MUTED := Color("#b8c785")
 const INK := Color("#1d2b24")
+
 
 var root: Control
 var loading_screen: Control
@@ -94,13 +95,8 @@ func _build_loading_screen() -> Control:
     column.alignment = BoxContainer.ALIGNMENT_CENTER
     column.add_theme_constant_override("separation", 12)
     centre.add_child(column)
-    var mark := Label.new()
-    mark.text = "✦"
-    mark.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-    mark.add_theme_font_size_override("font_size", 30)
-    mark.add_theme_color_override("font_color", BRASS)
-    column.add_child(mark)
-    var title := _title_label("MOONRISE HOLLOW", 30)
+    column.add_child(_logo(68))
+    var title := _title_label("CLOVERMERE", 30)
     column.add_child(title)
     var subtitle := _body_label("A quiet life, shared.", 16, MUTED)
     subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -137,11 +133,12 @@ func _build_welcome_screen() -> Control:
     column.add_theme_constant_override("margin_bottom", 34)
     panel.add_child(column)
 
-    var eyebrow := _body_label("FIELD NOTES  /  A NATIVE SLICE", 11, MUTED)
+    column.add_child(_logo(86))
+    var eyebrow := _body_label("FIELD NOTES  /  A DESKTOP SLICE", 11, MUTED)
     eyebrow.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
     column.add_child(eyebrow)
-    column.add_child(_title_label("MOONRISE\nHOLLOW", 36))
-    var strap := _body_label("A village of small paths, warm windows,\nand ordinary days worth remembering.", 16, PARCHMENT)
+    column.add_child(_title_label("CLOVERMERE", 36))
+    var strap := _body_label("A green country of old paths, warm windows,\nand ordinary days worth remembering.", 16, PARCHMENT)
     strap.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
     column.add_child(strap)
     column.add_child(_rule())
@@ -392,6 +389,16 @@ func _title_label(text: String, size: int) -> Label:
     label.add_theme_color_override("font_color", BRASS)
     label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
     return label
+
+func _logo(size: int) -> TextureRect:
+    var logo := TextureRect.new()
+    logo.texture = load("res://assets/clovermere-mark.svg")
+    logo.custom_minimum_size = Vector2(size, size)
+    logo.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+    logo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+    logo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+    logo.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    return logo
 
 func _body_label(text: String, size: int, color: Color) -> Label:
     var label := Label.new()

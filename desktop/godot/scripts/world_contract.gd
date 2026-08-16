@@ -1,5 +1,5 @@
 extends RefCounted
-class_name HobbitMoonWorld
+class_name ClovermereWorld
 
 const WORLD_WIDTH := 240
 const WORLD_HEIGHT := 160
@@ -12,10 +12,19 @@ const BLOCKED_TILES := {"t": true, "w": true, "r": true, "f": true, "b": true, "
 
 const BUILDINGS := [
     {"id": "greenbriar-cottage", "name": "Greenbriar Cottage", "x": SETTLEMENT_ORIGIN.x + 4, "y": SETTLEMENT_ORIGIN.y + 5, "w": 8, "h": 6, "kind": "cottage", "wall": "#c89468", "roof": "#465647"},
-    {"id": "moonrise-hall", "name": "Moonrise Hall", "x": SETTLEMENT_ORIGIN.x + 24, "y": SETTLEMENT_ORIGIN.y + 4, "w": 8, "h": 6, "kind": "hall", "wall": "#d0a16f", "roof": "#53654e"},
+    {"id": "clovermere-hall", "name": "Clovermere Hall", "x": SETTLEMENT_ORIGIN.x + 24, "y": SETTLEMENT_ORIGIN.y + 4, "w": 8, "h": 6, "kind": "hall", "wall": "#d0a16f", "roof": "#53654e"},
     {"id": "tinker-workshop", "name": "Tinker Workshop", "x": SETTLEMENT_ORIGIN.x + 39, "y": SETTLEMENT_ORIGIN.y + 7, "w": 9, "h": 7, "kind": "workshop", "wall": "#b9865c", "roof": "#3f5148"},
     {"id": "herbalists-garden", "name": "Herbalist's Garden", "x": SETTLEMENT_ORIGIN.x + 17, "y": SETTLEMENT_ORIGIN.y + 24, "w": 10, "h": 7, "kind": "garden", "wall": "#c99468", "roof": "#596a51"},
     {"id": "old-barn", "name": "Old Barn", "x": SETTLEMENT_ORIGIN.x + 45, "y": SETTLEMENT_ORIGIN.y + 26, "w": 9, "h": 7, "kind": "barn", "wall": "#ad7452", "roof": "#4a5148"}
+]
+
+const NPCS := [
+    {"id": "alda-fen", "name": "Alda Fen", "role": "herbalist", "x": SETTLEMENT_ORIGIN.x + 13, "y": SETTLEMENT_ORIGIN.y + 13, "skin": "#d6a27a", "hair": "#563d32", "coat": "#7d8f5b", "accent": "#d6b36d"},
+    {"id": "orin-reed", "name": "Orin Reed", "role": "waykeeper", "x": SETTLEMENT_ORIGIN.x + 34, "y": SETTLEMENT_ORIGIN.y + 12, "skin": "#bd875e", "hair": "#362f2b", "coat": "#526b78", "accent": "#c47c55"},
+    {"id": "maeve-thorn", "name": "Maeve Thorn", "role": "gardener", "x": SETTLEMENT_ORIGIN.x + 13, "y": SETTLEMENT_ORIGIN.y + 23, "skin": "#e0b084", "hair": "#8a5b39", "coat": "#9b6b5a", "accent": "#d6c477"},
+    {"id": "tobin-wren", "name": "Tobin Wren", "role": "maker", "x": SETTLEMENT_ORIGIN.x + 36, "y": SETTLEMENT_ORIGIN.y + 23, "skin": "#c99168", "hair": "#4a3630", "coat": "#6b8159", "accent": "#c78256"},
+    {"id": "pella-moor", "name": "Pella Moor", "role": "courier", "x": SETTLEMENT_ORIGIN.x + 43, "y": SETTLEMENT_ORIGIN.y + 18, "skin": "#d7a47d", "hair": "#6c493b", "coat": "#7d607d", "accent": "#e0be77"},
+    {"id": "bram-ash", "name": "Bram Ash", "role": "keeper", "x": SETTLEMENT_ORIGIN.x + 28, "y": SETTLEMENT_ORIGIN.y + 39, "skin": "#bb805b", "hair": "#302e2c", "coat": "#80664c", "accent": "#b9a267"}
 ]
 
 const LANDMARKS := [
@@ -53,16 +62,16 @@ func smooth_noise(x: int, y: int, scale: int, seed: int) -> float:
     return lerp(lerp(a, b, eased_x), lerp(c, d, eased_x), eased_y)
 
 func path_routes(village: Dictionary = {}) -> Array:
-    var seed := seed_from_text("%s:%s" % [village.get("name", "Moonrise Hollow"), village.get("landscape", "heath")])
+    var seed := seed_from_text("%s:%s" % [village.get("name", "Clovermere"), village.get("landscape", "heath")])
     var ox := SETTLEMENT_ORIGIN.x
     var oy := SETTLEMENT_ORIGIN.y
     var routes: Array = [
-        {"start": Vector2(ox + 5, oy + 11), "end": Vector2(ox + 67, oy + 11), "width": 1.0, "bend": 2.5, "bridge": false},
-        {"start": Vector2(ox + 30, oy + 5), "end": Vector2(ox + 30, oy + 50), "width": 1.0, "bend": -2.5, "bridge": false},
-        {"start": Vector2(ox + 14, oy + 6), "end": Vector2(ox + 14, oy + 18), "width": 1.0, "bend": 1.5, "bridge": false},
-        {"start": Vector2(ox + 5, oy + 16), "end": Vector2(ox + 24, oy + 16), "width": 1.0, "bend": -1.5, "bridge": false},
-        {"start": Vector2(ox + 30, oy + 31), "end": Vector2(ox + 67, oy + 31), "width": 1.0, "bend": -3.0, "bridge": true},
-        {"start": Vector2(ox + 12, oy + 44), "end": Vector2(ox + 61, oy + 44), "width": 1.0, "bend": -2.5, "bridge": false}
+        {"start": Vector2(ox + 5, oy + 11), "end": Vector2(ox + 67, oy + 11), "width": 1.0, "bend": 0.0, "bridge": false},
+        {"start": Vector2(ox + 30, oy + 5), "end": Vector2(ox + 30, oy + 50), "width": 1.0, "bend": 0.0, "bridge": false},
+        {"start": Vector2(ox + 14, oy + 6), "end": Vector2(ox + 14, oy + 18), "width": 1.0, "bend": 0.0, "bridge": false},
+        {"start": Vector2(ox + 5, oy + 16), "end": Vector2(ox + 24, oy + 16), "width": 1.0, "bend": 0.0, "bridge": false},
+        {"start": Vector2(ox + 30, oy + 31), "end": Vector2(ox + 67, oy + 31), "width": 1.0, "bend": 0.0, "bridge": true},
+        {"start": Vector2(ox + 12, oy + 44), "end": Vector2(ox + 61, oy + 44), "width": 1.0, "bend": 0.0, "bridge": false}
     ]
     var trail_starts := [
         Vector2(ox + 12, oy + 16),
@@ -74,12 +83,14 @@ func path_routes(village: Dictionary = {}) -> Array:
         var landmark: Dictionary = LANDMARKS[index]
         var target := Vector2(float(landmark.x), float(landmark.y))
         var start: Vector2 = trail_starts[index]
-        var bend := float(round((hash2d(landmark.x, landmark.y, seed + 73) - 0.5) * 28.0))
-        routes.append({"start": start, "end": target, "width": 1.0, "bend": bend, "bridge": true})
+        routes.append({"start": start, "end": target, "width": 1.0, "bend": 0.0, "bridge": true})
     return routes
 
 func buildings() -> Array:
     return BUILDINGS.duplicate(true)
+
+func npcs() -> Array:
+    return NPCS.duplicate(true)
 
 func building_at(tile: Vector2i) -> Dictionary:
     for building in BUILDINGS:
@@ -95,33 +106,32 @@ func _set_cell(grid: Array, x: int, y: int, tile: String) -> void:
     if x > 0 and y > 5 and x < WORLD_WIDTH - 1 and y < WORLD_HEIGHT - 1 and _inside(grid, x, y):
         grid[y][x] = tile
 
-func _paint_corridor(grid: Array, start: Vector2, finish: Vector2, width: float, bend: float, bridge: bool) -> void:
-    var distance := start.distance_to(finish)
-    var samples := maxi(1, ceili(distance * 4.0))
-    var direction := (finish - start).normalized()
-    var normal := Vector2(-direction.y, direction.x)
-    var radius := maxf(0.55, width * 0.58)
-    var previous := Vector2i(-999, -999)
-    for step in samples + 1:
-        var t := float(step) / float(samples)
-        var point := start.lerp(finish, t) + normal * bend * sin(t * PI)
-        var centre := Vector2i(roundi(point.x), roundi(point.y))
-        for offset_y in range(-ceili(radius), ceili(radius) + 1):
-            for offset_x in range(-ceili(radius), ceili(radius) + 1):
-                if Vector2(offset_x, offset_y).length() <= radius + 0.2:
-                    var x := centre.x + offset_x
-                    var y := centre.y + offset_y
-                    if _inside(grid, x, y) and (bridge or grid[y][x] != "w"):
-                        _set_cell(grid, x, y, "p")
-        if previous.x > -900 and (centre.x != previous.x or centre.y != previous.y):
-            if _inside(grid, centre.x, previous.y):
-                _set_cell(grid, centre.x, previous.y, "p")
-            if _inside(grid, previous.x, centre.y):
-                _set_cell(grid, previous.x, centre.y, "p")
-        previous = centre
+func _paint_corridor(grid: Array, start: Vector2, finish: Vector2, width: float, _bend: float, bridge: bool) -> void:
+    var origin := Vector2i(roundi(start.x), roundi(start.y))
+    var target := Vector2i(roundi(finish.x), roundi(finish.y))
+    var pivot := Vector2i(target.x, origin.y)
+    var cells: Array[Vector2i] = []
+    var current := origin
+    cells.append(current)
+    while current.x != pivot.x:
+        current.x += 1 if pivot.x > current.x else -1
+        cells.append(current)
+    while current.y != target.y:
+        current.y += 1 if target.y > current.y else -1
+        cells.append(current)
+    var radius := 0 if width <= 1.0 else ceili(width * 0.5)
+    for centre in cells:
+        for offset_y in range(-radius, radius + 1):
+            for offset_x in range(-radius, radius + 1):
+                if maxi(abs(offset_x), abs(offset_y)) > radius:
+                    continue
+                var x := centre.x + offset_x
+                var y := centre.y + offset_y
+                if _inside(grid, x, y) and (bridge or grid[y][x] != "w"):
+                    _set_cell(grid, x, y, "p")
 
 func build_grid(village: Dictionary = {}) -> Array:
-    var seed := seed_from_text("%s:%s" % [village.get("name", "Moonrise Hollow"), village.get("landscape", "heath")])
+    var seed := seed_from_text("%s:%s" % [village.get("name", "Clovermere"), village.get("landscape", "heath")])
     var grid: Array = []
     for y in WORLD_HEIGHT:
         var row: Array = []

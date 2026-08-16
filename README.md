@@ -1,16 +1,16 @@
-# Hobbit Moon
+# Clovermere
 
 > A quiet life, shared.
 
-Hobbit Moon is now a **desktop-first Godot game**. The native client under [`desktop/godot`](./desktop/godot) is the sole supported release path and the canonical product target.
+Clovermere is an **original desktop-first Godot game**. The native client under [`desktop/godot`](./desktop/godot) is the sole supported release path and the canonical product target. The repository slug remains `hobbit-moon` for history and continuity; the product identity is Clovermere.
 
 ## Desktop release
 
-The current Windows test build is published on [GitHub Releases](https://github.com/grantashman/hobbit-moon/releases). Download the latest `windows-x86_64.zip`, extract it, and run `HobbitMoon.exe`. Windows SmartScreen may show an unsigned-app warning while this remains an early test build.
+The current Windows test build is published on [GitHub Releases](https://github.com/grantashman/hobbit-moon/releases). Download the latest `windows-x86_64.zip`, extract it, and run `Clovermere.exe`. Windows SmartScreen may show an unsigned-app warning while this remains an early test build.
 
 The native client currently includes:
 
-- Deterministic 240×160 explorable world with varied terrain, organic life, landmarks, roads, and authored settlement buildings.
+- Deterministic 240×160 explorable world with varied terrain, organic life, landmarks, pixel-grid roads, six residents, and authored settlement buildings.
 - Collision-safe keyboard movement and mouse click-to-move pathfinding.
 - Contextual building interaction, target markers, camera tracking, and 50%–200% zoom.
 - Field-notes loading and welcome screens before gameplay.
@@ -46,7 +46,7 @@ godot --path desktop/godot
 
 Every push to `main` runs the desktop verification workflow. Tags matching `native-v*` build and publish the self-contained Windows release with embedded project data; no external `.pck` file is required.
 
-The former browser prototype has been **retired as a release target**. GitHub Pages, Vercel configuration, browser CI, and browser deployment have been removed. The browser implementation remains in the repository temporarily as migration/reference material and is not built, tested, or published by the supported workflows.
+The former browser prototype has been **retired as a release target**. GitHub Pages, Vercel configuration, browser CI, and browser deployment have been removed. The browser implementation remains in the repository temporarily as migration/reference material and is not built, tested, or published by the supported workflows. The root `index.html` is now a static desktop marketing/notice surface, not a playable web client.
 
 ## Product direction
 

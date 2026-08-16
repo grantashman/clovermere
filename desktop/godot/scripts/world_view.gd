@@ -51,7 +51,7 @@ func configure(_world, _grid: Array, _village: Dictionary, _camera: Camera2D) ->
     grid = _grid
     village = _village
     camera = _camera
-    world_seed = world.seed_from_text("%s:%s" % [village.get("name", "Moonrise Hollow"), village.get("landscape", "heath")])
+    world_seed = world.seed_from_text("%s:%s" % [village.get("name", "Clovermere"), village.get("landscape", "heath")])
     routes = world.path_routes(village)
     queue_redraw()
 
@@ -76,9 +76,10 @@ func _draw() -> void:
     for y in range(min_y, max_y + 1):
         for x in range(min_x, max_x + 1):
             _draw_tile(x, y, str(grid[y][x]))
-    _draw_smooth_paths()
+    _draw_pixel_paths(bounds)
     _draw_structures(bounds)
     _draw_landmarks(bounds)
+    _draw_npcs(bounds)
 
 func _draw_tile(x: int, y: int, tile: String) -> void:
     var origin := Vector2(float(x) * TILE, float(y) * TILE)
@@ -155,38 +156,45 @@ func _draw_canopy(origin: Vector2, grain: float) -> void:
     else:
         draw_rect(Rect2(origin + Vector2(10, 4), Vector2(3, 2)), COLORS.tree_light, true)
 
-func _route_points(route: Dictionary) -> PackedVector2Array:
-    var points := PackedVector2Array()
-    var start: Vector2 = route.start * TILE
-    var finish: Vector2 = route.end * TILE
-    var direction := (finish - start).normalized()
-    var normal := Vector2(-direction.y, direction.x)
-    var bend := float(route.bend) * TILE
-    var samples := maxi(12, ceili(start.distance_to(finish) / TILE * 2.0))
-    for step in samples + 1:
-        var t := float(step) / float(samples)
-        points.append(start.lerp(finish, t) + normal * bend * sin(t * PI))
-    return points
+func _is_path_tile(x: int, y: int) -> bool:
+    if y < 0 or y >= grid.size() or x < 0 or x >= grid[y].size():
+        return false
+    var tile := str(grid[y][x])
+    return tile == "p" or tile == "d"
 
-func _draw_smooth_paths() -> void:
-    for index in routes.size():
-        var route: Dictionary = routes[index]
-        var points := _route_points(route)
-        var width := float(route.get("width", 1.0))
-        var shoulder_width := 11.5 * width
-        var road_width := 7.6 * width
-        draw_polyline(points, COLORS.grass_dark, shoulder_width + 3.0, false)
-        draw_polyline(points, COLORS.path_edge, shoulder_width, false)
-        draw_polyline(points, COLORS.path, road_width, false)
-        draw_polyline(points, COLORS.path_light.darkened(0.04), 1.25, false)
-        draw_circle(points[0], road_width * 0.5, COLORS.path, true, -1.0, false)
-        draw_circle(points[points.size() - 1], road_width * 0.5, COLORS.path, true, -1.0, false)
-        for step in range(3, points.size() - 2, 10):
-            var mark := points[step]
-            if (index + step) % 3 == 0:
-                draw_rect(Rect2(mark + Vector2(-2, -1), Vector2(3, 1)), COLORS.path_light, true)
-            elif (index + step) % 5 == 0:
-                draw_rect(Rect2(mark + Vector2(1, 1), Vector2(2, 1)), COLORS.path_edge, true)
+func _draw_pixel_paths(bounds: Rect2) -> void:
+    var min_x := maxi(0, floori(bounds.position.x / TILE) - 1)
+    var min_y := maxi(0, floori(bounds.position.y / TILE) - 1)
+    var max_x := mini(world.WORLD_WIDTH - 1, ceili(bounds.end.x / TILE) + 1)
+    var max_y := mini(world.WORLD_HEIGHT - 1, ceili(bounds.end.y / TILE) + 1)
+    for y in range(min_y, max_y + 1):
+        for x in range(min_x, max_x + 1):
+            if not _is_path_tile(x, y):
+                continue
+            var origin := Vector2(float(x) * TILE, float(y) * TILE)
+            var tile := str(grid[y][x])
+            var base := COLORS.soil if tile == "d" else COLORS.path
+            var horizontal := _is_path_tile(x - 1, y) or _is_path_tile(x + 1, y)
+            var vertical := _is_path_tile(x, y - 1) or _is_path_tile(x, y + 1)
+            var dark_rect := Rect2(origin + Vector2(4, 4), Vector2(8, 8))
+            var road_rect := Rect2(origin + Vector2(5, 5), Vector2(6, 6))
+            if horizontal and not vertical:
+                dark_rect = Rect2(origin + Vector2(0, 4), Vector2(TILE, 8))
+                road_rect = Rect2(origin + Vector2(0, 5), Vector2(TILE, 6))
+            elif vertical and not horizontal:
+                dark_rect = Rect2(origin + Vector2(4, 0), Vector2(8, TILE))
+                road_rect = Rect2(origin + Vector2(5, 0), Vector2(6, TILE))
+            draw_rect(dark_rect, COLORS.path_edge, true)
+            draw_rect(road_rect, base, true)
+            if tile == "d":
+                draw_rect(Rect2(road_rect.position + Vector2(2, 2), Vector2(maxf(2.0, road_rect.size.x - 4.0), 1)), COLORS.path_light.darkened(0.28), true)
+            else:
+                var grain: float = world.hash2d(x, y, world_seed + 901)
+                if horizontal and int(floori(grain * 10.0)) % 3 == 0:
+                    draw_rect(Rect2(origin + Vector2(4, 7), Vector2(3, 1)), COLORS.path_light, true)
+                elif vertical and int(floori(grain * 10.0)) % 3 == 0:
+                    draw_rect(Rect2(origin + Vector2(7, 4), Vector2(1, 3)), COLORS.path_light, true)
+
 
 func _draw_structures(bounds: Rect2) -> void:
     for building in world.buildings():
@@ -245,17 +253,47 @@ func _draw_building(rect: Rect2, building: Dictionary) -> void:
     draw_rect(Rect2(rect.end.x - 20, rect.position.y + 7, 6, 13), COLORS.stone_light, true)
     draw_rect(Rect2(rect.end.x - 23, rect.position.y + 6, 12, 3), COLORS.stone_dark, true)
 
-    if kind == "garden":
-        draw_rect(Rect2(rect.position + Vector2(3, rect.size.y - 12), Vector2(22, 7)), COLORS.soil, true)
+    if kind == "cottage":
+        draw_rect(Rect2(rect.position + Vector2(4, rect.size.y - 13), Vector2(22, 8)), COLORS.wood_dark, true)
+        draw_rect(Rect2(rect.position + Vector2(6, rect.size.y - 12), Vector2(18, 5)), COLORS.wood_light, true)
+        draw_rect(Rect2(rect.position + Vector2(4, rect.size.y - 4), Vector2(7, 3)), COLORS.flower, true)
+        draw_rect(Rect2(rect.position + Vector2(rect.size.x - 13, rect.size.y - 4), Vector2(7, 3)), COLORS.flower, true)
+    elif kind == "hall":
+        draw_colored_polygon(PackedVector2Array([
+            Vector2(rect.position.x + rect.size.x * 0.5, rect.position.y - 5),
+            Vector2(rect.position.x + rect.size.x * 0.5 + 18, rect.position.y + 15),
+            Vector2(rect.position.x + rect.size.x * 0.5 - 18, rect.position.y + 15)
+        ]), roof_color.darkened(0.22))
+        draw_rect(Rect2(rect.position + Vector2(rect.size.x * 0.5 - 2, 5), Vector2(4, 11)), COLORS.roof_light, true)
+        draw_rect(Rect2(rect.position + Vector2(6, rect.size.y - 11), Vector2(4, 8)), COLORS.wood_dark, true)
+        draw_rect(Rect2(rect.end - Vector2(10, 11), Vector2(4, 8)), COLORS.wood_dark, true)
+        draw_rect(Rect2(rect.position + Vector2(rect.size.x * 0.5 - 2, rect.size.y - 18), Vector2(4, 5)), COLORS.window_warm, true)
+    elif kind == "garden":
+        draw_rect(Rect2(rect.position + Vector2(2, rect.size.y - 13), Vector2(27, 9)), COLORS.soil, true)
+        for row in [0.0, 4.0, 8.0]:
+            draw_rect(Rect2(rect.position + Vector2(4, rect.size.y - 12 + row), Vector2(22, 1)), COLORS.path_light.darkened(0.24), true)
         for flower_x in [6.0, 14.0, 22.0]:
-            draw_line(rect.position + Vector2(flower_x, rect.size.y - 7), rect.position + Vector2(flower_x, rect.size.y - 14), COLORS.grass_dark, 1.0, false)
-            draw_circle(rect.position + Vector2(flower_x, rect.size.y - 15), 2.0, COLORS.flower, true, -1.0, false)
+            draw_line(rect.position + Vector2(flower_x, rect.size.y - 5), rect.position + Vector2(flower_x, rect.size.y - 15), COLORS.grass_dark, 1.0, false)
+            draw_rect(Rect2(rect.position + Vector2(flower_x - 2, rect.size.y - 17), Vector2(4, 3)), COLORS.flower, true)
+        draw_rect(Rect2(rect.end - Vector2(15, 20), Vector2(11, 3)), COLORS.wood_dark, true)
+        draw_rect(Rect2(rect.end - Vector2(14, 28), Vector2(2, 11)), COLORS.wood_dark, true)
+        draw_rect(Rect2(rect.end - Vector2(5, 28), Vector2(2, 11)), COLORS.wood_dark, true)
+        draw_line(rect.end - Vector2(14, 25), rect.end - Vector2(5, 18), COLORS.grass_light, 1.0, false)
     elif kind == "workshop":
-        draw_rect(Rect2(rect.position + Vector2(5, rect.size.y - 12), Vector2(15, 7)), COLORS.wood_dark, true)
-        draw_rect(Rect2(rect.position + Vector2(7, rect.size.y - 11), Vector2(11, 2)), COLORS.wood_light, true)
+        draw_rect(Rect2(rect.position + Vector2(4, rect.size.y - 14), Vector2(26, 9)), COLORS.wood_dark, true)
+        draw_rect(Rect2(rect.position + Vector2(6, rect.size.y - 12), Vector2(22, 4)), COLORS.wood_light, true)
+        draw_rect(Rect2(rect.position + Vector2(8, rect.size.y - 8), Vector2(6, 3)), COLORS.stone_light, true)
+        draw_rect(Rect2(rect.end - Vector2(14, 13), Vector2(8, 8)), COLORS.wood_dark, true)
+        draw_rect(Rect2(rect.end - Vector2(12, 11), Vector2(4, 4)), COLORS.rock_light, true)
+        draw_line(rect.position + Vector2(rect.size.x - 7, 12), rect.position + Vector2(rect.size.x + 3, 3), COLORS.wood_light, 2.0, false)
     elif kind == "barn":
-        draw_line(rect.position + Vector2(8, 23), rect.position + Vector2(rect.size.x - 8, 23), COLORS.wood_dark, 2.0, false)
-        draw_line(rect.position + Vector2(8, 34), rect.position + Vector2(rect.size.x - 8, 34), COLORS.wood_dark, 2.0, false)
+        draw_rect(Rect2(rect.position + Vector2(5, 24), Vector2(rect.size.x - 10, rect.size.y - 27)), COLORS.wall_shadow, true)
+        draw_rect(Rect2(rect.position + Vector2(rect.size.x * 0.5 - 12, 28), Vector2(24, rect.size.y - 31)), COLORS.wood_dark, true)
+        draw_rect(Rect2(rect.position + Vector2(rect.size.x * 0.5 - 10, 30), Vector2(9, rect.size.y - 35)), COLORS.wood_light, true)
+        draw_rect(Rect2(rect.position + Vector2(rect.size.x * 0.5 + 1, 30), Vector2(9, rect.size.y - 35)), COLORS.wall, true)
+        draw_line(rect.position + Vector2(rect.size.x * 0.5, 30), rect.position + Vector2(rect.size.x * 0.5, rect.size.y - 4), COLORS.wood_dark, 2.0, false)
+        draw_rect(Rect2(rect.position + Vector2(rect.size.x * 0.5 - 5, 16), Vector2(10, 7)), COLORS.window_warm, true)
+        draw_rect(Rect2(rect.position + Vector2(rect.size.x * 0.5 - 1, 16), Vector2(2, 7)), COLORS.wood_dark, true)
 
 func _draw_window(position: Vector2, warm: bool) -> void:
     draw_rect(Rect2(position - Vector2(2, 2), Vector2(14, 14)), COLORS.wood_dark, true)
@@ -304,3 +342,39 @@ func _draw_landmarks(bounds: Rect2) -> void:
             draw_colored_polygon(PackedVector2Array([
                 centre + Vector2(2, -33), centre + Vector2(25, -25), centre + Vector2(2, -16)
             ]), COLORS.path_light)
+
+func _draw_npcs(bounds: Rect2) -> void:
+    for npc in world.npcs():
+        var feet := Vector2((float(npc.x) + 0.5) * TILE, (float(npc.y) + 0.9) * TILE)
+        if not bounds.grow(48.0).has_point(feet):
+            continue
+        _draw_npc(feet, npc)
+
+func _draw_npc(feet: Vector2, npc: Dictionary) -> void:
+    var skin := Color(str(npc.get("skin", "#d6a27a")))
+    var hair := Color(str(npc.get("hair", "#4a3630")))
+    var coat := Color(str(npc.get("coat", "#6b8159")))
+    var accent := Color(str(npc.get("accent", "#d6b36d")))
+    draw_rect(Rect2(feet + Vector2(-7, 5), Vector2(14, 4)), Color("#20342b"), true)
+    draw_rect(Rect2(feet + Vector2(-5, -14), Vector2(10, 16)), Color("#26362d"), true)
+    draw_rect(Rect2(feet + Vector2(-5, -13), Vector2(10, 12)), coat, true)
+    draw_rect(Rect2(feet + Vector2(2, -12), Vector2(3, 10)), coat.darkened(0.26), true)
+    draw_rect(Rect2(feet + Vector2(-7, -10), Vector2(2, 7)), coat.lightened(0.08), true)
+    draw_rect(Rect2(feet + Vector2(5, -10), Vector2(2, 7)), coat.darkened(0.1), true)
+    draw_rect(Rect2(feet + Vector2(-4, 2), Vector2(3, 4)), Color("#4a3b34"), true)
+    draw_rect(Rect2(feet + Vector2(1, 2), Vector2(3, 4)), Color("#4a3b34"), true)
+    draw_circle(feet + Vector2(0, -18), 6.0, Color("#2a332b"), true, -1.0, false)
+    draw_circle(feet + Vector2(0, -18), 5.0, skin, true, -1.0, false)
+    draw_rect(Rect2(feet + Vector2(-6, -23), Vector2(12, 3)), hair, true)
+    draw_rect(Rect2(feet + Vector2(-5, -25), Vector2(10, 3)), hair, true)
+    draw_rect(Rect2(feet + Vector2(-3, -19), Vector2(2, 2)), Color("#2c2923"), true)
+    draw_rect(Rect2(feet + Vector2(2, -19), Vector2(2, 2)), Color("#2c2923"), true)
+    draw_rect(Rect2(feet + Vector2(-3, -3), Vector2(6, 2)), accent, true)
+    if str(npc.get("role", "")) == "waykeeper":
+        draw_rect(Rect2(feet + Vector2(8, -17), Vector2(2, 20)), COLORS.wood, true)
+        draw_rect(Rect2(feet + Vector2(8, -19), Vector2(6, 4)), accent, true)
+    elif str(npc.get("role", "")) == "herbalist":
+        draw_rect(Rect2(feet + Vector2(-11, -9), Vector2(4, 5)), COLORS.grass_light, true)
+        draw_rect(Rect2(feet + Vector2(-10, -11), Vector2(2, 3)), accent, true)
+    elif str(npc.get("role", "")) == "maker":
+        draw_rect(Rect2(feet + Vector2(7, -8), Vector2(5, 5)), COLORS.wood_light, true)

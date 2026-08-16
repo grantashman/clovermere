@@ -6,9 +6,10 @@ const PlayerAvatar = preload("res://scripts/player_avatar.gd")
 const TargetMarker = preload("res://scripts/target_marker.gd")
 const UiShell = preload("res://scripts/ui_shell.gd")
 
+
 const SAVE_PATH := "user://hobbit-moon-village-v2.json"
 const SETTINGS_PATH := "user://hobbit-moon-settings.cfg"
-const DEFAULT_VILLAGE := {"name": "Moonrise Hollow", "landscape": "heath"}
+const DEFAULT_VILLAGE := {"name": "Clovermere", "landscape": "heath"}
 const ZOOM_MIN := 0.5
 const ZOOM_MAX := 2.0
 const ZOOM_STEP := 0.1
@@ -288,7 +289,7 @@ func _start_new_journey() -> void:
     game_started = true
     _set_gameplay_hud_visible(true)
     ui.hide_overlay()
-    ui.notify("A new day begins in Moonrise Hollow.")
+    ui.notify("A new day begins in Clovermere.")
     _refresh_player_transform()
 
 func _continue_journey() -> void:
@@ -426,12 +427,17 @@ func _build_hud() -> void:
     add_child(layer)
     var panel := ColorRect.new()
     panel.position = Vector2(20, 20)
-    panel.size = Vector2(340, 88)
+    panel.size = Vector2(392, 96)
     panel.color = Color(0.035, 0.08, 0.07, 0.94)
     panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
     layer.add_child(panel)
-    title_label = _label(layer, Vector2(38, 31), Vector2(290, 28), 22, Color("#f0d487"))
-    subtitle_label = _label(layer, Vector2(39, 61), Vector2(290, 18), 12, Color("#b8c785"))
+    var logo := Sprite2D.new()
+    logo.texture = load("res://assets/clovermere-mark.svg")
+    logo.position = Vector2(53, 51)
+    logo.scale = Vector2(0.33, 0.33)
+    layer.add_child(logo)
+    title_label = _label(layer, Vector2(82, 30), Vector2(300, 28), 22, Color("#f0d487"))
+    subtitle_label = _label(layer, Vector2(83, 61), Vector2(300, 18), 12, Color("#b8c785"))
     debug_label = _label(layer, Vector2(39, 98), Vector2(350, 45), 11, Color("#d9e1c1"))
     debug_label.visible = debug_visible
     interaction_panel = ColorRect.new()
@@ -455,7 +461,7 @@ func _build_hud() -> void:
     layer.add_child(loading_overlay)
     var loading_label := _label(loading_overlay, Vector2(0, 326), Vector2(1280, 40), 22, Color("#f0d487"))
     loading_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-    loading_label.text = "Composing Moonrise Hollow…"
+    loading_label.text = "Composing Clovermere…"
 
 func _label(parent: Node, position: Vector2, size: Vector2, font_size: int, color: Color) -> Label:
     var label := Label.new()
@@ -470,8 +476,8 @@ func _label(parent: Node, position: Vector2, size: Vector2, font_size: int, colo
 func _refresh_hud() -> void:
     if title_label == null:
         return
-    title_label.text = str(village.get("name", "Moonrise Hollow"))
-    subtitle_label.text = "NATIVE FIELD SLICE  ·  GODOT 4.7.1  ·  %d%%" % roundi(camera_zoom * 100.0)
+    title_label.text = str(village.get("name", "Clovermere"))
+    subtitle_label.text = "CLOVERMERE  ·  %d%%  ·  %d FOLK" % [roundi(camera_zoom * 100.0), world.npcs().size()]
     var tile := Vector2i(floori(player_position.x), floori(player_position.y))
     var tile_name := world.tile_at(grid, tile)
     debug_label.text = "POS  %6.2f, %6.2f   TILE  %s\nFPS  %3d       F  toggle metrics" % [player_position.x, player_position.y, tile_name, Engine.get_frames_per_second()]

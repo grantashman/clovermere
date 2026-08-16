@@ -10,7 +10,7 @@ func require(condition: bool, message: String) -> void:
 
 func _init() -> void:
     var world = World.new()
-    var village := {"name": "Moonrise Hollow", "landscape": "heath"}
+    var village := {"name": "Clovermere", "landscape": "heath"}
     var first: Array = world.build_grid(village)
     var second: Array = world.build_grid(village)
 
@@ -36,8 +36,9 @@ func _init() -> void:
 
     var routes: Array = world.path_routes(village)
     require(routes.size() >= 10, "settlement should expose authored local and destination routes")
-    require(routes.any(func(route): return abs(float(route.bend)) > 0.0), "routes should include organic bends")
+    require(routes.all(func(route): return is_zero_approx(float(route.bend))), "desktop routes should stay on the authored pixel grid")
     require(world.buildings().size() == 5, "settlement should expose five authored buildings")
+    require(world.npcs().size() >= 6, "settlement should expose a visible resident roster")
     var path_to_lane: Array = world.find_path(first, World.START_TILE, Vector2i(World.SETTLEMENT_ORIGIN.x + 62, World.SETTLEMENT_ORIGIN.y + 11))
     require(not path_to_lane.is_empty(), "walkable settlement lanes should be pathfindable")
     require(world.building_at(Vector2i(World.SETTLEMENT_ORIGIN.x + 5, World.SETTLEMENT_ORIGIN.y + 6)).get("id", "") == "greenbriar-cottage", "building hit testing should identify authored structures")
