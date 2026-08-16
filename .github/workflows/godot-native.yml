@@ -35,6 +35,8 @@ jobs:
         run: godot --headless --path desktop/godot --quit-after 3
       - name: Verify mouse movement and building interaction
         run: godot --headless --path desktop/godot --script res://tests/mouse_input_smoke.gd
+      - name: Verify resource interaction and persistence
+        run: godot --headless --path desktop/godot --script res://tests/resource_interaction_smoke.gd
       - name: Verify welcome, options, and save/load flow
         run: godot --headless --path desktop/godot --script res://tests/ui_flow_smoke.gd
       - name: Measure steady-state native renderer

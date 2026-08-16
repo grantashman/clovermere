@@ -10,7 +10,8 @@ The current Windows test build is published on [GitHub Releases](https://github.
 
 The native client currently includes:
 
-- Deterministic 240×160 explorable world with varied terrain, organic life, landmarks, pixel-grid roads, six residents, and authored settlement buildings.
+- Deterministic 240×160 explorable world with varied terrain, material-edge shading, organic life, landmarks, pixel-grid roads, six residents, and authored settlement buildings.
+- Interactive timber, stone, ore, and herb nodes with persistent cut/mined/gathered world states and warm world-space lantern/player lighting.
 - Collision-safe keyboard movement and mouse click-to-move pathfinding.
 - Contextual building interaction, target markers, camera tracking, and 50%–200% zoom.
 - Field-notes loading and welcome screens before gameplay.

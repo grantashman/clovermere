@@ -6,6 +6,7 @@ var village: Dictionary = {}
 var camera: Camera2D
 var world_seed := 0
 var routes: Array = []
+var world_changes: Dictionary = {}
 const TILE := 16.0
 
 const COLORS := {
@@ -46,11 +47,12 @@ const COLORS := {
     "hill": Color("#6c9369")
 }
 
-func configure(_world, _grid: Array, _village: Dictionary, _camera: Camera2D) -> void:
+func configure(_world, _grid: Array, _village: Dictionary, _camera: Camera2D, _changes: Dictionary = {}) -> void:
     world = _world
     grid = _grid
     village = _village
     camera = _camera
+    world_changes = _changes.duplicate(true)
     world_seed = world.seed_from_text("%s:%s" % [village.get("name", "Clovermere"), village.get("landscape", "heath")])
     routes = world.path_routes(village)
     queue_redraw()
@@ -79,6 +81,7 @@ func _draw() -> void:
     _draw_pixel_paths(bounds)
     _draw_structures(bounds)
     _draw_landmarks(bounds)
+    _draw_resources(bounds)
     _draw_npcs(bounds)
 
 func _draw_tile(x: int, y: int, tile: String) -> void:
@@ -133,6 +136,26 @@ func _draw_tile(x: int, y: int, tile: String) -> void:
         draw_rect(Rect2(origin + Vector2(1, 2), Vector2(14, 12)), COLORS.wall.darkened(0.2), true)
     else:
         draw_rect(rect, COLORS.grass, true)
+    _draw_material_edges(x, y, tile, origin)
+
+func _draw_material_edges(x: int, y: int, tile: String, origin: Vector2) -> void:
+    if tile in ["s", "h", "b", "p", "d"]:
+        return
+    var right: String = world.tile_at(grid, Vector2i(x + 1, y))
+    var below: String = world.tile_at(grid, Vector2i(x, y + 1))
+    if tile == "w":
+        if right != "w":
+            draw_rect(Rect2(origin + Vector2(14, 0), Vector2(2, TILE)), COLORS.water_dark, true)
+        if below != "w":
+            draw_rect(Rect2(origin + Vector2(0, 14), Vector2(TILE, 2)), COLORS.water_dark, true)
+    elif tile == "g" and right in ["m", "r", "w"]:
+        draw_rect(Rect2(origin + Vector2(14, 2), Vector2(2, 12)), COLORS.grass_dark, true)
+    elif tile == "g" and below in ["m", "r", "w"]:
+        draw_rect(Rect2(origin + Vector2(2, 14), Vector2(12, 2)), COLORS.grass_dark, true)
+    elif tile == "m" and right == "g":
+        draw_rect(Rect2(origin + Vector2(14, 1), Vector2(2, 14)), COLORS.moss_light.darkened(0.28), true)
+    elif tile == "r" and below == "g":
+        draw_rect(Rect2(origin + Vector2(2, 14), Vector2(12, 2)), COLORS.rock_dark, true)
 
 func _draw_grass_marks(origin: Vector2, grain: float) -> void:
     var variant := int(floori(grain * 100.0)) % 4
@@ -147,6 +170,7 @@ func _draw_grass_marks(origin: Vector2, grain: float) -> void:
 func _draw_canopy(origin: Vector2, grain: float) -> void:
     var variant := int(floori(grain * 100.0)) % 4
     var centre := origin + Vector2(8, 7)
+    draw_rect(Rect2(origin + Vector2(1, 13), Vector2(14, 3)), Color("#20372f"), true)
     draw_rect(Rect2(origin + Vector2(6, 9), Vector2(4, 7)), COLORS.wood, true)
     draw_circle(centre + Vector2(-3 + variant, 1), 6.5, COLORS.tree_dark, true, -1.0, false)
     draw_circle(centre + Vector2(3, -2 + variant % 2), 5.5, COLORS.tree, true, -1.0, false)
@@ -342,6 +366,55 @@ func _draw_landmarks(bounds: Rect2) -> void:
             draw_colored_polygon(PackedVector2Array([
                 centre + Vector2(2, -33), centre + Vector2(25, -25), centre + Vector2(2, -16)
             ]), COLORS.path_light)
+
+func _draw_resources(bounds: Rect2) -> void:
+    for resource in world.resources():
+        var centre := Vector2((float(resource.x) + 0.5) * TILE, (float(resource.y) + 0.5) * TILE)
+        if not bounds.grow(48.0).has_point(centre):
+            continue
+        var cleared := bool(world_changes.get(str(resource.id), false))
+        _draw_resource(centre, str(resource.get("kind", "")), cleared)
+
+func _draw_resource(centre: Vector2, kind: String, cleared: bool) -> void:
+    draw_rect(Rect2(centre + Vector2(-9, 7), Vector2(18, 4)), Color("#26372e"), true)
+    if cleared:
+        if kind == "tree":
+            draw_rect(Rect2(centre + Vector2(-4, -3), Vector2(8, 9)), COLORS.wood_dark, true)
+            draw_rect(Rect2(centre + Vector2(-3, -5), Vector2(6, 3)), COLORS.wood_light, true)
+            draw_rect(Rect2(centre + Vector2(6, 2), Vector2(5, 3)), COLORS.grass_light, true)
+        elif kind in ["stone", "ore"]:
+            draw_rect(Rect2(centre + Vector2(-6, -2), Vector2(12, 7)), COLORS.rock_dark, true)
+            draw_rect(Rect2(centre + Vector2(-4, -4), Vector2(8, 4)), COLORS.rock, true)
+            draw_rect(Rect2(centre + Vector2(-2, -3), Vector2(3, 1)), COLORS.rock_light, true)
+        else:
+            draw_rect(Rect2(centre + Vector2(-7, 1), Vector2(14, 3)), COLORS.grass_dark, true)
+            draw_rect(Rect2(centre + Vector2(-4, -4), Vector2(2, 5)), COLORS.grass_light, true)
+        return
+    if kind == "tree":
+        draw_rect(Rect2(centre + Vector2(-3, -5), Vector2(6, 15)), COLORS.wood, true)
+        draw_circle(centre + Vector2(-5, -6), 9.0, COLORS.tree_dark, true, -1.0, false)
+        draw_circle(centre + Vector2(5, -8), 10.0, COLORS.tree, true, -1.0, false)
+        draw_circle(centre + Vector2(0, -15), 7.0, COLORS.tree_light, true, -1.0, false)
+        draw_rect(Rect2(centre + Vector2(-7, -10), Vector2(4, 2)), COLORS.moss_light, true)
+    elif kind == "stone":
+        draw_colored_polygon(PackedVector2Array([
+            centre + Vector2(-9, 5), centre + Vector2(-6, -5), centre + Vector2(1, -9), centre + Vector2(9, -3), centre + Vector2(7, 6)
+        ]), COLORS.rock_dark)
+        draw_colored_polygon(PackedVector2Array([
+            centre + Vector2(-5, 1), centre + Vector2(-3, -4), centre + Vector2(2, -6), centre + Vector2(5, -2), centre + Vector2(3, 2)
+        ]), COLORS.rock)
+        draw_rect(Rect2(centre + Vector2(-2, -5), Vector2(4, 2)), COLORS.rock_light, true)
+    elif kind == "ore":
+        draw_colored_polygon(PackedVector2Array([
+            centre + Vector2(-9, 6), centre + Vector2(-6, -4), centre + Vector2(0, -8), centre + Vector2(8, -2), centre + Vector2(6, 7)
+        ]), COLORS.rock_dark)
+        draw_rect(Rect2(centre + Vector2(-3, -4), Vector2(3, 3)), Color("#9bb6a0"), true)
+        draw_rect(Rect2(centre + Vector2(2, 0), Vector2(3, 3)), Color("#6f9c8b"), true)
+        draw_rect(Rect2(centre + Vector2(-1, 4), Vector2(2, 2)), Color("#bdd5ad"), true)
+    elif kind == "herb":
+        for offset in [-5.0, 0.0, 5.0]:
+            draw_line(centre + Vector2(offset, 5), centre + Vector2(offset - 1, -5), COLORS.grass_light, 1.0, false)
+            draw_rect(Rect2(centre + Vector2(offset - 3, -7), Vector2(4, 3)), COLORS.flower, true)
 
 func _draw_npcs(bounds: Rect2) -> void:
     for npc in world.npcs():

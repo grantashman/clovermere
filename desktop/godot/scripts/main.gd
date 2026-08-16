@@ -5,6 +5,7 @@ const WorldView = preload("res://scripts/world_view.gd")
 const PlayerAvatar = preload("res://scripts/player_avatar.gd")
 const TargetMarker = preload("res://scripts/target_marker.gd")
 const UiShell = preload("res://scripts/ui_shell.gd")
+const LightingOverlay = preload("res://scripts/lighting_overlay.gd")
 
 
 const SAVE_PATH := "user://hobbit-moon-village-v2.json"
@@ -18,6 +19,7 @@ var world = World.new()
 var world_cache: SubViewport
 var world_sprite: Sprite2D
 var world_view: Node2D
+var lighting_overlay: Node2D
 var player: Node2D
 var target_marker: Node2D
 var camera: Camera2D
@@ -37,6 +39,8 @@ var interaction_label: Label
 var gameplay_hud: CanvasLayer
 var movement_path: Array = []
 var pending_building: Dictionary = {}
+var pending_resource: Dictionary = {}
+var world_changes: Dictionary = {}
 var interaction_message := ""
 var interaction_timeout := 0.0
 var ui: CanvasLayer
@@ -51,7 +55,7 @@ var settings: Dictionary = {
 func _ready() -> void:
     _load_settings()
     _apply_window_mode(bool(settings.get("fullscreen", true)))
-    grid = world.build_grid(village)
+    grid = world.build_grid(village, world_changes)
     _build_world_cache()
     camera = Camera2D.new()
     camera.position_smoothing_enabled = false
@@ -111,7 +115,7 @@ func _build_world_cache() -> void:
 
     world_view = WorldView.new()
     world_cache.add_child(world_view)
-    world_view.configure(world, grid, village, null)
+    world_view.configure(world, grid, village, null, world_changes)
 
     world_sprite = Sprite2D.new()
     world_sprite.name = "StaticWorldTexture"
@@ -121,12 +125,20 @@ func _build_world_cache() -> void:
     world_sprite.z_index = -10
     add_child(world_sprite)
 
+    lighting_overlay = LightingOverlay.new()
+    lighting_overlay.name = "WorldLighting"
+    lighting_overlay.z_index = 5
+    add_child(lighting_overlay)
+    lighting_overlay.configure(world)
+
     target_marker = TargetMarker.new()
     target_marker.z_index = 8
     target_marker.visible = false
     add_child(target_marker)
 
 func _process(delta: float) -> void:
+    if lighting_overlay != null:
+        lighting_overlay.set_player_position(player.position if player != null else Vector2.ZERO, game_started)
     if not game_started:
         _refresh_hud()
         return
@@ -144,7 +156,9 @@ func _process(delta: float) -> void:
             player_position = destination
             next_position = player_position
             movement_path.pop_front()
-            if movement_path.is_empty() and not pending_building.is_empty():
+            if movement_path.is_empty() and not pending_resource.is_empty():
+                _complete_resource_interaction()
+            elif movement_path.is_empty() and not pending_building.is_empty():
                 _complete_building_interaction()
         else:
             next_position = world.move_player(player_position, player_position.direction_to(destination), delta, grid, 5.0)
@@ -184,6 +198,8 @@ func _unhandled_input(event: InputEvent) -> void:
         elif event.keycode == KEY_ENTER and not game_started and ui != null and ui.current_page == "welcome":
             if _has_save():
                 _continue_journey()
+        elif event.keycode == KEY_E and game_started:
+            _handle_resource_action()
     elif event is InputEventMouseButton and event.pressed:
         if not game_started:
             return
@@ -202,15 +218,24 @@ func _handle_world_click(world_position: Vector2) -> void:
     if not building.is_empty():
         _queue_building_interaction(building)
         return
+    var resource := world.resource_at(tile)
+    if not resource.is_empty() and not bool(world_changes.get(str(resource.id), false)):
+        _queue_resource_interaction(resource)
+        return
     var goal := world.nearest_walkable(grid, tile, 10)
     _queue_path_to(goal, {})
 
 func _handle_context_click(world_position: Vector2) -> void:
     var tile := Vector2i(floori(world_position.x / World.TILE_SIZE), floori(world_position.y / World.TILE_SIZE))
     var building := world.building_at(tile)
+    var resource := world.resource_at(tile)
+    if not resource.is_empty() and not bool(world_changes.get(str(resource.id), false)):
+        _queue_resource_interaction(resource)
+        return
     if building.is_empty():
         movement_path.clear()
         pending_building = {}
+        pending_resource = {}
         target_marker.clear_target()
         interaction_message = "Target cleared"
         interaction_timeout = 1.5
@@ -231,9 +256,20 @@ func _queue_building_interaction(building: Dictionary) -> void:
         interaction_timeout = 2.0
         return
     pending_building = building
-    _queue_path_to(candidates[0], building)
+    _queue_path_to(candidates[0], building, {})
 
-func _queue_path_to(goal: Vector2i, building: Dictionary) -> void:
+func _queue_resource_interaction(resource: Dictionary) -> void:
+    var origin := Vector2i(int(resource.x), int(resource.y))
+    var candidates := [origin + Vector2i(0, 1), origin + Vector2i(0, -1), origin + Vector2i(-1, 0), origin + Vector2i(1, 0)]
+    candidates = candidates.filter(func(candidate: Vector2i): return world.is_walkable(grid, candidate))
+    candidates.sort_custom(func(a: Vector2i, b: Vector2i): return player_position.distance_squared_to(Vector2(a) + Vector2(0.5, 0.5)) < player_position.distance_squared_to(Vector2(b) + Vector2(0.5, 0.5)))
+    if candidates.is_empty():
+        interaction_message = "No clear approach to %s" % str(resource.get("name", "that resource"))
+        interaction_timeout = 2.0
+        return
+    _queue_path_to(candidates[0], {}, resource)
+
+func _queue_path_to(goal: Vector2i, building: Dictionary, resource: Dictionary = {}) -> void:
     var start := Vector2i(floori(player_position.x), floori(player_position.y))
     var route: Array = world.find_path(grid, start, goal)
     if route.is_empty() and start != goal:
@@ -242,14 +278,19 @@ func _queue_path_to(goal: Vector2i, building: Dictionary) -> void:
         return
     movement_path = route
     pending_building = building
+    pending_resource = resource
     target_marker.set_target((Vector2(goal) + Vector2(0.5, 0.5)) * World.TILE_SIZE)
-    if building.is_empty():
+    if not resource.is_empty():
+        interaction_message = "Walking to %s  ·  press E to work" % str(resource.get("name", "resource"))
+    elif building.is_empty():
         interaction_message = "Walking to marked ground"
     else:
         interaction_message = "Walking to %s" % str(building.get("name", "building"))
     interaction_timeout = 0.0
     _show_interaction_feedback()
-    if movement_path.is_empty() and not pending_building.is_empty():
+    if movement_path.is_empty() and not pending_resource.is_empty():
+        _complete_resource_interaction()
+    elif movement_path.is_empty() and not pending_building.is_empty():
         _complete_building_interaction()
 
 func _complete_building_interaction() -> void:
@@ -258,7 +299,47 @@ func _complete_building_interaction() -> void:
     interaction_timeout = 4.0
     _show_interaction_feedback()
     pending_building = {}
+    pending_resource = {}
     target_marker.clear_target()
+
+func _handle_resource_action() -> void:
+    var tile := Vector2i(floori(player_position.x), floori(player_position.y))
+    var resource := world.resource_at(tile)
+    if resource.is_empty():
+        for candidate in world.resources():
+            if bool(world_changes.get(str(candidate.id), false)):
+                continue
+            var candidate_tile := Vector2i(int(candidate.x), int(candidate.y))
+            if candidate_tile.distance_to(tile) <= 2.0:
+                resource = candidate
+                break
+    if resource.is_empty():
+        interaction_message = "Nothing here needs a hand"
+        interaction_timeout = 1.5
+        _show_interaction_feedback()
+        return
+    _complete_resource_interaction_for(resource)
+
+func _complete_resource_interaction() -> void:
+    _complete_resource_interaction_for(pending_resource)
+
+func _complete_resource_interaction_for(resource: Dictionary) -> void:
+    if resource.is_empty():
+        return
+    var resource_id := str(resource.get("id", ""))
+    if resource_id.is_empty() or bool(world_changes.get(resource_id, false)):
+        return
+    world_changes[resource_id] = true
+    var kind := str(resource.get("kind", "resource"))
+    var verb := "Gathered" if kind == "herb" else "Mined" if kind in ["stone", "ore"] else "Chopped"
+    interaction_message = "%s %s  ·  %s added to the stores" % [verb, str(resource.get("name", "resource")), str(resource.get("yield", "materials"))]
+    interaction_timeout = 4.0
+    pending_resource = {}
+    pending_building = {}
+    target_marker.clear_target()
+    _refresh_world_state()
+    _save_game()
+    _show_interaction_feedback()
 
 func _show_interaction_feedback() -> void:
     if interaction_label == null or interaction_panel == null:
@@ -279,11 +360,19 @@ func command_interact_with_building(building_id: String) -> void:
             _queue_building_interaction(building)
             return
 
+func command_interact_with_resource(resource_id: String) -> void:
+    for resource in world.resources():
+        if str(resource.get("id", "")) == resource_id and not bool(world_changes.get(resource_id, false)):
+            _queue_resource_interaction(resource)
+            return
+
 func _start_new_journey() -> void:
     village = DEFAULT_VILLAGE.duplicate(true)
     player_position = World.START_POSITION
     movement_path.clear()
     pending_building = {}
+    pending_resource = {}
+    world_changes.clear()
     interaction_message = ""
     _refresh_world_state()
     game_started = true
@@ -379,9 +468,9 @@ func _refresh_player_transform() -> void:
     camera.reset_smoothing()
 
 func _refresh_world_state() -> void:
-    grid = world.build_grid(village)
+    grid = world.build_grid(village, world_changes)
     if world_view != null:
-        world_view.configure(world, grid, village, null)
+        world_view.configure(world, grid, village, null, world_changes)
     if world_cache != null:
         world_cache.render_target_update_mode = SubViewport.UPDATE_ONCE
     _refresh_player_transform()
@@ -481,7 +570,7 @@ func _refresh_hud() -> void:
     var tile := Vector2i(floori(player_position.x), floori(player_position.y))
     var tile_name := world.tile_at(grid, tile)
     debug_label.text = "POS  %6.2f, %6.2f   TILE  %s\nFPS  %3d       F  toggle metrics" % [player_position.x, player_position.y, tile_name, Engine.get_frames_per_second()]
-    hint_label.text = "Click ground  walk     Click a house  visit     Right-click  cancel/visit     Wheel  zoom     WASD  wander"
+    hint_label.text = "Click ground  walk     Click a house  visit     Click a tree/stone/herb  work     E  work nearby     Right-click  cancel/visit     Wheel  zoom     WASD  wander"
     interaction_label.text = interaction_message
     interaction_label.visible = not interaction_message.is_empty()
     interaction_panel.visible = not interaction_message.is_empty()
@@ -503,6 +592,8 @@ func _load_save() -> bool:
         player_position = raw_player
     elif raw_player is Dictionary:
         player_position = Vector2(float(raw_player.get("x", World.START_POSITION.x)), float(raw_player.get("y", World.START_POSITION.y)))
+    var loaded_changes = normalized.get("world_changes", {})
+    world_changes = loaded_changes.duplicate(true) if loaded_changes is Dictionary else {}
     _refresh_world_state()
     return true
 
@@ -511,7 +602,8 @@ func _save_game() -> bool:
         "version": World.SAVE_VERSION,
         "village": village,
         "player": {"x": player_position.x, "y": player_position.y},
-        "location": "village"
+        "location": "village",
+        "world_changes": world_changes.duplicate(true)
     }
     var file := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
     if file != null:

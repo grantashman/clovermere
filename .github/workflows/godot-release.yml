@@ -43,6 +43,7 @@ jobs:
       - name: Run desktop input and UI flow checks before export
         run: |
           Godot_v${GODOT_VERSION}-stable_linux.x86_64 --headless --path desktop/godot --script res://tests/mouse_input_smoke.gd
+          Godot_v${GODOT_VERSION}-stable_linux.x86_64 --headless --path desktop/godot --script res://tests/resource_interaction_smoke.gd
           Godot_v${GODOT_VERSION}-stable_linux.x86_64 --headless --path desktop/godot --script res://tests/ui_flow_smoke.gd
           Godot_v${GODOT_VERSION}-stable_linux.x86_64 --headless --path desktop/godot --script res://tests/render_smoke.gd
       - name: Export Windows executable

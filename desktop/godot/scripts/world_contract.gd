@@ -27,6 +27,16 @@ const NPCS := [
     {"id": "bram-ash", "name": "Bram Ash", "role": "keeper", "x": SETTLEMENT_ORIGIN.x + 28, "y": SETTLEMENT_ORIGIN.y + 39, "skin": "#bb805b", "hair": "#302e2c", "coat": "#80664c", "accent": "#b9a267"}
 ]
 
+const RESOURCE_NODES := [
+    {"id": "oak-at-the-crossing", "name": "Oak at the Crossing", "kind": "tree", "x": SETTLEMENT_ORIGIN.x - 8, "y": SETTLEMENT_ORIGIN.y + 10, "yield": "timber"},
+    {"id": "birch-by-the-lane", "name": "Birch by the Lane", "kind": "tree", "x": SETTLEMENT_ORIGIN.x + 61, "y": SETTLEMENT_ORIGIN.y + 15, "yield": "timber"},
+    {"id": "old-ash-grove", "name": "Old Ash Grove", "kind": "tree", "x": SETTLEMENT_ORIGIN.x + 8, "y": SETTLEMENT_ORIGIN.y + 39, "yield": "timber"},
+    {"id": "greycap-boulder", "name": "Greycap Boulder", "kind": "stone", "x": SETTLEMENT_ORIGIN.x + 58, "y": SETTLEMENT_ORIGIN.y + 38, "yield": "stone"},
+    {"id": "ironroot-vein", "name": "Ironroot Vein", "kind": "ore", "x": SETTLEMENT_ORIGIN.x + 70, "y": SETTLEMENT_ORIGIN.y + 48, "yield": "ore"},
+    {"id": "foxglove-patch", "name": "Foxglove Patch", "kind": "herb", "x": SETTLEMENT_ORIGIN.x + 10, "y": SETTLEMENT_ORIGIN.y + 28, "yield": "herbs"},
+    {"id": "moonmint-patch", "name": "Moonmint Patch", "kind": "herb", "x": SETTLEMENT_ORIGIN.x + 55, "y": SETTLEMENT_ORIGIN.y + 22, "yield": "herbs"}
+]
+
 const LANDMARKS := [
     {"id": "apple-orchard", "name": "Apple Orchard", "x": 70, "y": 103, "w": 12, "h": 10},
     {"id": "willowmere", "name": "Willowmere", "x": 178, "y": 82, "w": 13, "h": 10},
@@ -92,11 +102,20 @@ func buildings() -> Array:
 func npcs() -> Array:
     return NPCS.duplicate(true)
 
+func resources() -> Array:
+    return RESOURCE_NODES.duplicate(true)
+
 func building_at(tile: Vector2i) -> Dictionary:
     for building in BUILDINGS:
         var rect := Rect2i(int(building.x), int(building.y), int(building.w), int(building.h))
         if rect.has_point(tile):
             return building
+    return {}
+
+func resource_at(tile: Vector2i) -> Dictionary:
+    for resource in RESOURCE_NODES:
+        if Vector2i(int(resource.x), int(resource.y)) == tile:
+            return resource
     return {}
 
 func _inside(grid: Array, x: int, y: int) -> bool:
@@ -130,7 +149,7 @@ func _paint_corridor(grid: Array, start: Vector2, finish: Vector2, width: float,
                 if _inside(grid, x, y) and (bridge or grid[y][x] != "w"):
                     _set_cell(grid, x, y, "p")
 
-func build_grid(village: Dictionary = {}) -> Array:
+func build_grid(village: Dictionary = {}, changes: Dictionary = {}) -> Array:
     var seed := seed_from_text("%s:%s" % [village.get("name", "Clovermere"), village.get("landscape", "heath")])
     var grid: Array = []
     for y in WORLD_HEIGHT:
@@ -194,6 +213,9 @@ func build_grid(village: Dictionary = {}) -> Array:
         for y in range(building.y, building.y + building.h):
             for x in range(building.x, building.x + building.w):
                 _set_cell(grid, x, y, "b")
+    for resource in RESOURCE_NODES:
+        if bool(changes.get(str(resource.id), false)):
+            _set_cell(grid, int(resource.x), int(resource.y), "g")
     return grid
 
 func tile_at(grid: Array, tile: Vector2i) -> String:
@@ -294,4 +316,6 @@ func normalize_save(source: Dictionary = {}) -> Dictionary:
     result["version"] = SAVE_VERSION
     result["player"] = player
     result["location"] = "village" if source.get("location", "village") not in ["home", "inn"] else source.get("location")
+    var raw_changes = source.get("world_changes", {})
+    result["world_changes"] = raw_changes.duplicate(true) if raw_changes is Dictionary else {}
     return result
