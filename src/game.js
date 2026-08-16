@@ -105,6 +105,10 @@ const playScreen = document.querySelector('#play-screen');
 // but is rasterised at 3× so a future desktop shell and high-DPI display retain
 // crisp edges without changing the world-coordinate contract.
 const RENDER_SCALE = 3;
+const ZOOM_MIN = 0.75;
+const ZOOM_MAX = 1.25;
+const ZOOM_STEP = 0.1;
+const DEFAULT_ZOOM = 0.88;
 const buffer = document.createElement('canvas');
 buffer.width = GRID_W * RENDER_SCALE;
 buffer.height = GRID_H * RENDER_SCALE;
@@ -122,6 +126,8 @@ let movementDistance = 0;
 let lastFrameAt = null;
 let lastPersistAt = 0;
 let dialogue = null;
+let cameraZoom = DEFAULT_ZOOM;
+let bookOpen = true;
 
 function loadState() {
   try {
@@ -171,6 +177,26 @@ function showToast(message) {
   toastTimer = setTimeout(() => toast.classList.remove('is-visible'), 3200);
 }
 
+function updateZoomLabel() {
+  const label = document.querySelector('#game-zoom-label');
+  if (label) label.textContent = `${Math.round(cameraZoom * 100)}%`;
+}
+
+function setCameraZoom(delta) {
+  cameraZoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, Number((cameraZoom + delta).toFixed(2))));
+  updateZoomLabel();
+  drawVillage(performance.now());
+}
+
+function setBookOpen(open) {
+  bookOpen = Boolean(open);
+  const book = document.querySelector('#village-sidebar');
+  const toggle = document.querySelector('#game-book-toggle');
+  book?.classList.toggle('is-collapsed', !bookOpen);
+  toggle?.setAttribute('aria-expanded', String(bookOpen));
+  if (toggle) toggle.textContent = bookOpen ? 'Hide village book' : 'Village book';
+}
+
 function setNestedValue(target, path, value) {
   const parts = path.split('.');
   let cursor = target;
@@ -196,8 +222,13 @@ function openCreator(step = 1, isEditing = false) {
   setupSnapshot = structuredClone(state);
   setupStep = step;
   editing = isEditing;
+  const canvasWrap = document.querySelector('.canvas-wrap');
+  if (isEditing && canvasWrap) {
+    if (setupScreen.parentElement !== canvasWrap) canvasWrap.appendChild(setupScreen);
+    setupScreen.classList.add('in-game-editor');
+  }
   setupScreen.hidden = false;
-  playScreen.hidden = true;
+  playScreen.hidden = !isEditing;
   if (animHandle) { cancelAnimationFrame(animHandle); animHandle = null; }
   heldDirections.clear();
   dialogue = null;
@@ -208,6 +239,7 @@ function openCreator(step = 1, isEditing = false) {
 }
 
 function closeCreator() {
+  const wasEditing = editing;
   state.creationComplete = true;
   state.player = { x: 14, y: 11 };
   syncPlayerMotion();
@@ -215,22 +247,27 @@ function closeCreator() {
   setupSnapshot = null;
   editing = false;
   setupScreen.hidden = true;
+  if (wasEditing) setupScreen.classList.remove('in-game-editor');
   playScreen.hidden = false;
   updateHud();
   drawVillage();
-  requestPlayFullscreen();
+  if (!wasEditing) requestPlayFullscreen();
+  else startVillageAnimation();
   showToast(`Welcome to ${state.village.name}.`);
 }
 
 function cancelCreator() {
+  const wasEditing = editing;
   if (setupSnapshot) state = normalizeGameState(setupSnapshot);
   setupSnapshot = null;
   editing = false;
   setupScreen.hidden = true;
+  if (wasEditing) setupScreen.classList.remove('in-game-editor');
   playScreen.hidden = false;
   updateHud();
   drawVillage();
-  requestPlayFullscreen();
+  if (!wasEditing) requestPlayFullscreen();
+  else startVillageAnimation();
 }
 
 // Play in fullscreen by default when the player enters the village.
@@ -362,31 +399,48 @@ function ensureWorldGrid() {
   return worldGrid;
 }
 
-function cameraForPlayer(player) {
-  const camX = Math.floor(Math.max(0, Math.min(player.x - Math.floor(VIEW_W / 2), WORLD_WIDTH - VIEW_W)));
-  const camY = Math.floor(Math.max(0, Math.min(player.y - Math.floor(VIEW_H / 2), WORLD_HEIGHT - VIEW_H)));
-  return { camX, camY };
+function cameraForPlayer(player, zoom = cameraZoom) {
+  const viewW = VIEW_W / zoom;
+  const viewH = VIEW_H / zoom;
+  const camX = Math.max(0, Math.min(player.x - viewW / 2, WORLD_WIDTH - viewW));
+  const camY = Math.max(0, Math.min(player.y - viewH / 2, WORLD_HEIGHT - viewH));
+  return { camX, camY, viewW, viewH };
 }
 
-function drawWorld(ctx, theme, village, spec, player, cam, time = 0) {
-  // ground + horizon handled per-tile (sky/hill rows at the north edge)
+function applyCameraZoom(x, y) {
+  const centerX = GRID_W / 2;
+  const centerY = GRID_H / 2;
+  return {
+    x: centerX + (x - centerX) * cameraZoom,
+    y: centerY + (y - centerY) * cameraZoom
+  };
+}
+
+function drawWorld(ctx, theme, village, spec, player, cam, time = 0, zoom = cameraZoom) {
+  // Render a larger tile window, then scale it around the logical centre. The
+  // camera therefore follows fractional player coordinates instead of snapping
+  // one whole tile at a time.
   const { camX, camY } = cam;
+  const renderViewW = Math.ceil(VIEW_W / zoom) + 2;
+  const renderViewH = Math.ceil(VIEW_H / zoom) + 2;
+  const baseCamX = Math.floor(camX);
+  const baseCamY = Math.floor(camY);
   // ground tiles within the viewport window
-  for (let sy = 0; sy < VIEW_H; sy += 1) {
-    const wy = camY + sy;
+  for (let sy = 0; sy < renderViewH; sy += 1) {
+    const wy = baseCamY + sy;
     if (wy <= 0 || wy >= WORLD_HEIGHT - 1) continue;
-    for (let sx = 0; sx < VIEW_W; sx += 1) {
-      const wx = camX + sx;
+    for (let sx = 0; sx < renderViewW; sx += 1) {
+      const wx = baseCamX + sx;
       if (wx <= 0 || wx >= WORLD_WIDTH - 1) continue;
       drawPixels(ctx, tileRects(wx - camX, wy - camY, worldGrid[wy][wx], theme, village));
     }
   }
   // tile detail layer: grass tufts, pebbles, small flowers for texture
-  for (let sy = 0; sy < VIEW_H; sy += 1) {
-    const wy = camY + sy;
+  for (let sy = 0; sy < renderViewH; sy += 1) {
+    const wy = baseCamY + sy;
     if (wy <= 0 || wy >= WORLD_HEIGHT - 1) continue;
-    for (let sx = 0; sx < VIEW_W; sx += 1) {
-      const wx = camX + sx;
+    for (let sx = 0; sx < renderViewW; sx += 1) {
+      const wx = baseCamX + sx;
       if (wx <= 0 || wx >= WORLD_WIDTH - 1) continue;
       const tile = worldGrid[wy][wx];
       if (tile === 'g' || tile === 'p' || tile === 'd') drawTileDetail(ctx, wx - camX, wy - camY, wx, wy, theme, tile);
@@ -440,8 +494,8 @@ function drawWorld(ctx, theme, village, spec, player, cam, time = 0) {
   drawWorldLabel(ctx, 'Market', marketLabel.sx + TILE / 2, marketLabel.sy - 8, '#e2b96e');
 
   // trees in the viewport (with their own shadows inside)
-  for (let wy = camY; wy < camY + VIEW_H; wy += 1) {
-    for (let wx = camX; wx < camX + VIEW_W; wx += 1) {
+  for (let wy = baseCamY; wy < baseCamY + renderViewH; wy += 1) {
+    for (let wx = baseCamX; wx < baseCamX + renderViewW; wx += 1) {
       if (worldGrid[wy] && worldGrid[wy][wx] === 't') {
         const { sx, sy } = worldToScreen(wx, wy);
         drawTreeSprite(ctx, theme, sx, sy, (wx * 7 + wy * 13) % 5);
@@ -527,8 +581,15 @@ function drawVillage(time = 0) {
   ensureWorldGrid();
   const cam = cameraForPlayer(playerMotion);
   beginLogicalBuffer();
-  if (state.location === 'village') drawWorld(bufferCtx, theme, state.village, state.hobbit, playerMotion, cam, time);
+  bufferCtx.fillStyle = state.location === 'village' ? theme.grass : '#261f25';
+  bufferCtx.fillRect(0, 0, GRID_W, GRID_H);
+  bufferCtx.save();
+  bufferCtx.translate(GRID_W / 2, GRID_H / 2);
+  bufferCtx.scale(cameraZoom, cameraZoom);
+  bufferCtx.translate(-GRID_W / 2, -GRID_H / 2);
+  if (state.location === 'village') drawWorld(bufferCtx, theme, state.village, state.hobbit, playerMotion, cam, time, cameraZoom);
   else drawInteriorWorld(bufferCtx, time);
+  bufferCtx.restore();
   endLogicalBuffer();
 
   context.imageSmoothingEnabled = false;
@@ -608,8 +669,9 @@ function drawInteractionPrompt() {
   if (!label) return;
   const cx = (playerMotion.x - cam.camX) * TILE + TILE / 2;
   const cy = (playerMotion.y - cam.camY) * TILE;
-  const baseX = (cx / GRID_W) * canvas.width;
-  const baseY = (cy / GRID_H) * canvas.height;
+  const logical = applyCameraZoom(cx, cy);
+  const baseX = (logical.x / GRID_W) * canvas.width;
+  const baseY = (logical.y / GRID_H) * canvas.height;
   const scaleX = canvas.width / GRID_W;
   const scaleY = canvas.height / GRID_H;
   context.font = `${Math.round(8 * scaleX)}px "DM Mono", monospace`;
@@ -765,6 +827,8 @@ function updateHud() {
   const interiorHud = document.querySelector('#interior-hud');
   const canvasWrap = document.querySelector('.canvas-wrap');
   if (canvasWrap) canvasWrap.classList.toggle('is-interior', state.location !== 'village');
+  setBookOpen(bookOpen);
+  updateZoomLabel();
   const windowLocation = document.querySelector('#window-hud-location');
   const windowContext = document.querySelector('#window-hud-context');
   if (windowLocation) windowLocation.textContent = state.location === 'village' ? state.village.name : state.interior?.title ?? 'Interior';
@@ -845,6 +909,20 @@ function gameMealAction() {
 
 function leaveToLandingPage() {
   window.location.assign('./');
+}
+
+function openAccountDialog() {
+  const dialog = document.querySelector('#account-dialog');
+  if (!dialog) return;
+  dialog.hidden = false;
+  dialog.querySelector('input')?.focus();
+}
+
+function closeAccountDialog() {
+  const dialog = document.querySelector('#account-dialog');
+  if (!dialog) return;
+  dialog.hidden = true;
+  document.querySelector('#game-account-button')?.focus();
 }
 
 function move(delta) {
@@ -1014,8 +1092,11 @@ async function toggleFullscreen() {
 }
 
 function updateFullscreenLabel() {
-  const button = document.querySelector('#fullscreen-button');
-  if (button) button.innerHTML = document.fullscreenElement ? 'Windowed <span aria-hidden="true">↙</span>' : 'Fullscreen <span aria-hidden="true">↗</span>';
+  const label = document.fullscreenElement ? 'Windowed ↙' : 'Fullscreen ↗';
+  const headerButton = document.querySelector('#fullscreen-button');
+  const gameButton = document.querySelector('#game-fullscreen-button');
+  if (headerButton) headerButton.innerHTML = label;
+  if (gameButton) gameButton.textContent = label;
 }
 
 function hydrateInvite() {
@@ -1026,6 +1107,11 @@ function hydrateInvite() {
 
 function handleKeydown(event) {
   if (setupScreen && !setupScreen.hidden) return;
+  const accountDialog = document.querySelector('#account-dialog');
+  if (accountDialog && !accountDialog.hidden) {
+    if (event.key === 'Escape') { event.preventDefault(); closeAccountDialog(); }
+    return;
+  }
   if (['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName)) return;
   const keys = {
     w: 'up', ArrowUp: 'up',
@@ -1038,6 +1124,8 @@ function handleKeydown(event) {
     if (key === 'e' || event.key === ' ' || key === 'Escape') { event.preventDefault(); closeDialogue(); }
     return;
   }
+  if (key === '-' || key === '_') { event.preventDefault(); setCameraZoom(-ZOOM_STEP); return; }
+  if (key === '=' || key === '+') { event.preventDefault(); setCameraZoom(ZOOM_STEP); return; }
   if (keys[key]) { event.preventDefault(); heldDirections.add(keys[key]); }
   if (key === 'e' || event.key === ' ') { event.preventDefault(); interact(); }
   if (key === 'r') resetDay();
@@ -1068,15 +1156,20 @@ document.querySelector('#interior-action')?.addEventListener('click', useInterio
 document.querySelector('#leave-interior')?.addEventListener('click', leaveInterior);
 document.querySelector('#game-interact-button')?.addEventListener('click', interact);
 document.querySelector('#game-fullscreen-button')?.addEventListener('click', toggleFullscreen);
-document.querySelector('#game-account-button')?.addEventListener('click', () => document.querySelector('#account-dialog').showModal());
+document.querySelector('#game-account-button')?.addEventListener('click', openAccountDialog);
+document.querySelector('#game-book-toggle')?.addEventListener('click', () => setBookOpen(!bookOpen));
+document.querySelector('#game-zoom-out')?.addEventListener('click', () => setCameraZoom(-ZOOM_STEP));
+document.querySelector('#game-zoom-in')?.addEventListener('click', () => setCameraZoom(ZOOM_STEP));
 document.querySelector('#game-leave-button')?.addEventListener('click', leaveToLandingPage);
 document.querySelector('#game-meal-button')?.addEventListener('click', gameMealAction);
 document.querySelector('#game-request-button')?.addEventListener('click', deliverRequest);
 document.querySelector('#copy-code').addEventListener('click', copyInvite);
 document.querySelector('#sign-in-button').addEventListener('click', sendMagicLink);
 document.querySelector('#fullscreen-button')?.addEventListener('click', toggleFullscreen);
-document.querySelector('#account-button').addEventListener('click', () => document.querySelector('#account-dialog').showModal());
-document.querySelector('#account-dialog').addEventListener('click', (event) => { if (event.target === event.currentTarget) event.currentTarget.close(); });
+document.querySelector('#account-button').addEventListener('click', openAccountDialog);
+document.querySelector('#account-close').addEventListener('click', closeAccountDialog);
+document.querySelector('#account-cancel').addEventListener('click', closeAccountDialog);
+document.querySelector('#account-dialog').addEventListener('click', (event) => { if (event.target === event.currentTarget) closeAccountDialog(); });
 document.addEventListener('keydown', handleKeydown);
 document.addEventListener('keyup', handleKeyup);
 document.addEventListener('visibilitychange', () => { if (document.hidden) heldDirections.clear(); });
