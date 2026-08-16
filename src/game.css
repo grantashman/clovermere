@@ -319,3 +319,280 @@ body.game-page:has(#play-screen:not([hidden])) .game-header-actions { display: n
 body.game-page:has(#play-screen:not([hidden])) { height: 100vh; min-height: 0; overflow: hidden; }
 body.game-page:has(#play-screen:not([hidden])) #play-screen { height: calc(100vh - 84px); min-height: 0; margin-bottom: 0; }
 body.game-page:has(#play-screen:not([hidden])) #play-screen .game-stage { min-height: 0; height: 100%; }
+
+/* Pastoral-fantasy UI pass: original high-fantasy field notes, not a copied film/game interface. */
+body.game-page:has(#play-screen:not([hidden])) {
+  --field-ink: #e9dfbf;
+  --field-muted: #aab59e;
+  --field-gold: #d6b86a;
+  --field-green: #21382d;
+  --field-deep: #0d1713;
+  background: var(--field-deep);
+}
+body.game-page:has(#play-screen:not([hidden])) .game-layout {
+  width: min(100% - 1rem, 1760px);
+  margin: .35rem auto 1rem;
+}
+body.game-page:has(#play-screen:not([hidden])) .game-stage {
+  position: relative;
+  min-height: calc(100vh - 88px);
+  border: 1px solid rgba(214, 184, 106, .42);
+  border-radius: .12rem;
+  background: var(--field-deep);
+  box-shadow: 0 0 0 4px rgba(38, 60, 45, .28), 0 18px 60px rgba(0, 0, 0, .32);
+}
+body.game-page:has(#play-screen:not([hidden])) .stage-bar {
+  position: absolute;
+  inset: 0 0 auto;
+  z-index: 8;
+  min-height: 0;
+  height: 3.55rem;
+  padding: .62rem .85rem;
+  pointer-events: none;
+  border: 0;
+  background: linear-gradient(180deg, rgba(10, 20, 15, .78), rgba(10, 20, 15, 0));
+}
+body.game-page:has(#play-screen:not([hidden])) .stage-title {
+  min-width: 0;
+  padding-left: .25rem;
+}
+body.game-page:has(#play-screen:not([hidden])) .stage-kicker {
+  margin-bottom: .16rem;
+  color: var(--field-gold);
+  font-size: .48rem;
+  letter-spacing: .16em;
+  text-shadow: 1px 1px 0 rgba(0, 0, 0, .55);
+}
+body.game-page:has(#play-screen:not([hidden])) .stage-bar strong {
+  color: var(--field-ink);
+  font: 500 1.05rem/1 var(--display);
+  letter-spacing: .01em;
+  text-shadow: 1px 2px 0 rgba(0, 0, 0, .5);
+}
+body.game-page:has(#play-screen:not([hidden])) .colony-readout { display: none; }
+body.game-page:has(#play-screen:not([hidden])) .stage-time {
+  align-self: flex-start;
+  margin-left: auto;
+  padding: .2rem .3rem;
+  color: var(--field-muted);
+  font-size: .52rem;
+  text-shadow: 1px 1px 0 rgba(0, 0, 0, .55);
+}
+body.game-page:has(#play-screen:not([hidden])) .stage-time #clock-label { color: var(--field-ink); }
+body.game-page:has(#play-screen:not([hidden])) .canvas-wrap {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  padding: 0;
+  background: var(--field-deep);
+}
+body.game-page:has(#play-screen:not([hidden])) .canvas-wrap canvas {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+/* The rail is a line of field marks rather than a dashboard pill. */
+body.game-page:has(#play-screen:not([hidden])) .game-window-hud { inset: 0; }
+body.game-page:has(#play-screen:not([hidden])) .window-hud-top {
+  position: absolute;
+  top: .78rem;
+  right: .85rem;
+  left: auto;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+body.game-page:has(#play-screen:not([hidden])) .window-hud-brand { display: none; }
+body.game-page:has(#play-screen:not([hidden])) .window-hud-actions {
+  gap: .08rem;
+  padding: .16rem .25rem;
+  border: 0;
+  border-bottom: 1px solid rgba(214, 184, 106, .42);
+  border-radius: 0;
+  background: rgba(10, 20, 15, .64);
+  box-shadow: none;
+}
+body.game-page:has(#play-screen:not([hidden])) .hud-button,
+body.game-page:has(#play-screen:not([hidden])) .hud-chip {
+  min-height: 1.72rem;
+  padding: .3rem .46rem;
+  border: 0;
+  border-radius: 0;
+  color: var(--field-muted);
+  background: transparent;
+  font-size: .5rem;
+  letter-spacing: .07em;
+}
+body.game-page:has(#play-screen:not([hidden])) .hud-button:hover,
+body.game-page:has(#play-screen:not([hidden])) .hud-button:focus-visible,
+body.game-page:has(#play-screen:not([hidden])) .hud-chip:hover:not(:disabled),
+body.game-page:has(#play-screen:not([hidden])) .hud-chip:focus-visible:not(:disabled) {
+  color: var(--field-ink);
+  background: rgba(214, 184, 106, .12);
+  border-bottom: 1px solid var(--field-gold);
+  transform: none;
+}
+body.game-page:has(#play-screen:not([hidden])) .hud-button-danger { color: #c18c79; }
+body.game-page:has(#play-screen:not([hidden])) .window-hud-bottom {
+  position: absolute;
+  right: .72rem;
+  bottom: .62rem;
+  left: .72rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  pointer-events: none;
+}
+body.game-page:has(#play-screen:not([hidden])) .hud-status {
+  max-width: min(22rem, 42%);
+  padding: .34rem .5rem;
+  border: 0;
+  border-left: 2px solid rgba(214, 184, 106, .72);
+  border-radius: 0;
+  background: rgba(10, 20, 15, .52);
+  box-shadow: none;
+  opacity: .82;
+}
+body.game-page:has(#play-screen:not([hidden])) .hud-status-label {
+  color: var(--field-gold);
+  font-size: .42rem;
+}
+body.game-page:has(#play-screen:not([hidden])) .hud-status span:last-child {
+  color: var(--field-muted);
+  font-size: .54rem;
+}
+body.game-page:has(#play-screen:not([hidden])) .hud-actions {
+  gap: .08rem;
+  padding: .12rem .2rem;
+  border: 0;
+  border-bottom: 1px solid rgba(214, 184, 106, .32);
+  border-radius: 0;
+  background: rgba(10, 20, 15, .38);
+  pointer-events: auto;
+}
+body.game-page:has(#play-screen:not([hidden])) .zoom-control {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+body.game-page:has(#play-screen:not([hidden])) .zoom-label { color: var(--field-gold); }
+
+/* Optional surfaces begin as quiet tabs and expand only when invited. */
+body.game-page:has(#play-screen:not([hidden])) .minimap-shell {
+  top: 3.85rem;
+  right: .72rem;
+  width: min(248px, 25vw);
+  padding: .45rem;
+  border: 1px solid rgba(214, 184, 106, .55);
+  border-radius: 0;
+  background: rgba(22, 40, 29, .93);
+  box-shadow: 5px 7px 0 rgba(7, 15, 10, .32);
+}
+body.game-page:has(#play-screen:not([hidden])) .minimap-heading { padding: .05rem .12rem .32rem; }
+body.game-page:has(#play-screen:not([hidden])) .minimap-heading strong { color: var(--field-ink); font-size: .74rem; }
+body.game-page:has(#play-screen:not([hidden])) #minimap-canvas { border: 1px solid rgba(214, 184, 106, .4); }
+body.game-page:has(#play-screen:not([hidden])) .minimap-reopen {
+  top: .72rem;
+  right: .72rem;
+  min-height: 1.7rem;
+  padding: .28rem .45rem;
+  border: 0;
+  border-bottom: 1px solid var(--field-gold);
+  border-radius: 0;
+  color: var(--field-gold);
+  background: rgba(10, 20, 15, .5);
+  font-size: .46rem;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+body.game-page:has(#play-screen:not([hidden])) .world-guide {
+  top: 4.05rem;
+  left: .72rem;
+  width: min(250px, 24vw);
+  padding: .36rem .48rem;
+  gap: .38rem;
+  border: 0;
+  border-left: 1px solid rgba(214, 184, 106, .68);
+  border-radius: 0;
+  background: rgba(10, 20, 15, .44);
+  box-shadow: none;
+  opacity: .9;
+}
+body.game-page:has(#play-screen:not([hidden])) .world-guide-mark {
+  width: 1.25rem;
+  height: 1.25rem;
+  border: 1px solid rgba(214, 184, 106, .65);
+  color: var(--field-gold);
+  background: transparent;
+  font-size: .76rem;
+}
+body.game-page:has(#play-screen:not([hidden])) .world-guide b { font-size: .38rem; }
+body.game-page:has(#play-screen:not([hidden])) .world-guide strong { color: var(--field-ink); font-size: .64rem; }
+body.game-page:has(#play-screen:not([hidden])) .world-guide small { color: var(--field-muted); font-size: .45rem; white-space: normal; line-height: 1.3; }
+
+body.game-page:has(#play-screen:not([hidden])) .game-book {
+  top: 3.85rem;
+  right: .72rem;
+  bottom: .72rem;
+  width: min(318px, 28vw);
+  padding: .62rem;
+  border: 1px solid #9b7e4e;
+  border-radius: 0;
+  color: #273b2d;
+  background: linear-gradient(135deg, #e9d9ad, #d2ba84);
+  box-shadow: 6px 7px 0 rgba(7, 15, 10, .35);
+  scrollbar-color: #9b7e4e rgba(70, 54, 30, .18);
+}
+body.game-page:has(#play-screen:not([hidden])) .game-book .book-heading {
+  background: transparent;
+  border-bottom: 1px solid rgba(92, 69, 35, .26);
+}
+body.game-page:has(#play-screen:not([hidden])) .game-book .minimap-heading strong,
+body.game-page:has(#play-screen:not([hidden])) .game-book .book-heading strong,
+body.game-page:has(#play-screen:not([hidden])) .game-book .card-heading h2,
+body.game-page:has(#play-screen:not([hidden])) .game-book .identity-copy h1 { color: #2d412f; }
+body.game-page:has(#play-screen:not([hidden])) .game-book .hud-overline,
+body.game-page:has(#play-screen:not([hidden])) .game-book .eyebrow { color: #6b5936; }
+body.game-page:has(#play-screen:not([hidden])) .game-book .sidebar-card {
+  border-color: rgba(92, 69, 35, .22);
+  background: rgba(255, 247, 220, .18);
+}
+body.game-page:has(#play-screen:not([hidden])) .game-book .today-card,
+body.game-page:has(#play-screen:not([hidden])) .game-book .log-card,
+body.game-page:has(#play-screen:not([hidden])) .game-book .village-card { background: rgba(255, 247, 220, .14); }
+body.game-page:has(#play-screen:not([hidden])) .game-book .inventory-card { color: #d8dfc9; background: #263b2d; }
+body.game-page:has(#play-screen:not([hidden])) .game-book .identity-card { color: #f4e8c2; background: #304a38; }
+body.game-page:has(#play-screen:not([hidden])) .game-book .task-list li,
+body.game-page:has(#play-screen:not([hidden])) .game-book .village-facts,
+body.game-page:has(#play-screen:not([hidden])) .game-book .village-log { color: #4d5d46; }
+body.game-page:has(#play-screen:not([hidden])) .game-book .objective-block,
+body.game-page:has(#play-screen:not([hidden])) .game-book .request-block { background: rgba(255, 247, 220, .24); }
+body.game-page:has(#play-screen:not([hidden])) .game-book .objective-block strong,
+body.game-page:has(#play-screen:not([hidden])) .game-book .request-block strong { color: #2d412f; }
+body.game-page:has(#play-screen:not([hidden])) .game-book .objective-block p,
+body.game-page:has(#play-screen:not([hidden])) .game-book .request-block p,
+body.game-page:has(#play-screen:not([hidden])) .game-book .identity-copy p:last-child { color: #607057; }
+body.game-page:has(#play-screen:not([hidden])) .game-book .hud-icon-button,
+body.game-page:has(#play-screen:not([hidden])) .game-book .icon-button { color: #6b5936; border-color: rgba(92, 69, 35, .38); background: transparent; }
+body.game-page:has(#play-screen:not([hidden])) .game-book .button-quiet { color: #4e5d45; border-color: rgba(92, 69, 35, .34); background: rgba(255, 247, 220, .2); }
+body.game-page:has(#play-screen:not([hidden])) .canvas-wrap:has(#minimap-shell:not(.is-collapsed)) .game-book { top: 18rem; }
+
+@media (max-width: 720px) {
+  body.game-page:has(#play-screen:not([hidden])) .stage-bar { height: 3rem; padding: .48rem .55rem; }
+  body.game-page:has(#play-screen:not([hidden])) .stage-bar strong { font-size: .88rem; }
+  body.game-page:has(#play-screen:not([hidden])) .window-hud-top { top: 3.35rem; right: .55rem; }
+  body.game-page:has(#play-screen:not([hidden])) .window-hud-actions { max-width: calc(100vw - 1.75rem); overflow-x: auto; }
+  body.game-page:has(#play-screen:not([hidden])) .world-guide { top: 3.45rem; left: .55rem; width: min(220px, 54vw); }
+  body.game-page:has(#play-screen:not([hidden])) .minimap-shell,
+  body.game-page:has(#play-screen:not([hidden])) .game-book { top: 6.8rem; right: .55rem; width: calc(100% - 1.1rem); }
+  body.game-page:has(#play-screen:not([hidden])) .minimap-reopen { top: 3.35rem; right: .55rem; }
+  body.game-page:has(#play-screen:not([hidden])) .window-hud-bottom { right: .55rem; bottom: .5rem; left: .55rem; }
+  body.game-page:has(#play-screen:not([hidden])) .hud-status { max-width: 58%; }
+  body.game-page:has(#play-screen:not([hidden])) .hud-actions { max-width: 40%; overflow-x: auto; }
+  body.game-page:has(#play-screen:not([hidden])) .canvas-wrap:has(#minimap-shell:not(.is-collapsed)) .game-book { top: 23rem; }
+}

@@ -211,6 +211,17 @@ test('terrain dressing, selection rings, and nameplates paint without error', ()
   assert.ok(ops.some(([name]) => name === 'fillText'), 'nameplate should be legible');
 });
 
+test('path and terrain dressing vary their material detail across deterministic seeds', () => {
+  const theme = resolveVillageTheme({ landscape: 'heath' });
+  const pathA = makeContext();
+  const pathB = makeContext();
+  drawTerrainDetail(pathA.context, theme, 'p', 16, 16, 18, 900);
+  drawTerrainDetail(pathB.context, theme, 'p', 16, 16, 23, 900);
+  assert.notDeepEqual(pathA.ops, pathB.ops, 'path dressing should not repeat one fixed stone pattern');
+  const meadow = makeContext();
+  drawTerrainDetail(meadow.context, theme, 'm', 48, 48, 31, 900);
+  assert.ok(meadow.ops.filter(([name]) => name === 'fillRect').length >= 4, 'moss terrain should have layered texture');
+});
 test('rich facade, pond bank, and colony prop helpers paint layered scene detail', () => {
   const { context, ops } = makeContext();
   const theme = resolveVillageTheme({ landscape: 'heath' });

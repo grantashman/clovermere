@@ -37,6 +37,7 @@ import {
   WORLD_WIDTH,
   START_POSITION,
   SETTLEMENT_ORIGIN,
+  worldPathRoutes,
   worldPixelPosition
 } from './game-systems.js';
 import { supabase, supabaseConfigured } from './supabase-client.js';
@@ -141,9 +142,9 @@ let lastFrameAt = null;
 let lastPersistAt = 0;
 let dialogue = null;
 let cameraZoom = DEFAULT_ZOOM;
-let bookOpen = true;
+let bookOpen = false;
 let hudOpen = true;
-let minimapOpen = true;
+let minimapOpen = false;
 let discoveredLandmarks = new Set();
 
 function loadState() {
@@ -222,7 +223,7 @@ function updateWorldGuide() {
   const nearby = nearest.distance <= Math.max(nearest.landmark.w, nearest.landmark.h) * 0.8 + 3;
   kicker.textContent = `${bearing} · ${paces} PACES`;
   label.textContent = nearby ? nearest.landmark.label : `Toward ${nearest.landmark.label}`;
-  copy.textContent = nearby ? 'A landmark rises nearby. Press E when the road offers a moment.' : `${paces} paces beyond the next bend · follow the old trail.`;
+  copy.textContent = nearby ? 'A landmark rises nearby · press E' : `${paces} paces · follow the trail`;
   if (nearby && !discoveredLandmarks.has(nearest.landmark.id)) {
     discoveredLandmarks.add(nearest.landmark.id);
     showToast(`You have found ${nearest.landmark.label}.`);
@@ -241,7 +242,7 @@ function setBookOpen(open) {
   const toggle = document.querySelector('#game-book-toggle');
   book?.classList.toggle('is-collapsed', !bookOpen);
   toggle?.setAttribute('aria-expanded', String(bookOpen));
-  if (toggle) toggle.textContent = bookOpen ? 'Hide village book' : 'Village book';
+  if (toggle) toggle.textContent = bookOpen ? 'Close ledger' : 'Ledger';
 }
 
 function setHudOpen(open) {
@@ -250,7 +251,7 @@ function setHudOpen(open) {
   const toggle = document.querySelector('#game-hud-toggle');
   hud?.classList.toggle('hud-is-collapsed', !hudOpen);
   toggle?.setAttribute('aria-expanded', String(hudOpen));
-  if (toggle) toggle.innerHTML = hudOpen ? 'HUD <span aria-hidden="true">⌃</span>' : 'HUD <span aria-hidden="true">⌄</span>';
+  if (toggle) toggle.innerHTML = hudOpen ? 'Menu <span aria-hidden="true">⌃</span>' : 'Menu <span aria-hidden="true">⌄</span>';
 }
 
 function setMinimapOpen(open) {
@@ -421,7 +422,7 @@ function mixHex(a, b, t) {
 
 // --- Pixel grid helpers ----------------------------------------------------
 
-function tileRects(x, y, tile, theme, village) {
+function tileRects(x, y, tile, theme, village, grid = null, worldX = null, worldY = null) {
   const px = x * TILE;
   const py = y * TILE;
   const base = tile === 'w' ? theme.water : tile === 'p' ? theme.path : tile === 'd' ? theme.dirt : tile === 's' ? theme.sky : tile === 'h' ? theme.distant : tile === 'm' ? (theme.moss ?? theme.grass) : tile === 'r' ? (theme.rock ?? theme.grassDark) : theme.grass;
@@ -455,8 +456,21 @@ function tileRects(x, y, tile, theme, village) {
     rects.push([px + 8, py + 4, 5, 3, theme.rock ?? theme.grassDark]);
   }
   if (tile === 'p') {
-    rects.push([px + 2, py + 5 + (x % 3), 6, 2, theme.pathLight]);
-    rects.push([px + 9, py + 11 - (y % 3), 5, 2, theme.pathLight]);
+    const pathLike = (dx, dy) => {
+      const neighbour = grid?.[worldY + dy]?.[worldX + dx];
+      return neighbour === 'p' || neighbour === 'd' || neighbour === 'b';
+    };
+    const edge = theme.pathEdge ?? mixHex(theme.path, theme.grass, 0.62);
+    const north = pathLike(0, -1); const south = pathLike(0, 1);
+    const west = pathLike(-1, 0); const east = pathLike(1, 0);
+    if (!north) rects.push([px + 2, py, 12, 2, edge]);
+    if (!south) rects.push([px + 2, py + 14, 12, 2, edge]);
+    if (!west) rects.push([px, py + 2, 2, 12, edge]);
+    if (!east) rects.push([px + 14, py + 2, 2, 12, edge]);
+    if (!north && !west) rects.push([px, py, 3, 3, edge]);
+    if (!north && !east) rects.push([px + 13, py, 3, 3, edge]);
+    if (!south && !west) rects.push([px, py + 13, 3, 3, edge]);
+    if (!south && !east) rects.push([px + 13, py + 13, 3, 3, edge]);
   }
   if (tile === 'd') {
     rects.push([px + 2, py + 4, 12, 2, '#845c48']);
@@ -497,6 +511,52 @@ function applyCameraZoom(x, y) {
   };
 }
 
+function drawSmoothPathRoutes(ctx, theme, village, cam) {
+  const toScreen = (wx, wy) => worldPixelPosition(wx, wy, cam.camX, cam.camY, TILE);
+  ctx.save();
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  for (const [routeIndex, route] of worldPathRoutes(village).entries()) {
+    const start = toScreen(route.startX, route.startY);
+    const end = toScreen(route.endX, route.endY);
+    const dx = route.endX - route.startX;
+    const dy = route.endY - route.startY;
+    const length = Math.max(1, Math.hypot(dx, dy));
+    const control = toScreen(
+      (route.startX + route.endX) / 2 - (dy / length) * route.bend,
+      (route.startY + route.endY) / 2 + (dx / length) * route.bend
+    );
+    ctx.beginPath();
+    ctx.moveTo(start.x + TILE / 2, start.y + TILE / 2);
+    ctx.quadraticCurveTo(control.x + TILE / 2, control.y + TILE / 2, end.x + TILE / 2, end.y + TILE / 2);
+    ctx.strokeStyle = theme.pathEdge ?? mixHex(theme.path, theme.grassDark, 0.44);
+    ctx.lineWidth = Math.max(TILE * 1.25, route.width * TILE * 1.45 + 4);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(start.x + TILE / 2, start.y + TILE / 2);
+    ctx.quadraticCurveTo(control.x + TILE / 2, control.y + TILE / 2, end.x + TILE / 2, end.y + TILE / 2);
+    ctx.strokeStyle = theme.path;
+    ctx.lineWidth = Math.max(TILE, route.width * TILE * 0.95 + 2);
+    ctx.stroke();
+    const textureSteps = Math.max(3, Math.ceil(Math.hypot(dx, dy) / 4));
+    for (let step = 1; step < textureSteps; step += 1) {
+      const t = step / textureSteps;
+      const inverse = 1 - t;
+      const tx = inverse * inverse * start.x + 2 * inverse * t * control.x + t * t * end.x + TILE / 2;
+      const ty = inverse * inverse * start.y + 2 * inverse * t * control.y + t * t * end.y + TILE / 2;
+      const jitter = ((routeIndex * 17 + step * 11) % 7) - 3;
+      if ((routeIndex + step) % 3 === 0) {
+        ctx.fillStyle = theme.pathLight;
+        ctx.fillRect(Math.round(tx + jitter), Math.round(ty - 1), 2, 1);
+      } else if ((routeIndex + step) % 5 === 0) {
+        ctx.fillStyle = theme.pathEdge ?? theme.pathLight;
+        ctx.fillRect(Math.round(tx - 1), Math.round(ty + jitter / 2), 1, 1);
+      }
+    }
+  }
+  ctx.restore();
+}
+
 const WORLD_RENDER_MARGIN = 4;
 
 function drawWorld(ctx, theme, village, spec, player, cam, time = 0, zoom = cameraZoom) {
@@ -516,7 +576,7 @@ function drawWorld(ctx, theme, village, spec, player, cam, time = 0, zoom = came
     for (let sx = 0; sx < paddedViewW; sx += 1) {
       const wx = baseCamX + sx;
       if (wx <= 0 || wx >= WORLD_WIDTH - 1) continue;
-      drawPixels(ctx, tileRects(wx - camX, wy - camY, worldGrid[wy][wx], theme, village));
+      drawPixels(ctx, tileRects(wx - camX, wy - camY, worldGrid[wy][wx], theme, village, worldGrid, wx, wy));
     }
   }
   // tile detail layer: grass tufts, pebbles, small flowers for texture
@@ -527,12 +587,14 @@ function drawWorld(ctx, theme, village, spec, player, cam, time = 0, zoom = came
       const wx = baseCamX + sx;
       if (wx <= 0 || wx >= WORLD_WIDTH - 1) continue;
       const tile = worldGrid[wy][wx];
-      if (tile === 'g' || tile === 'm' || tile === 'p' || tile === 'd' || tile === 'r') drawTileDetail(ctx, wx - camX, wy - camY, wx, wy, theme, tile);
+      if (tile === 'g' || tile === 'm' || tile === 'p' || tile === 'd' || tile === 'r') drawTileDetail(ctx, wx - camX, wy - camY, wx, wy, theme, tile, worldGrid);
       if (tile === 'g' || tile === 'm' || tile === 'p' || tile === 'd' || tile === 'w' || tile === 'r') {
         drawTerrainDetail(ctx, theme, tile, (wx - camX) * TILE, (wy - camY) * TILE, wx * 31 + wy * 17, time);
       }
     }
   }
+
+  drawSmoothPathRoutes(ctx, theme, village, cam);
 
   const worldToScreen = (wx, wy) => {
     const position = worldPixelPosition(wx, wy, camX, camY, TILE);
@@ -640,10 +702,13 @@ function drawWorld(ctx, theme, village, spec, player, cam, time = 0, zoom = came
   drawWeatherOverlay(ctx, state.weather, time);
 }
 
-function drawTileDetail(ctx, sx, sy, wx, wy, theme, tile) {
+function drawTileDetail(ctx, sx, sy, wx, wy, theme, tile, grid = null) {
   const px = sx * TILE;
   const py = sy * TILE;
   const seed = (wx * 31 + wy * 17) % 11;
+  const neighbour = (dx, dy) => grid?.[wy + dy]?.[wx + dx];
+  const hasPath = (dx, dy) => ['p', 'd', 'b'].includes(neighbour(dx, dy));
+  const hasWater = (dx, dy) => neighbour(dx, dy) === 'w';
   if (tile !== 'd') {
     // grass tufts
     if (seed < 5) drawPixels(ctx, [[px + 3 + (seed % 6), py + 11, 2, 3, theme.grassDark]]);
@@ -656,6 +721,17 @@ function drawTileDetail(ctx, sx, sy, wx, wy, theme, tile) {
   }
   if (tile === 'p') {
     if (seed % 3 === 0) drawPixels(ctx, [[px + 3, py + 12, 4, 1, mixPath(theme)]]);
+  }
+  if ((tile === 'g' || tile === 'm') && hasPath(0, -1)) drawPixels(ctx, [[px + 3, py + 1, 2, 1, theme.pathEdge ?? theme.path]]);
+  if ((tile === 'g' || tile === 'm') && hasPath(0, 1)) drawPixels(ctx, [[px + 10, py + 14, 3, 1, theme.pathEdge ?? theme.path]]);
+  if ((tile === 'g' || tile === 'm') && hasPath(-1, 0)) drawPixels(ctx, [[px + 1, py + 5, 1, 3, theme.pathEdge ?? theme.path]]);
+  if ((tile === 'g' || tile === 'm') && hasPath(1, 0)) drawPixels(ctx, [[px + 14, py + 9, 1, 3, theme.pathEdge ?? theme.path]]);
+  if ((tile === 'g' || tile === 'm') && (hasWater(0, -1) || hasWater(0, 1) || hasWater(-1, 0) || hasWater(1, 0))) {
+    const reed = theme.grassDark;
+    if (hasWater(0, -1)) drawPixels(ctx, [[px + 4, py + 1, 1, 3, reed], [px + 8, py + 2, 1, 2, theme.grassLight]]);
+    if (hasWater(0, 1)) drawPixels(ctx, [[px + 11, py + 12, 1, 3, reed], [px + 6, py + 13, 1, 2, theme.grassLight]]);
+    if (hasWater(-1, 0)) drawPixels(ctx, [[px + 1, py + 4, 3, 1, reed]]);
+    if (hasWater(1, 0)) drawPixels(ctx, [[px + 12, py + 10, 3, 1, reed]]);
   }
 }
 

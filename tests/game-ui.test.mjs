@@ -4,6 +4,7 @@ import fs from 'node:fs';
 
 const html = fs.readFileSync(new URL('../game.html', import.meta.url), 'utf8');
 const gameScript = fs.readFileSync(new URL('../src/game.js', import.meta.url), 'utf8');
+const gameCss = fs.readFileSync(new URL('../src/game.css', import.meta.url), 'utf8');
 
 function elementBody(id) {
   const match = html.match(new RegExp(`<[^>]+id=["']${id}["'][^>]*>[\\s\\S]*?</(?:div|aside|dialog)>`, 'i'));
@@ -42,4 +43,12 @@ test('game starts at half zoom and exposes the complete zoom range', () => {
   assert.match(gameScript, /const WORLD_RENDER_MARGIN = 4;/);
   assert.match(gameScript, /const paddedViewW = renderViewW \+ WORLD_RENDER_MARGIN \* 2;/);
   assert.match(gameScript, /function updateWorldGuide\(\)/);
+});
+
+test('play starts with optional map and ledger surfaces tucked away', () => {
+  assert.match(gameScript, /let bookOpen = false;/);
+  assert.match(gameScript, /let minimapOpen = false;/);
+  assert.match(gameScript, /Close ledger/);
+  assert.match(gameCss, /background: linear-gradient\(135deg, #e9d9ad, #d2ba84\)/);
+  assert.match(gameScript, /Menu <span aria-hidden/);
 });

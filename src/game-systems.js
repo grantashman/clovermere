@@ -237,9 +237,9 @@ export function resolveVillageTheme(village) {
   const landscape = village?.landscape ?? 'heath';
   const roof = village?.roof === 'plum' ? 'plum' : 'moss';
   const themes = {
-    heath: { sky: '#a8d8df', distant: '#6fa574', grass: '#5e994f', grassMid: '#7eaf57', grassLight: '#add565', grassDark: '#2f6844', grassShade: '#3f7d43', moss: '#789c52', mossLight: '#a8c96a', rock: '#827c68', rockLight: '#b3a987', flower: '#e29178', water: '#3d9daa', waterLight: '#b6ead2', dirt: '#ad6848', path: '#dfb25e', pathLight: '#f6d98c', roof: roof === 'moss' ? '#356744' : '#68445f', paper: '#f7e8c6' },
-    river: { sky: '#91cfe0', distant: '#6097a1', grass: '#4f9679', grassMid: '#70ad78', grassLight: '#91c86d', grassDark: '#286450', grassShade: '#3b7d64', flower: '#eaa27d', water: '#348eac', waterLight: '#a9e7dd', dirt: '#ad6848', path: '#dbbe78', pathLight: '#f3e0a7', roof: roof === 'moss' ? '#2e625c' : '#654c68', paper: '#eef5e8' },
-    woodland: { sky: '#a8cba8', distant: '#5f8f65', grass: '#4b8b4d', grassMid: '#6eaa52', grassLight: '#94c75f', grassDark: '#285d3c', grassShade: '#3c763e', flower: '#d88d8d', water: '#3d8498', waterLight: '#9bd8b7', dirt: '#9c654c', path: '#d0ad68', pathLight: '#ecd28d', roof: roof === 'moss' ? '#2f5c42' : '#60465d', paper: '#edf0d4' }
+    heath: { sky: '#a8d8df', distant: '#6fa574', grass: '#5e994f', grassMid: '#7eaf57', grassLight: '#add565', grassDark: '#2f6844', grassShade: '#3f7d43', moss: '#789c52', mossLight: '#a8c96a', rock: '#827c68', rockLight: '#b3a987', flower: '#e29178', water: '#3d9daa', waterLight: '#b6ead2', dirt: '#ad6848', path: '#dfb25e', pathLight: '#f6d98c', pathEdge: '#b9854b', roof: roof === 'moss' ? '#356744' : '#68445f', paper: '#f7e8c6' },
+    river: { sky: '#91cfe0', distant: '#6097a1', grass: '#4f9679', grassMid: '#70ad78', grassLight: '#91c86d', grassDark: '#286450', grassShade: '#3b7d64', flower: '#eaa27d', water: '#348eac', waterLight: '#a9e7dd', dirt: '#ad6848', path: '#dbbe78', pathLight: '#f3e0a7', pathEdge: '#ae8758', roof: roof === 'moss' ? '#2e625c' : '#654c68', paper: '#eef5e8' },
+    woodland: { sky: '#a8cba8', distant: '#5f8f65', grass: '#4b8b4d', grassMid: '#6eaa52', grassLight: '#94c75f', grassDark: '#285d3c', grassShade: '#3c763e', flower: '#d88d8d', water: '#3d8498', waterLight: '#9bd8b7', dirt: '#9c654c', path: '#d0ad68', pathLight: '#ecd28d', pathEdge: '#a9824f', roof: roof === 'moss' ? '#2f5c42' : '#60465d', paper: '#edf0d4' }
   };
   return themes[landscape] ?? themes.heath;
 }
@@ -438,19 +438,81 @@ function carveEllipse(grid, cx, cy, radiusX, radiusY, tile = 'w') {
   }
 }
 
-function paintCorridor(grid, startX, startY, endX, endY, width = 1, bridge = false) {
+export function paintCorridor(grid, startX, startY, endX, endY, width = 1, bridge = false, bend = 0) {
   const distance = Math.max(Math.abs(endX - startX), Math.abs(endY - startY));
-  for (let step = 0; step <= distance; step += 1) {
-    const t = distance ? step / distance : 0;
-    const x = Math.round(startX + (endX - startX) * t);
-    const y = Math.round(startY + (endY - startY) * t);
-    for (let oy = -width; oy <= width; oy += 1) {
-      for (let ox = -width; ox <= width; ox += 1) {
-        const current = grid[y + oy]?.[x + ox];
-        if (current && (bridge || current !== 'w')) setWorldCell(grid, x + ox, y + oy, 'p');
+  const dx = endX - startX;
+  const dy = endY - startY;
+  const length = Math.max(1, Math.hypot(dx, dy));
+  const normalX = -dy / length;
+  const normalY = dx / length;
+  const controlX = (startX + endX) / 2 + normalX * bend;
+  const controlY = (startY + endY) / 2 + normalY * bend;
+  const samples = Math.max(1, Math.ceil(distance * 4));
+  const radius = Math.max(0.7, width * 0.78);
+  let previous = null;
+  for (let step = 0; step <= samples; step += 1) {
+    const t = samples ? step / samples : 0;
+    const inverse = 1 - t;
+    const curveX = inverse * inverse * startX + 2 * inverse * t * controlX + t * t * endX;
+    const curveY = inverse * inverse * startY + 2 * inverse * t * controlY + t * t * endY;
+    const x = Math.round(curveX);
+    const y = Math.round(curveY);
+    const span = previous ? Math.max(Math.abs(x - previous.x), Math.abs(y - previous.y)) : 0;
+    for (let bridgeStep = 0; bridgeStep <= span; bridgeStep += 1) {
+      const progress = span ? bridgeStep / span : 0;
+      const paintX = Math.round((previous?.x ?? x) + (x - (previous?.x ?? x)) * progress);
+      const paintY = Math.round((previous?.y ?? y) + (y - (previous?.y ?? y)) * progress);
+      const reach = Math.ceil(radius);
+      for (let oy = -reach; oy <= reach; oy += 1) {
+        for (let ox = -reach; ox <= reach; ox += 1) {
+          if (ox * ox + oy * oy > radius * radius) continue;
+          const current = grid[paintY + oy]?.[paintX + ox];
+          if (current && (bridge || current !== 'w')) setWorldCell(grid, paintX + ox, paintY + oy, 'p');
+        }
       }
     }
+    if (previous && x !== previous.x && y !== previous.y) {
+      for (const [paintX, paintY] of [[x, previous.y], [previous.x, y]]) {
+        const current = grid[paintY]?.[paintX];
+        if (current && (bridge || current !== 'w')) setWorldCell(grid, paintX, paintY, 'p');
+      }
+    }
+    previous = { x, y };
   }
+}
+
+export function worldPathRoutes(village = {}) {
+  const ox = SETTLEMENT_ORIGIN.x;
+  const oy = SETTLEMENT_ORIGIN.y;
+  const seed = seedFromText(`${village.name ?? 'Moonrise Hollow'}:${village.landscape ?? 'heath'}`);
+  const routes = [
+    [ox + 5, oy + 11, ox + 66, oy + 11, 1, false, 2.5],
+    [ox + 30, oy + 5, ox + 30, oy + 50, 1, false, -2.5],
+    [ox + 14, oy + 6, ox + 14, oy + 18, 1, false, 1.5],
+    [ox + 5, oy + 16, ox + 24, oy + 16, 1, false, -1.5],
+    [ox + 30, oy + 31, ox + 67, oy + 31, 1, true, -3],
+    [ox + 12, oy + 44, ox + 61, oy + 44, 1, false, -2.5]
+  ];
+  const trailStarts = {
+    'apple-orchard': { x: ox + 12, y: oy + 16 },
+    willowmere: { x: ox + 66, y: oy + 11 },
+    'stonecutters-hollow': { x: ox + 60, y: oy + 44 },
+    'west-lookout': { x: ox + 12, y: oy + 44 }
+  };
+  for (const landmark of WORLD_LANDMARKS) {
+    const trailStart = trailStarts[landmark.id] ?? { x: ox + 31, y: oy + 15 };
+    const trailBend = Math.round((hash2d(landmark.x, landmark.y, seed + 73) - 0.5) * 46);
+    routes.push([
+      trailStart.x,
+      trailStart.y,
+      landmark.x + Math.floor(landmark.w / 2),
+      landmark.y + Math.floor(landmark.h / 2),
+      1,
+      true,
+      trailBend
+    ]);
+  }
+  return routes.map(([startX, startY, endX, endY, width, bridge, bend]) => ({ startX, startY, endX, endY, width, bridge, bend }));
 }
 
 // Returns a deterministic, large world with several low-frequency biomes. The
@@ -499,19 +561,11 @@ export function buildWorldGrid(village = {}) {
 
   // Village paths and outward trails. The long corridors deliberately bridge
   // water crossings so each named destination can be reached on foot.
-  paintCorridor(grid, ox + 5, oy + 11, ox + 66, oy + 11, 1);
-  paintCorridor(grid, ox + 30, oy + 5, ox + 30, oy + 50, 1);
-  paintCorridor(grid, ox + 14, oy + 6, ox + 14, oy + 18, 1);
-  paintCorridor(grid, ox + 5, oy + 16, ox + 24, oy + 16, 1);
-  paintCorridor(grid, ox + 27, oy + 14, ox + 39, oy + 14, 1);
-  paintCorridor(grid, ox + 30, oy + 31, ox + 67, oy + 31, 1, true);
-  paintCorridor(grid, ox + 53, oy + 31, ox + 53, oy + 44, 1);
-  paintCorridor(grid, ox + 12, oy + 44, ox + 61, oy + 44, 1);
-  paintCorridor(grid, ox + 60, oy + 52, ox + 88, oy + 52, 1);
-  const trailStart = { x: ox + 31, y: oy + 15 };
-  for (const landmark of WORLD_LANDMARKS) {
-    paintCorridor(grid, trailStart.x, trailStart.y, landmark.x + Math.floor(landmark.w / 2), landmark.y + Math.floor(landmark.h / 2), 1, true);
+  for (const route of worldPathRoutes(village)) {
+    paintCorridor(grid, route.startX, route.startY, route.endX, route.endY, route.width, route.bridge, route.bend);
   }
+  setWorldCell(grid, START_POSITION.x, START_POSITION.y, 'p');
+  setWorldCell(grid, ox + 30, oy + 11, 'p');
 
   // The home garden and far regions use explicit organic silhouettes on top of
   // the noise field, preventing a lucky seed from erasing the authored anchors.

@@ -165,8 +165,9 @@ export function waterShimmer(ctx, ox, oy, time) {
 // Deterministic terrain dressing: original rocks, grasses, flowers, bank reeds,
 // and path stones make the colony map feel authored without a sprite sheet.
 export function drawTerrainDetail(ctx, theme, tile, ox, oy, seed = 0, time = 0) {
-  const variant = Math.abs(seed) % 17;
-  const grain = Math.abs(seed * 13) % 11;
+  const hashed = Math.abs(Math.imul(Math.floor(seed), 2654435761)) >>> 0;
+  const variant = hashed % 17;
+  const grain = (hashed >>> 4) % 11;
   const grassMid = theme.grassMid ?? mix(theme.grass, theme.grassLight, 0.48);
   const grassShade = theme.grassShade ?? mix(theme.grass, theme.grassDark, 0.48);
   const flower = theme.flower ?? PALETTE.flower;
@@ -178,7 +179,9 @@ export function drawTerrainDetail(ctx, theme, tile, ox, oy, seed = 0, time = 0) 
       [ox + 1 + (grain % 4), oy + 2, 4, 1, mix(theme.grass, grassMid, 0.22)],
       [ox + 10 - (grain % 3), oy + 5, 3, 1, mix(theme.grass, grassShade, 0.18)],
       [ox + 3, oy + 14 - (grain % 3), 6, 1, mix(theme.grass, theme.grassLight, 0.18)],
-      [ox + 12 - (variant % 4), oy + 1 + (variant % 3), 1, 1, mix(theme.grass, theme.grassLight, 0.12)]
+      [ox + 12 - (variant % 4), oy + 1 + (variant % 3), 1, 1, mix(theme.grass, theme.grassLight, 0.12)],
+      [ox + ((hashed >>> 8) % 13), oy + ((hashed >>> 12) % 13), 1, 1, mix(theme.grass, grassMid, 0.36)],
+      [ox + ((hashed >>> 17) % 13), oy + ((hashed >>> 21) % 13), 1, 1, mix(theme.grass, grassShade, 0.3)]
     ));
     if (variant === 1 || variant === 8 || variant === 14) {
       drawPixels(ctx, rects(
@@ -239,12 +242,21 @@ export function drawTerrainDetail(ctx, theme, tile, ox, oy, seed = 0, time = 0) 
       [ox + 11, oy + 7, 2, 2, mix(rockLight, theme.grass, 0.3)]
     ));
   } else if (tile === 'p') {
+    const pathEdge = theme.pathEdge ?? mix(theme.path, theme.grassDark, 0.42);
     drawPixels(ctx, rects(
-      [ox + 1, oy + 1, 14, 1, mix(theme.path, theme.grassDark, 0.18)],
+      [ox + 1, oy + 1, 14, 1, pathEdge],
       [ox + 2 + (grain % 5), oy + 4, 4, 1, theme.pathLight],
       [ox + 9, oy + 10 - (grain % 3), 5, 2, theme.pathLight],
-      [ox + 4, oy + 14, 3, 1, mix(theme.path, theme.grassDark, 0.22)],
+      [ox + 4, oy + 14, 3, 1, pathEdge],
       [ox + 12 - (variant % 3), oy + 6, 2, 1, mix(theme.path, theme.pathLight, 0.5)]
+    ));
+    if (variant % 4 === 0) drawPixels(ctx, rects(
+      [ox + 5, oy + 7, 2, 1, mix(theme.path, theme.grassDark, 0.28)],
+      [ox + 11, oy + 3, 1, 1, theme.pathLight]
+    ));
+    if (variant % 5 === 2) drawPixels(ctx, rects(
+      [ox + 2, oy + 12, 2, 1, pathEdge],
+      [ox + 13, oy + 8, 1, 2, pathEdge]
     ));
   } else if (tile === 'd') {
     drawPixels(ctx, rects(

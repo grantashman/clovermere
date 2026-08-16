@@ -24,7 +24,9 @@ import {
   START_POSITION,
   WORLD_WIDTH,
   WORLD_HEIGHT,
-  SETTLEMENT_ORIGIN
+  SETTLEMENT_ORIGIN,
+  paintCorridor,
+  worldPathRoutes
 } from '../src/game-systems.js';
 
 const map = [
@@ -102,7 +104,35 @@ test('the generated world is huge, varied, deterministic, and starts near its ce
   assert.equal(SETTLEMENT_ORIGIN.x + 14, START_POSITION.x);
 });
 
-test('onboarding objective order guides a new player through the first day', () => {
+test('smooth corridor painting creates a connected curved footpath', () => {
+  const grid = Array.from({ length: 40 }, () => Array(60).fill('g'));
+  paintCorridor(grid, 3, 8, 52, 28, 1, false, 9);
+  const path = new Set();
+  for (let y = 0; y < grid.length; y += 1) {
+    for (let x = 0; x < grid[y].length; x += 1) if (grid[y][x] === 'p') path.add(`${x},${y}`);
+  }
+  assert.ok(path.has('3,8'));
+  assert.ok(path.has('52,28'));
+  const ys = [...path].map((point) => Number(point.split(',')[1]));
+  assert.ok(Math.max(...ys) - Math.min(...ys) > 12, 'the route should visibly bend rather than remain a straight diagonal');
+  const queue = [['3,8']];
+  const seen = new Set(queue);
+  while (queue.length) {
+    const [x, y] = queue.shift()[0].split(',').map(Number);
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const next = `${x + dx},${y + dy}`;
+      if (path.has(next) && !seen.has(next)) { seen.add(next); queue.push([next]); }
+    }
+  }
+  assert.ok(seen.has('52,28'), 'the curved path should remain walkably connected');
+});
+test('world path routes share curved geometry with the terrain grid', () => {
+  const routes = worldPathRoutes({ name: 'Moonrise Hollow', landscape: 'heath' });
+  assert.ok(routes.length >= 10, 'settlement and destination routes should both be authored');
+  assert.ok(routes.some((route) => route.bend !== 0), 'routes should include organic bends');
+  assert.ok(routes.some((route) => route.bridge), 'destination trails should bridge water where needed');
+});
+test('onboarding objective order guides the first day', () => {
   const state = createDefaultGameState();
   assert.equal(nextOnboardingObjective(state).id, 'garden');
   const progressed = { ...state, onboarding: normalizeOnboarding({ garden: true }) };
