@@ -144,6 +144,7 @@ let cameraZoom = DEFAULT_ZOOM;
 let bookOpen = true;
 let hudOpen = true;
 let minimapOpen = true;
+let discoveredLandmarks = new Set();
 
 function loadState() {
   try {
@@ -196,6 +197,36 @@ function showToast(message) {
 function updateZoomLabel() {
   const label = document.querySelector('#game-zoom-label');
   if (label) label.textContent = `${Math.round(cameraZoom * 100)}%`;
+}
+
+function updateWorldGuide() {
+  const kicker = document.querySelector('#world-guide-kicker');
+  const label = document.querySelector('#world-guide-label');
+  const copy = document.querySelector('#world-guide-copy');
+  if (!kicker || !label || !copy) return;
+  if (state.location !== 'village') {
+    kicker.textContent = 'UNDER THE HILL';
+    label.textContent = state.interior?.title ?? 'A quiet room';
+    copy.textContent = 'The road waits outside whenever you are ready.';
+    return;
+  }
+  const nearest = WORLD_LANDMARKS
+    .map((landmark) => ({ landmark, distance: Math.hypot((landmark.x + landmark.w / 2) - playerMotion.x, (landmark.y + landmark.h / 2) - playerMotion.y) }))
+    .sort((a, b) => a.distance - b.distance)[0];
+  if (!nearest) return;
+  const dx = nearest.landmark.x + nearest.landmark.w / 2 - playerMotion.x;
+  const dy = nearest.landmark.y + nearest.landmark.h / 2 - playerMotion.y;
+  const compass = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+  const bearing = compass[(Math.round((Math.atan2(dx, -dy) / (Math.PI / 4)) + 8) % 8)];
+  const paces = Math.max(1, Math.round(nearest.distance));
+  const nearby = nearest.distance <= Math.max(nearest.landmark.w, nearest.landmark.h) * 0.8 + 3;
+  kicker.textContent = `${bearing} · ${paces} PACES`;
+  label.textContent = nearby ? nearest.landmark.label : `Toward ${nearest.landmark.label}`;
+  copy.textContent = nearby ? 'A landmark rises nearby. Press E when the road offers a moment.' : `${paces} paces beyond the next bend · follow the old trail.`;
+  if (nearby && !discoveredLandmarks.has(nearest.landmark.id)) {
+    discoveredLandmarks.add(nearest.landmark.id);
+    showToast(`You have found ${nearest.landmark.label}.`);
+  }
 }
 
 function setCameraZoom(delta) {
@@ -466,30 +497,33 @@ function applyCameraZoom(x, y) {
   };
 }
 
+const WORLD_RENDER_MARGIN = 4;
+
 function drawWorld(ctx, theme, village, spec, player, cam, time = 0, zoom = cameraZoom) {
-  // Render a larger tile window, then scale it around the logical centre. The
-  // camera therefore follows fractional player coordinates instead of snapping
-  // one whole tile at a time.
+  // Render a padded tile window so oversized trees, rocks, props, and landmark
+  // edges are already rasterised before their anchor tile crosses the viewport.
   const { camX, camY } = cam;
   const renderViewW = Math.ceil(VIEW_W / zoom) + 2;
   const renderViewH = Math.ceil(VIEW_H / zoom) + 2;
-  const baseCamX = Math.floor(camX);
-  const baseCamY = Math.floor(camY);
+  const baseCamX = Math.floor(camX) - WORLD_RENDER_MARGIN;
+  const baseCamY = Math.floor(camY) - WORLD_RENDER_MARGIN;
+  const paddedViewW = renderViewW + WORLD_RENDER_MARGIN * 2;
+  const paddedViewH = renderViewH + WORLD_RENDER_MARGIN * 2;
   // ground tiles within the viewport window
-  for (let sy = 0; sy < renderViewH; sy += 1) {
+  for (let sy = 0; sy < paddedViewH; sy += 1) {
     const wy = baseCamY + sy;
     if (wy <= 0 || wy >= WORLD_HEIGHT - 1) continue;
-    for (let sx = 0; sx < renderViewW; sx += 1) {
+    for (let sx = 0; sx < paddedViewW; sx += 1) {
       const wx = baseCamX + sx;
       if (wx <= 0 || wx >= WORLD_WIDTH - 1) continue;
       drawPixels(ctx, tileRects(wx - camX, wy - camY, worldGrid[wy][wx], theme, village));
     }
   }
   // tile detail layer: grass tufts, pebbles, small flowers for texture
-  for (let sy = 0; sy < renderViewH; sy += 1) {
+  for (let sy = 0; sy < paddedViewH; sy += 1) {
     const wy = baseCamY + sy;
     if (wy <= 0 || wy >= WORLD_HEIGHT - 1) continue;
-    for (let sx = 0; sx < renderViewW; sx += 1) {
+    for (let sx = 0; sx < paddedViewW; sx += 1) {
       const wx = baseCamX + sx;
       if (wx <= 0 || wx >= WORLD_WIDTH - 1) continue;
       const tile = worldGrid[wy][wx];
@@ -562,8 +596,8 @@ function drawWorld(ctx, theme, village, spec, player, cam, time = 0, zoom = came
   }
 
   // trees in the viewport (with their own shadows inside)
-  for (let wy = baseCamY; wy < baseCamY + renderViewH; wy += 1) {
-    for (let wx = baseCamX; wx < baseCamX + renderViewW; wx += 1) {
+  for (let wy = baseCamY; wy < baseCamY + paddedViewH; wy += 1) {
+    for (let wx = baseCamX; wx < baseCamX + paddedViewW; wx += 1) {
       if (worldGrid[wy] && worldGrid[wy][wx] === 't') {
         const { sx, sy } = worldToScreen(wx, wy);
         drawTreeSprite(ctx, theme, sx, sy, (wx * 7 + wy * 13) % 5);
@@ -982,6 +1016,7 @@ function updateHud() {
   const windowContext = document.querySelector('#window-hud-context');
   if (windowLocation) windowLocation.textContent = state.location === 'village' ? state.village.name : state.interior?.title ?? 'Interior';
   if (windowContext) windowContext.textContent = state.location === 'village' ? (objective?.hint ?? 'The village is yours to shape.') : (state.interior?.subtitle ?? 'A room with a little time to think.');
+  updateWorldGuide();
   const gameMealButton = document.querySelector('#game-meal-button');
   if (gameMealButton) {
     const hasStew = mealQuantity > 0;

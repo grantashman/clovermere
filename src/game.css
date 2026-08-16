@@ -295,6 +295,12 @@ body.game-page:has(#play-screen:not([hidden])) .game-header-actions { display: n
 .map-key-villager { border-radius: 50%; background: #e29178; }
 .map-key-place { background: #d6c39d; }
 .minimap-reopen { position: absolute; top: .9rem; right: .9rem; z-index: 5; min-height: 2rem; padding: .42rem .65rem; border: 1px solid #d7b468; border-radius: .2rem; color: #f2d486; background: rgba(17, 29, 25, .9); font: 700 .58rem var(--mono); cursor: pointer; }
+.world-guide { position: absolute; top: 4.3rem; left: .9rem; z-index: 4; display: flex; align-items: center; gap: .55rem; width: min(280px, 25%); padding: .48rem .62rem; border: 1px solid rgba(224, 205, 157, .32); border-left: 3px solid #d7b468; border-radius: .2rem; color: #d7dfca; background: linear-gradient(135deg, rgba(20, 35, 29, .9), rgba(22, 30, 27, .76)); box-shadow: 4px 4px 0 rgba(14, 22, 18, .24); pointer-events: none; }
+.world-guide-mark { display: grid; width: 1.55rem; height: 1.55rem; flex: 0 0 auto; place-items: center; border: 1px solid rgba(238, 213, 149, .52); border-radius: 50%; color: #f0d487; background: rgba(75, 94, 67, .66); font: 1rem var(--display); }
+.world-guide > span:last-child { display: grid; min-width: 0; gap: .12rem; }
+.world-guide b { overflow: hidden; color: #d7b468; font: .43rem var(--mono); letter-spacing: .12em; text-overflow: ellipsis; white-space: nowrap; }
+.world-guide strong { overflow: hidden; color: #f2e4bd; font: 600 .73rem var(--display); text-overflow: ellipsis; white-space: nowrap; }
+.world-guide small { overflow: hidden; color: #aebca9; font: .5rem var(--mono); line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }
 .game-book { top: 22rem; right: .9rem; bottom: .9rem; width: min(350px, 31%); padding: .58rem; border-color: rgba(233, 215, 166, .44); border-radius: .28rem; background: linear-gradient(145deg, rgba(25, 39, 32, .96), rgba(18, 29, 26, .94)); box-shadow: 6px 6px 0 rgba(13, 20, 18, .3), inset 0 0 0 1px rgba(255,255,255,.035); }
 .canvas-wrap.is-interior .game-book { top: 5.4rem; }
 .book-heading { position: sticky; top: -.58rem; z-index: 2; margin: -.58rem -.58rem .1rem; padding: .72rem .72rem .52rem; background: rgba(25, 39, 32, .98); border-bottom: 1px solid rgba(233, 215, 166, .18); }
@@ -305,6 +311,8 @@ body.game-page:has(#play-screen:not([hidden])) .game-header-actions { display: n
 .canvas-wrap.is-interior .minimap-shell { display: none; }
 @media (max-width: 900px) { .window-hud-top { right: .9rem; } .window-hud-brand { min-width: 9rem; } .window-hud-actions { max-width: calc(100% - 10rem); } .window-hud-bottom { right: .9rem; } .game-book { top: 18rem; width: min(350px, 42%); } }
 @media (max-width: 720px) { .window-hud-top { top: .55rem; left: .55rem; right: .55rem; gap: .4rem; } .window-hud-brand { min-width: 0; padding: .42rem .5rem; } .window-hud-brand b { font-size: .46rem; } .window-hud-brand small { font-size: .52rem; } .window-hud-actions { max-width: none; overflow-x: auto; flex-wrap: nowrap; } .hud-button { white-space: nowrap; } .window-hud-bottom { left: .55rem; right: .55rem; bottom: .55rem; align-items: stretch; flex-direction: column; } .hud-status { max-width: 100%; } .hud-actions { align-self: flex-start; max-width: 100%; overflow-x: auto; } .minimap-shell { top: 5.1rem; right: .55rem; width: min(220px, calc(100% - 1.1rem)); } .minimap-reopen { top: 5.1rem; right: .55rem; } .game-book { top: 14.5rem; right: .55rem; bottom: .55rem; width: calc(100% - 1.1rem); } }
+
+@media (max-width: 720px) { .world-guide { top: 5.1rem; left: .55rem; width: min(260px, calc(100% - 1.1rem)); } }
 
 /* The playable prototype is a viewport-filling game surface. The Village Book
    keeps its own scroll container; the document itself must not grow below it. */

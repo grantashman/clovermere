@@ -31,10 +31,15 @@ test('play controls and web panels are contained by the game window', () => {
   assert.match(gameWindow, /id="minimap-canvas"/, 'the minimap should render to its own canvas');
   assert.match(gameWindow, /id="minimap-close"/, 'the minimap should be closable');
   assert.match(gameWindow, /id="minimap-reopen"/, 'a closed minimap should have a reopen affordance');
+  assert.match(gameWindow, /id="world-guide"/, 'exploration should have a contextual wayfarer guide');
+  assert.match(gameWindow, /aria-live="polite"/, 'the guide should announce discovery without stealing focus');
 });
 
 test('game starts at half zoom and exposes the complete zoom range', () => {
   assert.match(gameScript, /const ZOOM_MIN = 0\.5;/);
   assert.match(gameScript, /const ZOOM_MAX = 2;/);
   assert.match(gameScript, /const DEFAULT_ZOOM = 0\.5;/);
+  assert.match(gameScript, /const WORLD_RENDER_MARGIN = 4;/);
+  assert.match(gameScript, /const paddedViewW = renderViewW \+ WORLD_RENDER_MARGIN \* 2;/);
+  assert.match(gameScript, /function updateWorldGuide\(\)/);
 });
