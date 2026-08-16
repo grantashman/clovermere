@@ -82,7 +82,6 @@ func _draw() -> void:
     _draw_structures(bounds)
     _draw_landmarks(bounds)
     _draw_resources(bounds)
-    _draw_npcs(bounds)
 
 func _draw_tile(x: int, y: int, tile: String) -> void:
     var origin := Vector2(float(x) * TILE, float(y) * TILE)
@@ -415,39 +414,3 @@ func _draw_resource(centre: Vector2, kind: String, cleared: bool) -> void:
         for offset in [-5.0, 0.0, 5.0]:
             draw_line(centre + Vector2(offset, 5), centre + Vector2(offset - 1, -5), COLORS.grass_light, 1.0, false)
             draw_rect(Rect2(centre + Vector2(offset - 3, -7), Vector2(4, 3)), COLORS.flower, true)
-
-func _draw_npcs(bounds: Rect2) -> void:
-    for npc in world.npcs():
-        var feet := Vector2((float(npc.x) + 0.5) * TILE, (float(npc.y) + 0.9) * TILE)
-        if not bounds.grow(48.0).has_point(feet):
-            continue
-        _draw_npc(feet, npc)
-
-func _draw_npc(feet: Vector2, npc: Dictionary) -> void:
-    var skin := Color(str(npc.get("skin", "#d6a27a")))
-    var hair := Color(str(npc.get("hair", "#4a3630")))
-    var coat := Color(str(npc.get("coat", "#6b8159")))
-    var accent := Color(str(npc.get("accent", "#d6b36d")))
-    draw_rect(Rect2(feet + Vector2(-7, 5), Vector2(14, 4)), Color("#20342b"), true)
-    draw_rect(Rect2(feet + Vector2(-5, -14), Vector2(10, 16)), Color("#26362d"), true)
-    draw_rect(Rect2(feet + Vector2(-5, -13), Vector2(10, 12)), coat, true)
-    draw_rect(Rect2(feet + Vector2(2, -12), Vector2(3, 10)), coat.darkened(0.26), true)
-    draw_rect(Rect2(feet + Vector2(-7, -10), Vector2(2, 7)), coat.lightened(0.08), true)
-    draw_rect(Rect2(feet + Vector2(5, -10), Vector2(2, 7)), coat.darkened(0.1), true)
-    draw_rect(Rect2(feet + Vector2(-4, 2), Vector2(3, 4)), Color("#4a3b34"), true)
-    draw_rect(Rect2(feet + Vector2(1, 2), Vector2(3, 4)), Color("#4a3b34"), true)
-    draw_circle(feet + Vector2(0, -18), 6.0, Color("#2a332b"), true, -1.0, false)
-    draw_circle(feet + Vector2(0, -18), 5.0, skin, true, -1.0, false)
-    draw_rect(Rect2(feet + Vector2(-6, -23), Vector2(12, 3)), hair, true)
-    draw_rect(Rect2(feet + Vector2(-5, -25), Vector2(10, 3)), hair, true)
-    draw_rect(Rect2(feet + Vector2(-3, -19), Vector2(2, 2)), Color("#2c2923"), true)
-    draw_rect(Rect2(feet + Vector2(2, -19), Vector2(2, 2)), Color("#2c2923"), true)
-    draw_rect(Rect2(feet + Vector2(-3, -3), Vector2(6, 2)), accent, true)
-    if str(npc.get("role", "")) == "waykeeper":
-        draw_rect(Rect2(feet + Vector2(8, -17), Vector2(2, 20)), COLORS.wood, true)
-        draw_rect(Rect2(feet + Vector2(8, -19), Vector2(6, 4)), accent, true)
-    elif str(npc.get("role", "")) == "herbalist":
-        draw_rect(Rect2(feet + Vector2(-11, -9), Vector2(4, 5)), COLORS.grass_light, true)
-        draw_rect(Rect2(feet + Vector2(-10, -11), Vector2(2, 3)), accent, true)
-    elif str(npc.get("role", "")) == "maker":
-        draw_rect(Rect2(feet + Vector2(7, -8), Vector2(5, 5)), COLORS.wood_light, true)

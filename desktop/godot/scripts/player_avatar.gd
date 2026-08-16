@@ -8,7 +8,9 @@ func _process(delta: float) -> void:
 
 func _draw() -> void:
     var bob := sin(elapsed * 8.0) * 0.8
-    draw_circle(Vector2(0, 5), 6.5, Color("#1c2923"), true, -1.0, false)
+    draw_colored_polygon(PackedVector2Array([
+        Vector2(-9, 7), Vector2(-5, 4), Vector2(5, 4), Vector2(11, 7), Vector2(5, 10), Vector2(-5, 10)
+    ]), Color("#1c2923"))
     draw_rect(Rect2(-5, -2 + bob, 10, 12), Color("#6c7f58"), true)
     draw_rect(Rect2(-7, 0 + bob, 14, 5), Color("#738d62"), true)
     draw_circle(Vector2(0, -6 + bob), 6.0, Color("#d9a274"), true, -1.0, false)

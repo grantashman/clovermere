@@ -10,9 +10,10 @@ The current Windows test build is published on [GitHub Releases](https://github.
 
 The native client currently includes:
 
-- Deterministic 240×160 explorable world with varied terrain, material-edge shading, organic life, landmarks, pixel-grid roads, six residents, and authored settlement buildings.
+- Deterministic 240×160 explorable world with varied terrain, material-edge shading, organic life, landmarks, pixel-grid roads, six live residents, and authored settlement buildings.
 - Interactive timber, stone, ore, and herb nodes with persistent cut/mined/gathered world states and warm world-space lantern/player lighting.
 - First-day loop: Day 1 at 08:00, work actions consume time and energy, materials enter a persisted inventory, Greenbriar Cottage advances the day, and herbs regrow overnight.
+- Live resident layer: six role-specific NPC actors follow deterministic morning/work/evening/night schedules with route movement, idle/walk motion, role props, work-tool swings, impact sparks, and offset directional shadows.
 - Collision-safe keyboard movement and mouse click-to-move pathfinding.
 - Contextual building interaction, target markers, camera tracking, and 50%–200% zoom.
 - Field-notes loading and welcome screens before gameplay.
@@ -31,11 +32,18 @@ godot --headless --path desktop/godot --script res://tests/world_contract_test.g
 # Run the day-state contract: clock, energy, inventory, sleep, and regrowth
 godot --headless --path desktop/godot --script res://tests/day_state_test.gd
 
+# Run NPC schedule and actor contracts
+godot --headless --path desktop/godot --script res://tests/npc_schedule_test.gd
+godot --headless --path desktop/godot --script res://tests/npc_actor_test.gd
+
 # Verify click-to-move and building interaction
 godot --headless --path desktop/godot --script res://tests/mouse_input_smoke.gd
 
 # Verify resource work, save/load, and the first-day loop
 godot --headless --path desktop/godot --script res://tests/day_loop_smoke.gd
+
+# Verify live NPC creation, schedule transitions, and movement
+godot --headless --path desktop/godot --script res://tests/npc_live_smoke.gd
 
 # Verify welcome, options, pause, and save/load flow
 godot --headless --path desktop/godot --script res://tests/ui_flow_smoke.gd

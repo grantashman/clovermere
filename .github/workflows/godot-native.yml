@@ -31,6 +31,10 @@ jobs:
         run: godot --headless --path desktop/godot --script res://tests/world_contract_test.gd
       - name: Run day-state contract
         run: godot --headless --path desktop/godot --script res://tests/day_state_test.gd
+      - name: Run NPC schedule contract
+        run: godot --headless --path desktop/godot --script res://tests/npc_schedule_test.gd
+      - name: Run NPC actor contract
+        run: godot --headless --path desktop/godot --script res://tests/npc_actor_test.gd
       - name: Validate Godot project
         run: godot --headless --editor --quit --path desktop/godot
       - name: Smoke run desktop scene
@@ -41,6 +45,8 @@ jobs:
         run: godot --headless --path desktop/godot --script res://tests/resource_interaction_smoke.gd
       - name: Verify first day loop
         run: godot --headless --path desktop/godot --script res://tests/day_loop_smoke.gd
+      - name: Verify live NPC schedules and movement
+        run: godot --headless --path desktop/godot --script res://tests/npc_live_smoke.gd
       - name: Verify welcome, options, and save/load flow
         run: godot --headless --path desktop/godot --script res://tests/ui_flow_smoke.gd
       - name: Measure steady-state native renderer

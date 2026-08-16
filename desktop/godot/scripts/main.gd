@@ -7,6 +7,8 @@ const TargetMarker = preload("res://scripts/target_marker.gd")
 const UiShell = preload("res://scripts/ui_shell.gd")
 const LightingOverlay = preload("res://scripts/lighting_overlay.gd")
 const DayState = preload("res://scripts/day_state.gd")
+const NpcSchedule = preload("res://scripts/npc_schedule.gd")
+const NpcActor = preload("res://scripts/npc_actor.gd")
 
 
 const SAVE_PATH := "user://hobbit-moon-village-v2.json"
@@ -22,6 +24,9 @@ var world_sprite: Sprite2D
 var world_view: Node2D
 var lighting_overlay: Node2D
 var player: Node2D
+var npc_layer: Node2D
+var npc_actors: Dictionary = {}
+var npc_schedule_phases: Dictionary = {}
 var target_marker: Node2D
 var camera: Camera2D
 var grid: Array = []
@@ -73,6 +78,7 @@ func _ready() -> void:
     camera.position = player.position
     camera.make_current()
     camera.reset_smoothing()
+    _build_npc_actors()
     _build_hud()
     _build_ui()
     _refresh_hud()
@@ -140,12 +146,58 @@ func _build_world_cache() -> void:
     target_marker.visible = false
     add_child(target_marker)
 
+func _build_npc_actors() -> void:
+    npc_layer = Node2D.new()
+    npc_layer.name = "LiveResidents"
+    npc_layer.z_index = 18
+    add_child(npc_layer)
+    npc_actors.clear()
+    npc_schedule_phases.clear()
+    for npc_variant in world.npcs():
+        if not npc_variant is Dictionary:
+            continue
+        var npc: Dictionary = npc_variant
+        var actor = NpcActor.new()
+        actor.name = "Resident_%s" % str(npc.get("id", "unknown"))
+        actor.set_npc(npc)
+        actor.position = (Vector2(float(npc.get("x", World.START_TILE.x)) + 0.5, float(npc.get("y", World.START_TILE.y)) + 0.9) * World.TILE_SIZE)
+        npc_layer.add_child(actor)
+        npc_actors[str(npc.get("id", ""))] = actor
+    _refresh_npc_schedules(true)
+
+func _refresh_npc_schedules(force: bool = false) -> void:
+    if npc_actors.is_empty():
+        return
+    for npc_variant in world.npcs():
+        if not npc_variant is Dictionary:
+            continue
+        var npc: Dictionary = npc_variant
+        var npc_id := str(npc.get("id", ""))
+        var actor = npc_actors.get(npc_id)
+        if actor == null:
+            continue
+        var decision: Dictionary = NpcSchedule.resolve(npc, day_state.minute_of_day)
+        var phase := str(decision.get("phase", ""))
+        actor.set_activity(str(decision.get("activity", "resting")))
+        if force or str(npc_schedule_phases.get(npc_id, "")) != phase:
+            var requested_target: Vector2i = decision.get("target", World.START_TILE)
+            var target := world.nearest_walkable(grid, requested_target, 10)
+            var start := Vector2i(floori(actor.position.x / World.TILE_SIZE), floori(actor.position.y / World.TILE_SIZE))
+            actor.set_route(world.find_path(grid, start, target))
+            npc_schedule_phases[npc_id] = phase
+
+func _update_npc_actors(delta: float) -> void:
+    for actor_variant in npc_actors.values():
+        var actor = actor_variant
+        actor.advance_navigation(delta, World.TILE_SIZE, 1.8)
+
 func _process(delta: float) -> void:
     if lighting_overlay != null:
         lighting_overlay.set_player_position(player.position if player != null else Vector2.ZERO, game_started)
     if not game_started:
         _refresh_hud()
         return
+    _update_npc_actors(delta)
     var direction := Input.get_vector("move_left", "move_right", "move_up", "move_down")
     var next_position := player_position
     if direction.length_squared() > 0.0001:
@@ -528,6 +580,7 @@ func _refresh_world_state() -> void:
     if world_cache != null:
         world_cache.render_target_update_mode = SubViewport.UPDATE_ONCE
     _refresh_player_transform()
+    _refresh_npc_schedules(true)
 
 func _set_gameplay_hud_visible(visible: bool) -> void:
     if gameplay_hud != null:
