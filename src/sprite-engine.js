@@ -67,6 +67,50 @@ export function drawSoftShadow(ctx, cx, feetY, radiusX, radiusY = 3, alpha = 0.2
   ctx.fill();
 }
 
+// Code-generated sun shadow inspired by top-down colony renderers: the shadow
+// direction is stable, but its reach is driven by the object's apparent height.
+// It is deliberately soft-edged through alpha rather than a raster asset.
+export function drawDirectionalShadow(ctx, cx, baseY, width, height, elevation = 1, alpha = 0.22) {
+  const reach = Math.max(2, Math.round(elevation * 9));
+  const side = Math.max(1, Math.round(elevation * 3));
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = '#1b2925';
+  ctx.beginPath();
+  ctx.moveTo(cx - width / 2, baseY);
+  ctx.lineTo(cx + width / 2, baseY);
+  ctx.lineTo(cx + width / 2 + side, baseY + reach);
+  ctx.lineTo(cx - width / 2 + side, baseY + reach);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+}
+
+// Small material marks make large surfaces read as stone, plank, or soil rather
+// than one flat fill. Seeds keep the variants deterministic across saves.
+export function drawMaterialScuff(ctx, theme, material, ox, oy, seed = 0) {
+  const variant = Math.abs(Math.floor(seed)) % 3;
+  if (material === 'stone') {
+    drawPixels(ctx, rects(
+      [ox + 2, oy + 3 + variant, 7, 2, PALETTE.stoneDark],
+      [ox + 11, oy + 8, 4, 2, PALETTE.stone],
+      [ox + 4, oy + 12, 5, 1, mix(PALETTE.stone, PALETTE.stoneDark, 0.4)]
+    ));
+  } else if (material === 'wood') {
+    drawPixels(ctx, rects(
+      [ox + 1, oy + 4, 11, 1, PALETTE.plankLight],
+      [ox + 4, oy + 9 + variant, 8, 1, PALETTE.plankDark],
+      [ox + 2, oy + 13, 6, 1, PALETTE.woodDark]
+    ));
+  } else if (material === 'soil') {
+    drawPixels(ctx, rects(
+      [ox + 2, oy + 6, 5, 1, PALETTE.dirt],
+      [ox + 9, oy + 10 + variant, 4, 1, PALETTE.soil],
+      [ox + 5, oy + 13, 3, 1, mix(theme.grassDark, PALETTE.soil, 0.4)]
+    ));
+  }
+}
+
 // Sky gradient + parallax hill bands drawn behind the world.
 export function drawSky(ctx, theme) {
   const grad = ctx.createLinearGradient(0, 0, 0, 80);
@@ -326,7 +370,16 @@ export function drawHobbitSprite(ctx, spec, cx, feetY, flip = false, motion = {}
   const stride = motion.moving ? Math.round(Math.sin(phase) * 1.2) : 0;
 
   // ground shadow stays planted while the body bobs above it
-  drawSoftShadow(ctx, cx, feetY, bodyW * 0.72, 3, 0.24);
+  drawDirectionalShadow(ctx, cx, feetY, bodyW * 1.15, 4, 1.1, 0.2);
+  drawSoftShadow(ctx, cx, feetY, bodyW * 0.72, 3, 0.18);
+
+  // A compact charcoal silhouette keeps small actors readable over mixed terrain.
+  drawPixels(ctx, rects(
+    [left - 1, top + 11, bodyW + 2, 14, PALETTE.ink],
+    [cx - 6, top - 1, 12, 14, PALETTE.ink],
+    [left - 3, top + 13, 2, 8, PALETTE.ink],
+    [left + bodyW + 1, top + 13, 2, 8, PALETTE.ink]
+  ));
 
   // feet (with sole shading and alternating stride)
   drawPixels(ctx, rects([left + 1 + stride, animatedFeetY - 2, 4, 2, PALETTE.door], [left + bodyW - 5 - stride, animatedFeetY - 2, 4, 2, PALETTE.door], [left + 1 + stride, animatedFeetY, 4, 1, PALETTE.shadow], [left + bodyW - 5 - stride, animatedFeetY, 4, 1, PALETTE.shadow]));
@@ -417,8 +470,9 @@ export function drawHouseSprite(ctx, theme, house, ox, oy) {
 
 export function drawTreeSprite(ctx, theme, ox, oy, seed = 0) {
   const trunkX = ox + 9;
-  // ground shadow
-  drawSoftShadow(ctx, ox + 12, oy + 40, 13, 3, 0.2);
+  // tree height projects a longer directional shadow than a pawn
+  drawDirectionalShadow(ctx, ox + 12, oy + 40, 22, 8, 2.2, 0.18);
+  drawSoftShadow(ctx, ox + 12, oy + 40, 13, 3, 0.14);
   drawPixels(ctx, rects(
     [trunkX, oy + 22, 6, 16, PALETTE.trunk],
     [trunkX - 1, oy + 38, 8, 3, PALETTE.trunkLight],
@@ -643,7 +697,8 @@ export function drawColonyProp(ctx, theme, type, ox, oy, seed = 0, time = 0) {
 
 // Ambient-occlusion floor shadow under a building footprint (drawn before the building).
 export function drawBuildingShadow(ctx, ox, oy, w, h) {
-  ctx.fillStyle = 'rgba(31, 45, 40, 0.16)';
+  drawDirectionalShadow(ctx, ox + w / 2, oy + h - 2, w * 0.9, 8, Math.max(2, h / 48), 0.18);
+  ctx.fillStyle = 'rgba(31, 45, 40, 0.12)';
   ctx.beginPath();
   ctx.ellipse(ox + w / 2, oy + h - 2, w * 0.55, 7, 0, 0, Math.PI * 2);
   ctx.fill();
@@ -829,4 +884,6 @@ export function drawBuildingDetail(ctx, type, ox, oy, theme, time = 0) {
     detail.push([ox + 1, oy + 18, 3, 10, PALETTE.stoneDark], [ox + 12, oy + 18, 3, 10, PALETTE.stoneDark]);
   }
   drawPixels(ctx, detail);
+  const material = ['smithy', 'library', 'well'].includes(type) ? 'stone' : 'wood';
+  drawMaterialScuff(ctx, theme, material, ox + 4, oy + 29, type.length);
 }

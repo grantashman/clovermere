@@ -102,8 +102,9 @@ const setupScreen = document.querySelector('#setup-screen');
 const playScreen = document.querySelector('#play-screen');
 
 // Higher-resolution backing buffer: the art remains authored on the logical grid,
-// but is rasterised at 2× before the browser scales it into the game frame.
-const RENDER_SCALE = 2;
+// but is rasterised at 3× so a future desktop shell and high-DPI display retain
+// crisp edges without changing the world-coordinate contract.
+const RENDER_SCALE = 3;
 const buffer = document.createElement('canvas');
 buffer.width = GRID_W * RENDER_SCALE;
 buffer.height = GRID_H * RENDER_SCALE;
@@ -762,6 +763,25 @@ function updateHud() {
     }
   }
   const interiorHud = document.querySelector('#interior-hud');
+  const canvasWrap = document.querySelector('.canvas-wrap');
+  if (canvasWrap) canvasWrap.classList.toggle('is-interior', state.location !== 'village');
+  const windowLocation = document.querySelector('#window-hud-location');
+  const windowContext = document.querySelector('#window-hud-context');
+  if (windowLocation) windowLocation.textContent = state.location === 'village' ? state.village.name : state.interior?.title ?? 'Interior';
+  if (windowContext) windowContext.textContent = state.location === 'village' ? (objective?.hint ?? 'The village is yours to shape.') : (state.interior?.subtitle ?? 'A room with a little time to think.');
+  const gameMealButton = document.querySelector('#game-meal-button');
+  if (gameMealButton) {
+    const hasStew = mealQuantity > 0;
+    const hasIngredients = inventoryQuantity(state.inventory, 'silver_fish') > 0 && inventoryQuantity(state.inventory, 'moonberry') > 0;
+    gameMealButton.disabled = state.location === 'village' ? !hasStew && !hasIngredients : !hasStew && !hasIngredients;
+    gameMealButton.textContent = hasStew ? `Satchel · eat stew +28` : hasIngredients ? 'Hearth · cook stew' : 'Satchel · no meal';
+  }
+  const gameRequestButton = document.querySelector('#game-request-button');
+  if (gameRequestButton && request) {
+    const held = inventoryQuantity(state.inventory, request.itemId);
+    gameRequestButton.disabled = request.status === 'complete' || held < request.quantity;
+    gameRequestButton.textContent = request.status === 'complete' ? 'Request · complete' : held >= request.quantity ? 'Request · deliver' : `Request · need ${ITEMS[request.itemId]?.shortName ?? request.itemId}`;
+  }
   if (interiorHud) {
     interiorHud.hidden = state.location === 'village';
     if (state.location !== 'village') {
@@ -815,6 +835,16 @@ function performMealActivity(activityId, speaker = 'Satchel') {
 
 function eatMeal() {
   performMealActivity('eat');
+}
+
+function gameMealAction() {
+  if (state.location !== 'village') return useInteriorAction();
+  if (inventoryQuantity(state.inventory, 'pondside_stew') > 0) return eatMeal();
+  openDialogue('Command deck', 'The hearth is inside your smial. Bring a fish and a moonberry there when you want to cook.');
+}
+
+function leaveToLandingPage() {
+  window.location.assign('./');
 }
 
 function move(delta) {
@@ -1036,6 +1066,12 @@ document.querySelector('#eat-button')?.addEventListener('click', eatMeal);
 document.querySelector('#request-button')?.addEventListener('click', deliverRequest);
 document.querySelector('#interior-action')?.addEventListener('click', useInteriorAction);
 document.querySelector('#leave-interior')?.addEventListener('click', leaveInterior);
+document.querySelector('#game-interact-button')?.addEventListener('click', interact);
+document.querySelector('#game-fullscreen-button')?.addEventListener('click', toggleFullscreen);
+document.querySelector('#game-account-button')?.addEventListener('click', () => document.querySelector('#account-dialog').showModal());
+document.querySelector('#game-leave-button')?.addEventListener('click', leaveToLandingPage);
+document.querySelector('#game-meal-button')?.addEventListener('click', gameMealAction);
+document.querySelector('#game-request-button')?.addEventListener('click', deliverRequest);
 document.querySelector('#copy-code').addEventListener('click', copyInvite);
 document.querySelector('#sign-in-button').addEventListener('click', sendMagicLink);
 document.querySelector('#fullscreen-button')?.addEventListener('click', toggleFullscreen);

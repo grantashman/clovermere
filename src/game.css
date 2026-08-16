@@ -195,5 +195,29 @@ body.game-page:has(#play-screen:not([hidden])) .icon-button { color: #d6b76a; bo
 .interior-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .5rem; }
 .interior-actions .button { min-height: 2.3rem; }
 
+/* Desktop-shell-ready command layer: actions stay attached to the game window,
+   while the canvas remains the primary visual surface. */
+.game-window-hud { position: absolute; inset: .85rem; z-index: 4; display: flex; flex-direction: column; justify-content: space-between; pointer-events: none; }
+.window-hud-top, .window-hud-bottom { display: flex; align-items: center; justify-content: space-between; gap: .75rem; pointer-events: auto; }
+.window-hud-top { padding: .55rem .65rem; border: 1px solid rgba(227, 211, 165, .28); background: linear-gradient(90deg, rgba(19, 29, 26, .94), rgba(19, 29, 26, .72)); box-shadow: 0 8px 20px rgba(0,0,0,.2); }
+.window-hud-brand { display: flex; align-items: center; gap: .55rem; min-width: 9rem; color: #f4e9c9; font: .55rem var(--mono); letter-spacing: .08em; }
+.window-hud-brand span:last-child { display: grid; gap: .18rem; }
+.window-hud-brand b { color: #d7b468; font-weight: 500; }
+.window-hud-brand small { color: #aab7aa; font-size: .48rem; letter-spacing: .04em; }
+.hud-sigil { width: 1.55rem; height: 1.55rem; display: grid; place-items: center; color: #1b2925; background: #d4ad63; border-radius: .2rem; font: .8rem var(--display); }
+.window-hud-actions, .hud-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .35rem; }
+.hud-button, .hud-chip { min-height: 1.9rem; padding: .45rem .56rem; display: inline-flex; align-items: center; gap: .35rem; color: #d8ded1; background: rgba(33, 45, 40, .94); border: 1px solid rgba(191, 207, 186, .24); border-radius: .2rem; cursor: pointer; font: .5rem var(--mono); letter-spacing: .04em; text-transform: uppercase; transition: background 160ms var(--ease), border-color 160ms var(--ease), transform 160ms var(--ease); }
+.hud-button:hover, .hud-chip:hover { transform: translateY(-1px); color: #18211f; background: #d4ad63; border-color: #f0d487; }
+.hud-button:focus-visible, .hud-chip:focus-visible { outline: 2px solid #f0d487; outline-offset: 2px; }
+.hud-button-danger { color: #e4b09b; }
+.hud-button kbd { color: #f0d487; background: #27332e; border-color: #536155; font-size: .48rem; }
+.window-hud-bottom { align-items: flex-end; padding: .55rem .65rem; border: 1px solid rgba(227, 211, 165, .18); background: linear-gradient(90deg, rgba(19, 29, 26, .92), rgba(19, 29, 26, .68)); box-shadow: 0 8px 20px rgba(0,0,0,.2); }
+.hud-status { display: grid; gap: .22rem; min-width: 0; }
+.hud-status-label { color: #d7b468; font: .48rem var(--mono); letter-spacing: .12em; }
+.hud-status span:last-child { overflow: hidden; color: #c4cec0; font-size: .58rem; text-overflow: ellipsis; white-space: nowrap; }
+.hud-chip { color: #e2cb8b; background: rgba(39, 52, 46, .95); }
+.canvas-wrap.is-interior .window-hud-bottom { display: none; }
+body.game-page:has(#play-screen:not([hidden])) .game-header-actions { display: none; }
+
 @media (max-width: 1120px) { .colony-readout { justify-content: flex-end; flex-wrap: wrap; } }
-@media (max-width: 720px) { .stage-time { gap: .35rem; font-size: .58rem; } .colony-readout { display: none; } .interior-hud { left: .8rem; right: .8rem; bottom: .8rem; align-items: stretch; flex-direction: column; } .interior-actions { justify-content: stretch; } .interior-actions .button { flex: 1; } }
+@media (max-width: 720px) { .stage-time { gap: .35rem; font-size: .58rem; } .colony-readout { display: none; } .interior-hud { left: .8rem; right: .8rem; bottom: .8rem; align-items: stretch; flex-direction: column; } .interior-actions { justify-content: stretch; } .interior-actions .button { flex: 1; } .game-window-hud { inset: .45rem; } .window-hud-top { align-items: flex-start; flex-direction: column; } .window-hud-actions { justify-content: flex-start; } .window-hud-bottom { align-items: flex-start; flex-direction: column; } .hud-status span:last-child { white-space: normal; } }

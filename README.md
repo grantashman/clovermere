@@ -8,7 +8,7 @@ The first milestone is intentionally small and playable in a browser. It is the 
 
 ## What is here now
 
-- A handcrafted canvas village slice at [`/game`](./game.html): realtime movement, in-world dialogue, staged moonberry gardening, pond/market activities, cooking, meals, weather, a guided first-day path, villager requests and relationship hearts, authored smial/inn interiors, save-backed day rollover, and a local invite code.
+- A handcrafted canvas village slice at [`/game`](./game.html): realtime movement, in-world dialogue, staged moonberry gardening, pond/market activities, cooking, meals, weather, a guided first-day path, villager requests and relationship hearts, authored smial/inn interiors, a 2560×1440 in-game window with command-deck controls, and save-backed day rollover.
 - A public-facing marketing page at [`/`](./index.html).
 - A Supabase-ready multiplayer schema in [`supabase/migrations/0001_hobbit_moon.sql`](./supabase/migrations/0001_hobbit_moon.sql).
 - A graceful local demo mode when Supabase environment variables are not configured.

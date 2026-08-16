@@ -10,6 +10,8 @@ import {
   drawInteriorScene,
   drawPondSprite,
   drawBuildingShadow,
+  drawDirectionalShadow,
+  drawMaterialScuff,
   drawHills,
   drawSky,
   drawSoftShadow,
@@ -180,6 +182,15 @@ test('torch glow and water shimmer paint animated effects without error', () => 
   waterShimmer(context, 40, 40, 900);
   assert.ok(ops.some(([name]) => name === 'arc'), 'torch glow should draw a radial shape');
   assert.ok(ops.some(([name]) => name === 'fillRect'), 'water shimmer should draw highlight pixels');
+});
+
+test('directional shadows and material scuffs add the new compositor depth pass', () => {
+  const { context, ops } = makeContext();
+  const theme = resolveVillageTheme({ landscape: 'heath' });
+  drawDirectionalShadow(context, 120, 80, 28, 18, 1.8, 0.26);
+  drawMaterialScuff(context, theme, 'stone', 160, 80, 7);
+  assert.ok(ops.some(([name]) => name === 'lineTo'), 'directional shadow should use an authored polygon');
+  assert.ok(ops.some(([name]) => name === 'fillRect'), 'material scuff should paint texture pixels');
 });
 
 test('terrain dressing, selection rings, and nameplates paint without error', () => {
