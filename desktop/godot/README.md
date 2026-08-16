@@ -14,6 +14,8 @@ This directory contains the canonical native desktop client. The former browser/
 - A 75% native starting view for a more readable desktop composition; 50%–200% remains available
 - Authored cottage, hall, workshop, garden, and barn facades with distinct roof, window, timber, chimney, and prop details
 - Narrow orthogonal pixel-grid footpaths with tile shoulders, wear marks, and cached click-to-move routes
+- Seven interactive resource nodes for timber, stone, ore, and herbs; click a node or press `E` nearby to work it, with cleared states saved in `world_changes`
+- Material contact-edge shading and a separate world-space lighting compositor for window glows, player lantern radius, and future shadow/dusk expansion
 - Mouse controls: left-click ground to walk, left-click a building to approach and interact, right-click to cancel or revisit, and mouse wheel to zoom
 - Welcome/loading flow that opens before gameplay and defaults to fullscreen on desktop
 - Pause menu with explicit Save Journey and Load Journey actions backed by `user://hobbit-moon-village-v2.json`
