@@ -1,4 +1,4 @@
-name: Verify Godot native slice
+name: Verify desktop client
 
 on:
   push:
@@ -27,11 +27,11 @@ jobs:
           chmod +x "$RUNNER_TEMP/godot/Godot_v4.7.1-stable_linux.x86_64"
           ln -s "$RUNNER_TEMP/godot/Godot_v4.7.1-stable_linux.x86_64" "$RUNNER_TEMP/godot/godot"
           echo "$RUNNER_TEMP/godot" >> "$GITHUB_PATH"
-      - name: Run native world contract
+      - name: Run world and save contract
         run: godot --headless --path desktop/godot --script res://tests/world_contract_test.gd
-      - name: Validate native project
+      - name: Validate Godot project
         run: godot --headless --editor --quit --path desktop/godot
-      - name: Smoke run native scene
+      - name: Smoke run desktop scene
         run: godot --headless --path desktop/godot --quit-after 3
       - name: Verify mouse movement and building interaction
         run: godot --headless --path desktop/godot --script res://tests/mouse_input_smoke.gd

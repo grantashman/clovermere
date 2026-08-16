@@ -38,8 +38,13 @@ jobs:
           unzip -q "$RUNNER_TEMP/godot/templates.tpz" -d "$RUNNER_TEMP/godot/templates"
           cp -R "$RUNNER_TEMP/godot/templates/templates/." "$HOME/.local/share/godot/export_templates/$GODOT_FLAVOR/"
           echo "$RUNNER_TEMP/godot/bin" >> "$GITHUB_PATH"
-      - name: Run native contract before export
+      - name: Run world and save contract before export
         run: Godot_v${GODOT_VERSION}-stable_linux.x86_64 --headless --path desktop/godot --script res://tests/world_contract_test.gd
+      - name: Run desktop input and UI flow checks before export
+        run: |
+          Godot_v${GODOT_VERSION}-stable_linux.x86_64 --headless --path desktop/godot --script res://tests/mouse_input_smoke.gd
+          Godot_v${GODOT_VERSION}-stable_linux.x86_64 --headless --path desktop/godot --script res://tests/ui_flow_smoke.gd
+          Godot_v${GODOT_VERSION}-stable_linux.x86_64 --headless --path desktop/godot --script res://tests/render_smoke.gd
       - name: Export Windows executable
         shell: bash
         run: |

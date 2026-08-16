@@ -1,6 +1,6 @@
 # Hobbit Moon — Godot native slice
 
-This directory contains the native desktop client under active migration. The browser/Vite client remains the hosted reference release while this slice proves the native renderer and movement loop.
+This directory contains the canonical native desktop client. The former browser/Vite prototype has been retired as a release target; this Godot project is now the supported product and release path.
 
 ## Intended contract
 
