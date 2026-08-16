@@ -13,7 +13,10 @@ The native client currently includes:
 - Deterministic 240×160 explorable world with varied terrain, material-edge shading, organic life, landmarks, pixel-grid roads, six live residents, and authored settlement buildings.
 - Interactive timber, stone, ore, and herb nodes with persistent cut/mined/gathered world states and warm world-space lantern/player lighting.
 - First-day loop: Day 1 at 08:00, work actions consume time and energy, materials enter a persisted inventory, Greenbriar Cottage advances the day, and herbs regrow overnight.
+- Timed work loop: resource actions now show real progress, resource-specific labels, tool motion, impact feedback, cancellation, and exact-once inventory/time/energy completion.
+- Tinker Workshop material sink: 3 timber + 2 stone + 1 ore creates a persisted Tinker’s Kit that reduces future work energy costs by 20%; the HUD shows `KIT READY` after purchase.
 - Live resident layer: six role-specific NPC actors follow deterministic morning/work/evening/night schedules with route movement, idle/walk motion, role props, work-tool swings, impact sparks, and offset directional shadows.
+- Authored central-crossing benchmark layer with stronger building contact shadows, cottage/workshop props, crossing accents, and clock-driven cooler evening ambient lighting.
 - Collision-safe keyboard movement and mouse click-to-move pathfinding.
 - Contextual building interaction, target markers, camera tracking, and 50%–200% zoom.
 - Field-notes loading and welcome screens before gameplay.
@@ -35,6 +38,12 @@ godot --headless --path desktop/godot --script res://tests/day_state_test.gd
 # Run NPC schedule and actor contracts
 godot --headless --path desktop/godot --script res://tests/npc_schedule_test.gd
 godot --headless --path desktop/godot --script res://tests/npc_actor_test.gd
+
+# Run timed work, feedback, workshop, and benchmark contracts
+godot --headless --path desktop/godot --script res://tests/work_action_test.gd
+godot --headless --path desktop/godot --script res://tests/work_feedback_smoke.gd
+godot --headless --path desktop/godot --script res://tests/workshop_upgrade_test.gd
+godot --headless --path desktop/godot --script res://tests/benchmark_scene_test.gd
 
 # Verify click-to-move and building interaction
 godot --headless --path desktop/godot --script res://tests/mouse_input_smoke.gd
@@ -68,7 +77,7 @@ The former browser prototype has been **retired as a release target**. GitHub Pa
 
 The desktop roadmap is now:
 
-1. **Make the solo loop satisfying** — movement, daily rhythm, interactions, gathering, gardening, cooking, and exploration.
+1. **Make the solo loop satisfying** — movement, daily rhythm, timed work, useful materials, gathering, gardening, cooking, and exploration.
 2. **Deepen the village** — NPC schedules, interiors, relationships, useful buildings, seasonal events, and persistent world changes.
 3. **Polish the desktop experience** — controller support, accessibility, audio, graphics settings, robust save slots, and platform packaging.
 4. **Add shared play later** — only after the single-player desktop loop is enjoyable and stable.

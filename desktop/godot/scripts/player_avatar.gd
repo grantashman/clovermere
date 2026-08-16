@@ -1,6 +1,25 @@
 extends Node2D
 
 var elapsed := 0.0
+var work_active := false
+var tool_kind := ""
+var work_progress := 0.0
+
+func begin_work(kind: String) -> void:
+    work_active = true
+    tool_kind = kind
+    work_progress = 0.0
+    queue_redraw()
+
+func update_work(progress: float) -> void:
+    work_progress = clampf(progress, 0.0, 1.0)
+    queue_redraw()
+
+func clear_work() -> void:
+    work_active = false
+    tool_kind = ""
+    work_progress = 0.0
+    queue_redraw()
 
 func _process(delta: float) -> void:
     elapsed += delta
@@ -21,4 +40,9 @@ func _draw() -> void:
     draw_rect(Rect2(2, -6 + bob, 2, 2), Color("#2c2923"), true)
     draw_rect(Rect2(-7, 9 + bob, 5, 2), Color("#3b4e3b"), true)
     draw_rect(Rect2(2, 9 + bob, 5, 2), Color("#3b4e3b"), true)
+    if work_active:
+        var swing := sin(elapsed * 15.0) * 5.0
+        var tool_color := Color("#d7b06c") if tool_kind == "herb" else Color("#b98459")
+        draw_line(Vector2(7 + swing, -1 + bob), Vector2(17 + swing, 11 + bob), Color("#714b35"), 2.0, false)
+        draw_line(Vector2(17 + swing, 11 + bob), Vector2(23 + swing, 10 + bob), tool_color, 2.0, false)
     draw_arc(Vector2.ZERO, 15.0, 0.0, TAU, 24, Color(0.84, 0.68, 0.34, 0.5), 1.0, false)

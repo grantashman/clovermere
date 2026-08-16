@@ -9,6 +9,9 @@ const LightingOverlay = preload("res://scripts/lighting_overlay.gd")
 const DayState = preload("res://scripts/day_state.gd")
 const NpcSchedule = preload("res://scripts/npc_schedule.gd")
 const NpcActor = preload("res://scripts/npc_actor.gd")
+const WorkAction = preload("res://scripts/work_action.gd")
+const InteractionFeedback = preload("res://scripts/interaction_feedback.gd")
+const BenchmarkScene = preload("res://scripts/benchmark_scene.gd")
 
 
 const SAVE_PATH := "user://hobbit-moon-village-v2.json"
@@ -17,13 +20,16 @@ const DEFAULT_VILLAGE := {"name": "Clovermere", "landscape": "heath"}
 const ZOOM_MIN := 0.5
 const ZOOM_MAX := 2.0
 const ZOOM_STEP := 0.1
+const WORK_MINUTES_PER_SECOND := 5.0
 
 var world = World.new()
 var world_cache: SubViewport
 var world_sprite: Sprite2D
 var world_view: Node2D
+var benchmark_scene: Node2D
 var lighting_overlay: Node2D
 var player: Node2D
+var interaction_feedback: Node2D
 var npc_layer: Node2D
 var npc_actors: Dictionary = {}
 var npc_schedule_phases: Dictionary = {}
@@ -50,6 +56,8 @@ var movement_path: Array = []
 var pending_building: Dictionary = {}
 var pending_resource: Dictionary = {}
 var world_changes: Dictionary = {}
+var active_work_action = null
+var last_work_result: Dictionary = {}
 var interaction_message := ""
 var interaction_timeout := 0.0
 var ui: CanvasLayer
@@ -66,6 +74,11 @@ func _ready() -> void:
     _apply_window_mode(bool(settings.get("fullscreen", true)))
     grid = world.build_grid(village, world_changes)
     _build_world_cache()
+    benchmark_scene = BenchmarkScene.new()
+    benchmark_scene.name = "CentralCrossingBenchmark"
+    benchmark_scene.z_index = 4
+    add_child(benchmark_scene)
+    benchmark_scene.configure(world, grid, world_changes)
     camera = Camera2D.new()
     camera.position_smoothing_enabled = false
     camera.zoom = Vector2(camera_zoom, camera_zoom)
@@ -75,6 +88,11 @@ func _ready() -> void:
     player.z_index = 20
     add_child(player)
     player.position = player_position * World.TILE_SIZE
+    interaction_feedback = InteractionFeedback.new()
+    interaction_feedback.name = "WorkFeedback"
+    interaction_feedback.z_index = 22
+    interaction_feedback.visible = false
+    add_child(interaction_feedback)
     camera.position = player.position
     camera.make_current()
     camera.reset_smoothing()
@@ -193,14 +211,17 @@ func _update_npc_actors(delta: float) -> void:
 
 func _process(delta: float) -> void:
     if lighting_overlay != null:
+        lighting_overlay.set_time(day_state.minute_of_day)
         lighting_overlay.set_player_position(player.position if player != null else Vector2.ZERO, game_started)
     if not game_started:
         _refresh_hud()
         return
+    _advance_work_action(delta)
     _update_npc_actors(delta)
     var direction := Input.get_vector("move_left", "move_right", "move_up", "move_down")
     var next_position := player_position
     if direction.length_squared() > 0.0001:
+        _cancel_work_action("Work cancelled  ·  movement resumed")
         movement_path.clear()
         pending_building = {}
         target_marker.clear_target()
@@ -213,7 +234,7 @@ func _process(delta: float) -> void:
             next_position = player_position
             movement_path.pop_front()
             if movement_path.is_empty() and not pending_resource.is_empty():
-                _complete_resource_interaction()
+                _arrive_at_resource()
             elif movement_path.is_empty() and not pending_building.is_empty():
                 _complete_building_interaction()
         else:
@@ -282,6 +303,7 @@ func _handle_world_click(world_position: Vector2) -> void:
     _queue_path_to(goal, {})
 
 func _handle_context_click(world_position: Vector2) -> void:
+    _cancel_work_action("Work cancelled  ·  target changed")
     var tile := Vector2i(floori(world_position.x / World.TILE_SIZE), floori(world_position.y / World.TILE_SIZE))
     var building := world.building_at(tile)
     var resource := world.resource_at(tile)
@@ -326,6 +348,7 @@ func _queue_resource_interaction(resource: Dictionary) -> void:
     _queue_path_to(candidates[0], {}, resource)
 
 func _queue_path_to(goal: Vector2i, building: Dictionary, resource: Dictionary = {}) -> void:
+    _cancel_work_action("Work cancelled  ·  walking to a new target")
     var start := Vector2i(floori(player_position.x), floori(player_position.y))
     var route: Array = world.find_path(grid, start, goal)
     if route.is_empty() and start != goal:
@@ -345,7 +368,7 @@ func _queue_path_to(goal: Vector2i, building: Dictionary, resource: Dictionary =
     interaction_timeout = 0.0
     _show_interaction_feedback()
     if movement_path.is_empty() and not pending_resource.is_empty():
-        _complete_resource_interaction()
+        _arrive_at_resource()
     elif movement_path.is_empty() and not pending_building.is_empty():
         _complete_building_interaction()
 
@@ -354,11 +377,15 @@ func _complete_building_interaction() -> void:
     interaction_message = "Arrived at %s  ·  press E to sleep" % name if str(pending_building.get("id", "")) == "greenbriar-cottage" else "Arrived at %s  ·  right-click to revisit" % name
     interaction_timeout = 4.0
     _show_interaction_feedback()
-    pending_building = {}
     pending_resource = {}
     target_marker.clear_target()
 
 func _handle_resource_action() -> void:
+    if active_work_action != null and active_work_action.is_active():
+        return
+    if not pending_building.is_empty():
+        _handle_building_action()
+        return
     var tile := Vector2i(floori(player_position.x), floori(player_position.y))
     var resource := world.resource_at(tile)
     if resource.is_empty():
@@ -377,7 +404,39 @@ func _handle_resource_action() -> void:
         interaction_timeout = 1.5
         _show_interaction_feedback()
         return
-    _complete_resource_interaction_for(resource)
+    _start_resource_work(resource)
+
+func _handle_building_action() -> void:
+    var building_id := str(pending_building.get("id", ""))
+    if building_id == "tinker-workshop":
+        _purchase_workshop_upgrade()
+    elif building_id == "greenbriar-cottage":
+        _sleep_at_home()
+    else:
+        interaction_message = "%s is quiet for now" % str(pending_building.get("name", "That place"))
+        interaction_timeout = 2.0
+        _show_interaction_feedback()
+
+func _purchase_workshop_upgrade() -> void:
+    var purchase: Dictionary = day_state.purchase_upgrade("tinkers-kit")
+    if bool(purchase.get("ok", false)):
+        interaction_message = "Tinker’s Kit made  ·  work now costs less energy"
+        interaction_timeout = 4.0
+        _save_game()
+        _refresh_hud()
+        _show_interaction_feedback()
+        if ui != null:
+            ui.notify("Tinker’s Kit added to your field kit.")
+        return
+    var reason := str(purchase.get("reason", ""))
+    if reason == "already-owned":
+        interaction_message = "Tinker’s Kit already fitted"
+    elif reason == "missing-materials":
+        interaction_message = "Workshop needs 3 timber · 2 stone · 1 ore"
+    else:
+        interaction_message = "The workshop cannot make that yet"
+    interaction_timeout = 2.5
+    _show_interaction_feedback()
 
 func _is_near_home() -> bool:
     for building in world.buildings():
@@ -395,6 +454,11 @@ func _is_near_home() -> bool:
     return false
 
 func _sleep_at_home() -> bool:
+    if active_work_action != null and active_work_action.is_active():
+        interaction_message = "Finish the work first"
+        interaction_timeout = 1.5
+        _show_interaction_feedback()
+        return false
     if not _is_near_home() and game_started:
         interaction_message = "Stand by Greenbriar Cottage to sleep"
         interaction_timeout = 2.0
@@ -415,23 +479,92 @@ func _sleep_at_home() -> bool:
         ui.notify("Day %d begins in Clovermere." % day_state.day)
     return true
 
-func _complete_resource_interaction() -> void:
-    _complete_resource_interaction_for(pending_resource)
-
 func _complete_resource_interaction_for(resource: Dictionary) -> void:
+    _start_resource_work(resource)
+
+func _start_resource_work(resource: Dictionary) -> void:
     if resource.is_empty():
         return
     var resource_id := str(resource.get("id", ""))
     if resource_id.is_empty() or bool(world_changes.get(resource_id, false)):
         return
-    var work_result: Dictionary = day_state.work_resource(resource)
-    if not bool(work_result.get("ok", false)):
-        if str(work_result.get("reason", "")) == "too-tired":
+    if active_work_action != null and active_work_action.is_active():
+        return
+    var action = WorkAction.new()
+    var start_result: Dictionary = action.start(resource, day_state)
+    if not bool(start_result.get("ok", false)):
+        if str(start_result.get("reason", "")) == "too-tired":
             interaction_message = "Too tired to work that  ·  sleep at Greenbriar Cottage"
         else:
             interaction_message = "That resource cannot be worked"
         interaction_timeout = 2.5
         _show_interaction_feedback()
+        return
+    active_work_action = action
+    pending_resource = resource.duplicate(true)
+    player.begin_work(str(resource.get("kind", "resource")))
+    interaction_feedback.begin_action(action, player.position)
+    target_marker.clear_target()
+    interaction_timeout = 0.0
+    interaction_message = "%s  ·  0%%" % _work_label(resource)
+    _show_interaction_feedback()
+
+func _advance_work_action(delta: float) -> void:
+    if active_work_action == null or not active_work_action.is_active():
+        return
+    active_work_action.advance(delta * WORK_MINUTES_PER_SECOND)
+    if active_work_action.status == "completed":
+        var resource: Dictionary = active_work_action.resource.duplicate(true)
+        var work_result: Dictionary = active_work_action.result.duplicate(true)
+        last_work_result = work_result
+        player.clear_work()
+        interaction_feedback.complete_action(resource, player.position)
+        active_work_action = null
+        _apply_completed_resource_work(resource, work_result)
+    elif active_work_action.status == "working":
+        player.update_work(active_work_action.progress)
+        interaction_feedback.update_action(active_work_action, player.position)
+        interaction_message = "%s  ·  %d%%" % [_work_label(active_work_action.resource), roundi(active_work_action.progress * 100.0)]
+        interaction_timeout = 0.0
+        _show_interaction_feedback()
+
+func _cancel_work_action(message: String = "") -> void:
+    if active_work_action == null or not active_work_action.is_active():
+        return
+    active_work_action.cancel()
+    active_work_action = null
+    player.clear_work()
+    interaction_feedback.clear_action()
+    if not message.is_empty():
+        interaction_message = message
+        interaction_timeout = 1.8
+        _show_interaction_feedback()
+
+func _arrive_at_resource() -> void:
+    if pending_resource.is_empty():
+        return
+    interaction_message = "Arrived at %s  ·  press E to work" % str(pending_resource.get("name", "resource"))
+    interaction_timeout = 4.0
+    target_marker.clear_target()
+    _show_interaction_feedback()
+
+func _work_label(resource: Dictionary) -> String:
+    var kind := str(resource.get("kind", "resource"))
+    if kind == "tree":
+        return "CHOPPING TIMBER"
+    if kind == "stone":
+        return "MINING STONE"
+    if kind == "ore":
+        return "MINING ORE"
+    if kind == "herb":
+        return "GATHERING HERBS"
+    return "WORKING"
+
+func _apply_completed_resource_work(resource: Dictionary, work_result: Dictionary) -> void:
+    if resource.is_empty() or not bool(work_result.get("ok", false)):
+        return
+    var resource_id := str(resource.get("id", ""))
+    if resource_id.is_empty() or bool(world_changes.get(resource_id, false)):
         return
     world_changes[resource_id] = true
     var kind := str(resource.get("kind", "resource"))
@@ -479,6 +612,11 @@ func _start_new_journey() -> void:
     pending_resource = {}
     world_changes.clear()
     day_state = DayState.new()
+    active_work_action = null
+    if player != null:
+        player.clear_work()
+    if interaction_feedback != null:
+        interaction_feedback.clear_action()
     interaction_message = ""
     _refresh_world_state()
     game_started = true
@@ -577,6 +715,8 @@ func _refresh_world_state() -> void:
     grid = world.build_grid(village, world_changes)
     if world_view != null:
         world_view.configure(world, grid, village, null, world_changes)
+    if benchmark_scene != null:
+        benchmark_scene.configure(world, grid, world_changes)
     if world_cache != null:
         world_cache.render_target_update_mode = SubViewport.UPDATE_ONCE
     _refresh_player_transform()
@@ -680,13 +820,15 @@ func _refresh_hud() -> void:
     var tile_name := world.tile_at(grid, tile)
     debug_label.text = "POS  %6.2f, %6.2f   TILE  %s\nFPS  %3d       F  toggle metrics" % [player_position.x, player_position.y, tile_name, Engine.get_frames_per_second()]
     day_label.text = "DAY %02d  ·  %s  ·  ENERGY %d/%d" % [day_state.day, day_state.format_clock(), day_state.energy, DayState.MAX_ENERGY]
-    stores_label.text = "TIMBER %02d   STONE %02d   ORE %02d   HERBS %02d" % [int(day_state.inventory.get("timber", 0)), int(day_state.inventory.get("stone", 0)), int(day_state.inventory.get("ore", 0)), int(day_state.inventory.get("herbs", 0))]
+    stores_label.text = "TIMBER %02d   STONE %02d   ORE %02d   HERBS %02d%s" % [int(day_state.inventory.get("timber", 0)), int(day_state.inventory.get("stone", 0)), int(day_state.inventory.get("ore", 0)), int(day_state.inventory.get("herbs", 0)), "   KIT READY" if day_state.has_upgrade("tinkers-kit") else ""]
     hint_label.text = "Click ground  walk     Click a house  visit     Click a tree/stone/herb  work     E  work nearby / sleep at home     Right-click  cancel/visit     Wheel  zoom     WASD  wander"
     interaction_label.text = interaction_message
     interaction_label.visible = not interaction_message.is_empty()
     interaction_panel.visible = not interaction_message.is_empty()
 
 func _load_save() -> bool:
+    if active_work_action != null and active_work_action.is_active():
+        _cancel_work_action()
     if not FileAccess.file_exists(SAVE_PATH):
         return false
     var file := FileAccess.open(SAVE_PATH, FileAccess.READ)
