@@ -4,8 +4,10 @@ const World = preload("res://scripts/world_contract.gd")
 const WorldView = preload("res://scripts/world_view.gd")
 const PlayerAvatar = preload("res://scripts/player_avatar.gd")
 const TargetMarker = preload("res://scripts/target_marker.gd")
+const UiShell = preload("res://scripts/ui_shell.gd")
 
 const SAVE_PATH := "user://hobbit-moon-village-v2.json"
+const SETTINGS_PATH := "user://hobbit-moon-settings.cfg"
 const DEFAULT_VILLAGE := {"name": "Moonrise Hollow", "landscape": "heath"}
 const ZOOM_MIN := 0.5
 const ZOOM_MAX := 2.0
@@ -31,14 +33,24 @@ var hint_label: Label
 var loading_overlay: ColorRect
 var interaction_panel: ColorRect
 var interaction_label: Label
+var gameplay_hud: CanvasLayer
 var movement_path: Array = []
 var pending_building: Dictionary = {}
 var interaction_message := ""
 var interaction_timeout := 0.0
+var ui: CanvasLayer
+var game_started := false
+var settings: Dictionary = {
+    "fullscreen": true,
+    "crisp_pixels": true,
+    "show_metrics": false,
+    "zoom": 0.75
+}
 
 func _ready() -> void:
+    _load_settings()
+    _apply_window_mode(bool(settings.get("fullscreen", true)))
     grid = world.build_grid(village)
-    _load_save()
     _build_world_cache()
     camera = Camera2D.new()
     camera.position_smoothing_enabled = false
@@ -53,14 +65,38 @@ func _ready() -> void:
     camera.make_current()
     camera.reset_smoothing()
     _build_hud()
+    _build_ui()
     _refresh_hud()
     call_deferred("_finish_loading")
 
 func _finish_loading() -> void:
-    await RenderingServer.frame_post_draw
+    await get_tree().create_timer(0.65).timeout
+    await get_tree().process_frame
     await get_tree().process_frame
     if loading_overlay != null:
         loading_overlay.visible = false
+    if ui != null:
+        ui.show_welcome(_has_save())
+    game_started = false
+
+func _build_ui() -> void:
+    ui = UiShell.new()
+    add_child(ui)
+    ui.new_journey_requested.connect(_start_new_journey)
+    ui.continue_requested.connect(_continue_journey)
+    ui.save_requested.connect(_on_save_requested)
+    ui.load_requested.connect(_on_load_requested)
+    ui.resume_requested.connect(_resume_journey)
+    ui.options_requested.connect(_on_options_requested)
+    ui.main_menu_requested.connect(_return_to_welcome)
+    ui.quit_requested.connect(_quit_to_desktop)
+    ui.fullscreen_changed.connect(_on_fullscreen_changed)
+    ui.pixel_filter_changed.connect(_on_pixel_filter_changed)
+    ui.zoom_changed.connect(_on_zoom_changed)
+    ui.debug_changed.connect(_on_debug_changed)
+    ui.configure(settings, _has_save(), camera_zoom)
+    ui.show_loading()
+    _set_gameplay_hud_visible(false)
 
 func _build_world_cache() -> void:
     world_cache = SubViewport.new()
@@ -90,6 +126,9 @@ func _build_world_cache() -> void:
     add_child(target_marker)
 
 func _process(delta: float) -> void:
+    if not game_started:
+        _refresh_hud()
+        return
     var direction := Input.get_vector("move_left", "move_right", "move_up", "move_down")
     var next_position := player_position
     if direction.length_squared() > 0.0001:
@@ -127,13 +166,26 @@ func _process(delta: float) -> void:
         interaction_timeout = maxf(0.0, interaction_timeout - delta)
         if interaction_timeout <= 0.0:
             interaction_message = ""
+            _show_interaction_feedback()
     _refresh_hud()
 
 func _unhandled_input(event: InputEvent) -> void:
     if event is InputEventKey and event.pressed and not event.echo:
         if event.keycode == KEY_F11:
-            get_window().mode = Window.MODE_FULLSCREEN if get_window().mode != Window.MODE_FULLSCREEN else Window.MODE_WINDOWED
+            _on_fullscreen_changed(get_window().mode != Window.MODE_FULLSCREEN)
+        elif event.keycode == KEY_ESCAPE:
+            if game_started:
+                _pause_journey()
+            elif ui != null and ui.current_page == "options":
+                ui._back_from_options()
+            elif ui != null and ui.current_page == "pause":
+                _resume_journey()
+        elif event.keycode == KEY_ENTER and not game_started and ui != null and ui.current_page == "welcome":
+            if _has_save():
+                _continue_journey()
     elif event is InputEventMouseButton and event.pressed:
+        if not game_started:
+            return
         if event.button_index == MOUSE_BUTTON_LEFT:
             _handle_world_click(get_global_mouse_position())
         elif event.button_index == MOUSE_BUTTON_RIGHT:
@@ -226,6 +278,143 @@ func command_interact_with_building(building_id: String) -> void:
             _queue_building_interaction(building)
             return
 
+func _start_new_journey() -> void:
+    village = DEFAULT_VILLAGE.duplicate(true)
+    player_position = World.START_POSITION
+    movement_path.clear()
+    pending_building = {}
+    interaction_message = ""
+    _refresh_world_state()
+    game_started = true
+    _set_gameplay_hud_visible(true)
+    ui.hide_overlay()
+    ui.notify("A new day begins in Moonrise Hollow.")
+    _refresh_player_transform()
+
+func _continue_journey() -> void:
+    if not _load_save():
+        ui.notify("No saved journey found.")
+        return
+    game_started = true
+    _set_gameplay_hud_visible(true)
+    ui.hide_overlay()
+    ui.notify("Journey restored.")
+    _refresh_player_transform()
+
+func _resume_journey() -> void:
+    game_started = true
+    _set_gameplay_hud_visible(true)
+    ui.hide_overlay()
+
+func _pause_journey() -> void:
+    game_started = false
+    _set_gameplay_hud_visible(false)
+    ui.show_pause(_has_save())
+
+func _return_to_welcome() -> void:
+    _save_game()
+    game_started = false
+    _set_gameplay_hud_visible(false)
+    ui.show_welcome(_has_save())
+
+func _on_save_requested() -> void:
+    if _save_game():
+        ui.set_save_enabled(true)
+        ui.notify("Journey saved to the village ledger.")
+    else:
+        ui.notify("The ledger could not be written.")
+
+func _on_load_requested() -> void:
+    if not _load_save():
+        ui.notify("No saved journey found.")
+        return
+    game_started = true
+    _set_gameplay_hud_visible(true)
+    ui.hide_overlay()
+    ui.notify("Journey loaded from the village ledger.")
+    _refresh_player_transform()
+
+func _on_options_requested() -> void:
+    var from_page: String = "game" if game_started else ui.current_page
+    game_started = false if from_page == "game" else game_started
+    _set_gameplay_hud_visible(false)
+    ui.show_options(from_page)
+
+func _quit_to_desktop() -> void:
+    if game_started:
+        _save_game()
+    get_tree().quit()
+
+func _on_fullscreen_changed(enabled: bool) -> void:
+    settings["fullscreen"] = enabled
+    _apply_window_mode(enabled)
+    _save_settings()
+    if ui != null and ui.current_page != "loading":
+        ui.notify("Fullscreen window %s." % ("enabled" if enabled else "disabled"))
+
+func _on_pixel_filter_changed(enabled: bool) -> void:
+    settings["crisp_pixels"] = enabled
+    if world_sprite != null:
+        world_sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST if enabled else CanvasItem.TEXTURE_FILTER_LINEAR
+    _save_settings()
+
+func _on_zoom_changed(value: float) -> void:
+    settings["zoom"] = clampf(value, ZOOM_MIN, ZOOM_MAX)
+    _set_zoom(settings["zoom"])
+    _save_settings()
+
+func _on_debug_changed(enabled: bool) -> void:
+    settings["show_metrics"] = enabled
+    debug_visible = enabled
+    if debug_label != null:
+        debug_label.visible = debug_visible
+    _save_settings()
+
+func _refresh_player_transform() -> void:
+    if player == null or camera == null:
+        return
+    player.position = player_position * World.TILE_SIZE
+    camera.position = player.position
+    camera.reset_smoothing()
+
+func _refresh_world_state() -> void:
+    grid = world.build_grid(village)
+    if world_view != null:
+        world_view.configure(world, grid, village, null)
+    if world_cache != null:
+        world_cache.render_target_update_mode = SubViewport.UPDATE_ONCE
+    _refresh_player_transform()
+
+func _set_gameplay_hud_visible(visible: bool) -> void:
+    if gameplay_hud != null:
+        gameplay_hud.visible = visible
+
+func _has_save() -> bool:
+    return FileAccess.file_exists(SAVE_PATH)
+
+func _load_settings() -> void:
+    var config := ConfigFile.new()
+    if config.load(SETTINGS_PATH) == OK:
+        settings["fullscreen"] = bool(config.get_value("display", "fullscreen", settings["fullscreen"]))
+        settings["crisp_pixels"] = bool(config.get_value("display", "crisp_pixels", settings["crisp_pixels"]))
+        settings["show_metrics"] = bool(config.get_value("accessibility", "show_metrics", settings["show_metrics"]))
+        settings["zoom"] = clampf(float(config.get_value("display", "zoom", settings["zoom"])), ZOOM_MIN, ZOOM_MAX)
+    camera_zoom = float(settings["zoom"])
+    debug_visible = bool(settings["show_metrics"])
+
+func _save_settings() -> void:
+    var config := ConfigFile.new()
+    config.set_value("display", "fullscreen", bool(settings.get("fullscreen", true)))
+    config.set_value("display", "crisp_pixels", bool(settings.get("crisp_pixels", true)))
+    config.set_value("display", "zoom", float(settings.get("zoom", 0.75)))
+    config.set_value("accessibility", "show_metrics", bool(settings.get("show_metrics", false)))
+    config.save(SETTINGS_PATH)
+
+func _apply_window_mode(fullscreen: bool) -> void:
+    if DisplayServer.get_name() == "headless":
+        return
+    get_window().mode = Window.MODE_FULLSCREEN if fullscreen else Window.MODE_WINDOWED
+
 func _set_zoom(value: float) -> void:
     camera_zoom = clampf(snappedf(value, ZOOM_STEP), ZOOM_MIN, ZOOM_MAX)
     camera.zoom = Vector2(camera_zoom, camera_zoom)
@@ -233,6 +422,7 @@ func _set_zoom(value: float) -> void:
 func _build_hud() -> void:
     var layer := CanvasLayer.new()
     layer.layer = 10
+    gameplay_hud = layer
     add_child(layer)
     var panel := ColorRect.new()
     panel.position = Vector2(20, 20)
@@ -290,25 +480,27 @@ func _refresh_hud() -> void:
     interaction_label.visible = not interaction_message.is_empty()
     interaction_panel.visible = not interaction_message.is_empty()
 
-func _load_save() -> void:
+func _load_save() -> bool:
     if not FileAccess.file_exists(SAVE_PATH):
-        return
+        return false
     var file := FileAccess.open(SAVE_PATH, FileAccess.READ)
     if file == null:
-        return
+        return false
     var parsed = JSON.parse_string(file.get_as_text())
     if not parsed is Dictionary:
-        return
+        return false
     var normalized: Dictionary = world.normalize_save(parsed)
-    village = normalized.get("village", village)
-    grid = world.build_grid(village)
+    var loaded_village = normalized.get("village", village)
+    village = loaded_village if loaded_village is Dictionary else DEFAULT_VILLAGE.duplicate(true)
     var raw_player = normalized.get("player", World.START_POSITION)
     if raw_player is Vector2:
         player_position = raw_player
     elif raw_player is Dictionary:
         player_position = Vector2(float(raw_player.get("x", World.START_POSITION.x)), float(raw_player.get("y", World.START_POSITION.y)))
+    _refresh_world_state()
+    return true
 
-func _save_game() -> void:
+func _save_game() -> bool:
     var payload := {
         "version": World.SAVE_VERSION,
         "village": village,
@@ -318,8 +510,11 @@ func _save_game() -> void:
     var file := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
     if file != null:
         file.store_string(JSON.stringify(payload))
+        return true
+    return false
 
 func _notification(what: int) -> void:
     if what == NOTIFICATION_WM_CLOSE_REQUEST:
-        _save_game()
+        if game_started:
+            _save_game()
         get_tree().quit()

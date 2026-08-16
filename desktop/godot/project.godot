@@ -12,6 +12,8 @@ size/viewport_width=1280
 size/viewport_height=720
 size/window_width_override=1280
 size/window_height_override=720
+size/mode=3
+size/resizable=true
 stretch/mode="canvas_items"
 handheld/orientation=1
 
