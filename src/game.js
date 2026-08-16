@@ -33,6 +33,8 @@ import { supabase, supabaseConfigured } from './supabase-client.js';
 import {
   drawBuildingSprite,
   drawBuildingShadow,
+  drawBuildingDetail,
+  drawColonyProp,
   drawBridgeSprite,
   drawGateSprite,
   drawGardenSprite,
@@ -60,6 +62,24 @@ const BLOCKED_TILES = new Set(['t', 'w', 'f']);
 const STORAGE_KEY = 'hobbit-moon-village-v2';
 const LEGACY_STORAGE_KEY = 'hobbit-moon-village-v1';
 const DEFAULT_NOTES = ['You arrived before the kettle boiled.', 'The hill is quiet. The good kind.'];
+const COLONY_PROPS = [
+  { type: 'hedge', x: 1, y: 4 },
+  { type: 'hedge', x: 1, y: 5 },
+  { type: 'hedge', x: 2, y: 4 },
+  { type: 'flowerbed', x: 16, y: 5 },
+  { type: 'bench', x: 17, y: 9 },
+  { type: 'lantern', x: 13, y: 9 },
+  { type: 'lantern', x: 20, y: 9 },
+  { type: 'fence', x: 4, y: 8 },
+  { type: 'fence', x: 9, y: 8 },
+  { type: 'crate', x: 18, y: 13 },
+  { type: 'barrel', x: 20, y: 13 },
+  { type: 'flowerbed', x: 16, y: 15 },
+  { type: 'bench', x: 17, y: 16 },
+  { type: 'lantern', x: 30, y: 11 },
+  { type: 'hedge', x: 28, y: 17 },
+  { type: 'hedge', x: 30, y: 17 }
+];
 
 const canvas = document.querySelector('#village-canvas');
 const context = canvas?.getContext('2d');
@@ -350,6 +370,7 @@ function drawWorld(ctx, theme, village, spec, player, cam, time = 0) {
     const { sx, sy } = worldToScreen(b.x, b.y);
     if (sx < -80 || sy < -80 || sx > GRID_W || sy > GRID_H) continue;
     drawBuildingSprite(ctx, b.type, sx, sy, theme, time);
+    drawBuildingDetail(ctx, b.type, sx, sy, theme, time);
   }
 
   // garden, pond, bridge, noticeboard, gate props near the starting area
@@ -358,6 +379,13 @@ function drawWorld(ctx, theme, village, spec, player, cam, time = 0) {
   const bridge = worldToScreen(45, 17); drawBridgeSprite(ctx, theme, bridge.sx, bridge.sy);
   const board = worldToScreen(30, 9); drawSoftShadow(ctx, board.sx + 25, board.sy + 24, 26, 4, 0.18); drawNoticeboardSprite(ctx, board.sx - 6, board.sy - 24);
   const gate = worldToScreen(60, 20); drawGateSprite(ctx, theme, gate.sx, gate.sy);
+
+  // authored settlement dressing: hedges, work clutter, benches, flowerbeds, and lamps
+  for (const [index, prop] of COLONY_PROPS.entries()) {
+    const { sx, sy } = worldToScreen(prop.x, prop.y);
+    if (sx < -40 || sy < -40 || sx > GRID_W + 40 || sy > GRID_H + 40) continue;
+    drawColonyProp(ctx, theme, prop.type, sx, sy, index + prop.x * 7 + prop.y * 13, time);
+  }
 
   // trees in the viewport (with their own shadows inside)
   for (let wy = camY; wy < camY + VIEW_H; wy += 1) {

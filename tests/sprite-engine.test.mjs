@@ -4,6 +4,9 @@ import {
   drawHobbitSprite,
   drawTreeSprite,
   drawBuildingSprite,
+  drawBuildingDetail,
+  drawColonyProp,
+  drawPondSprite,
   drawBuildingShadow,
   drawHills,
   drawSky,
@@ -176,6 +179,19 @@ test('terrain dressing, selection rings, and nameplates paint without error', ()
   drawNameplate(context, 'Pim Thistledown', 80, 50, true);
   assert.ok(ops.some(([name]) => name === 'stroke'), 'selection ring should be outlined');
   assert.ok(ops.some(([name]) => name === 'fillText'), 'nameplate should be legible');
+});
+
+test('rich facade, pond bank, and colony prop helpers paint layered scene detail', () => {
+  const { context, ops } = makeContext();
+  const theme = resolveVillageTheme({ landscape: 'heath' });
+  drawBuildingDetail(context, 'inn', 40, 40, theme, 1200);
+  drawPondSprite(context, theme, 120, 48, 1200);
+  for (const prop of ['hedge', 'barrel', 'crate', 'lantern', 'bench', 'flowerbed', 'fence']) {
+    drawColonyProp(context, theme, prop, 200, 100, 4, 1200);
+  }
+  const fills = ops.filter(([name]) => name === 'fillRect');
+  assert.ok(fills.some(([, , , w, h]) => w >= 60 && h >= 40), 'pond should mask its rectangular source tiles');
+  assert.ok(ops.some(([name]) => name === 'quadraticCurveTo'), 'pond bank should have an irregular silhouette');
 });
 
 test('buildWorldGrid reserves a sky/hill horizon at the north edge', () => {

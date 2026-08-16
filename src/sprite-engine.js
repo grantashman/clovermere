@@ -32,6 +32,14 @@ const PALETTE = {
   plankDark: '#b47c54',
   dirt: '#845c48',
   soil: '#6b4a39',
+  deepShadow: '#1b2925',
+  roofShadow: '#35483b',
+  roofHighlight: '#b2c785',
+  leafMid: '#628052',
+  leafBright: '#c3d18f',
+  woodDark: '#5b3d32',
+  metal: '#8f9b8c',
+  linen: '#e9d7af',
   skin2: '#c98f63'
 };
 
@@ -114,45 +122,62 @@ export function waterShimmer(ctx, ox, oy, time) {
 // and path stones make the colony map feel authored without a sprite sheet.
 export function drawTerrainDetail(ctx, theme, tile, ox, oy, seed = 0, time = 0) {
   const variant = Math.abs(seed) % 17;
+  const grain = Math.abs(seed * 13) % 11;
   if (tile === 'g') {
-    if (variant === 1 || variant === 8) {
+    // Low-contrast ground planes keep the field from reading as one flat fill.
+    drawPixels(ctx, rects(
+      [ox + 1 + (grain % 4), oy + 2, 4, 1, mix(theme.grass, theme.grassLight, 0.10)],
+      [ox + 10 - (grain % 3), oy + 5, 3, 1, mix(theme.grass, theme.grassDark, 0.10)],
+      [ox + 3, oy + 14 - (grain % 3), 6, 1, mix(theme.grass, theme.grassLight, 0.13)]
+    ));
+    if (variant === 1 || variant === 8 || variant === 14) {
       drawPixels(ctx, rects(
-        [ox + 3, oy + 11, 5, 2, PALETTE.trunk],
-        [ox + 4, oy + 10, 3, 1, PALETTE.stone],
-        [ox + 8, oy + 12, 2, 1, PALETTE.shadow]
+        [ox + 2, oy + 11, 5, 2, PALETTE.trunk],
+        [ox + 3, oy + 10, 4, 1, PALETTE.stone],
+        [ox + 7, oy + 12, 3, 1, PALETTE.shadow],
+        [ox + 1, oy + 13, 2, 1, PALETTE.stoneDark]
       ));
-    } else if (variant === 3 || variant === 12) {
+    } else if (variant === 3 || variant === 12 || variant === 16) {
       drawPixels(ctx, rects(
-        [ox + 4, oy + 9, 1, 5, theme.grassDark],
-        [ox + 7, oy + 7, 1, 7, theme.grassDark],
-        [ox + 10, oy + 10, 1, 4, theme.grassLight]
+        [ox + 3, oy + 9, 1, 5, theme.grassDark],
+        [ox + 6, oy + 7, 2, 7, theme.grassDark],
+        [ox + 9, oy + 10, 1, 4, theme.grassLight],
+        [ox + 11, oy + 8, 1, 5, theme.grassDark]
       ));
-    } else if (variant === 5) {
+    } else if (variant === 5 || variant === 10) {
       drawPixels(ctx, rects(
-        [ox + 5, oy + 10, 2, 2, theme.flower ?? PALETTE.flower],
-        [ox + 8, oy + 8, 2, 2, PALETTE.goldLight],
-        [ox + 7, oy + 12, 5, 1, theme.grassDark]
+        [ox + 4, oy + 10, 2, 2, theme.flower ?? PALETTE.flower],
+        [ox + 7, oy + 8, 2, 2, PALETTE.goldLight],
+        [ox + 9, oy + 11, 2, 2, theme.flower ?? PALETTE.flower],
+        [ox + 6, oy + 12, 5, 1, theme.grassDark]
       ));
-    } else if (variant === 9) {
+    } else if (variant === 9 || variant === 13) {
       drawPixels(ctx, rects(
-        [ox + 2, oy + 10, 10, 2, theme.grassDark],
-        [ox + 4, oy + 8, 2, 2, theme.grassLight],
-        [ox + 9, oy + 7, 2, 3, theme.grassLight]
+        [ox + 1, oy + 10, 10, 2, theme.grassDark],
+        [ox + 3, oy + 8, 2, 2, theme.grassLight],
+        [ox + 8, oy + 7, 2, 3, theme.grassLight],
+        [ox + 11, oy + 9, 2, 3, theme.grassDark]
       ));
     }
-  } else if (tile === 'p' && variant % 4 === 0) {
+  } else if (tile === 'p') {
     drawPixels(ctx, rects(
-      [ox + 2, oy + 3, 4, 1, PALETTE.stoneDark],
-      [ox + 3, oy + 4, 3, 1, PALETTE.stone]
+      [ox + 1, oy + 1, 14, 1, mix(theme.path, theme.grassDark, 0.18)],
+      [ox + 2 + (grain % 5), oy + 4, 4, 1, theme.pathLight],
+      [ox + 9, oy + 10 - (grain % 3), 5, 2, theme.pathLight],
+      [ox + 4, oy + 14, 3, 1, mix(theme.path, theme.grassDark, 0.22)]
     ));
-  } else if (tile === 'd' && variant % 3 === 0) {
+  } else if (tile === 'd') {
     drawPixels(ctx, rects(
       [ox + 2, oy + 7, 4, 1, PALETTE.soil],
-      [ox + 9, oy + 10, 3, 1, PALETTE.soil]
+      [ox + 9, oy + 10, 4, 1, PALETTE.soil],
+      [ox + 5, oy + 14, 5, 1, mix(PALETTE.soil, '#3b2b28', 0.22)]
     ));
-  } else if (tile === 'w' && variant % 4 === 0) {
+  } else if (tile === 'w' && variant % 3 === 0) {
     const shimmer = Math.floor(time / 700) % 2;
-    drawPixels(ctx, [[ox + 2 + shimmer * 5, oy + 4 + (variant % 3) * 3, 5, 1, theme.waterLight]]);
+    drawPixels(ctx, [
+      [ox + 2 + shimmer * 5, oy + 4 + (variant % 3) * 3, 5, 1, theme.waterLight],
+      [ox + 10 - shimmer * 3, oy + 12, 3, 1, mix(theme.water, theme.waterLight, 0.7)]
+    ]);
   }
 }
 
@@ -254,6 +279,13 @@ export function drawHobbitSprite(ctx, spec, cx, feetY, flip = false) {
   drawPixels(ctx, rects([left - 2, top + 14, 2, 7, coat], [left + bodyW, top + 14, 2, 7, coat]));
   // belt (shadow line above + accent below)
   drawPixels(ctx, rects([left, top + 19, bodyW, 1, mix(coat, '#1f2d28', 0.3)], [left, top + 20, bodyW, 2, accent]));
+  // readable work-worn accessories at tiny scale: shoulder strap, satchel, and cuff highlights
+  drawPixels(ctx, rects(
+    [left + 1, top + 13, 2, 7, mix(coat, '#ffffff', 0.12)],
+    [left + bodyW - 2, top + 14, 2, 4, accent],
+    [left - 2, top + 19, 3, 4, PALETTE.plank],
+    [left + bodyW - 1, top + 22, 2, 2, PALETTE.goldLight]
+  ));
   // head
   drawPixels(ctx, rects([cx - 5, top, 10, 12, skin], [cx - 6, top + 3, 1, 4, skin], [cx + 5, top + 3, 1, 4, skin]));
   // head shade on the right cheek
@@ -399,14 +431,113 @@ export function drawBridgeSprite(ctx, theme, ox, oy) {
 }
 
 export function drawPondSprite(ctx, theme, ox, oy, time = 0) {
+  // Mask the rectangular water tiles first; the authored bank below owns the shoreline.
+  ctx.fillStyle = theme.grass;
+  ctx.fillRect(ox - 2, oy + 14, 68, 54);
+  // An irregular bank replaces the old blue rectangle with a small authored water body.
+  ctx.fillStyle = mix(theme.grass, theme.water, 0.42);
+  ctx.beginPath();
+  ctx.moveTo(ox + 8, oy + 2);
+  ctx.quadraticCurveTo(ox + 28, oy - 2, ox + 48, oy + 6);
+  ctx.quadraticCurveTo(ox + 56, oy + 20, ox + 48, oy + 42);
+  ctx.quadraticCurveTo(ox + 26, oy + 50, ox + 4, oy + 40);
+  ctx.quadraticCurveTo(ox - 2, oy + 22, ox + 8, oy + 2);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = theme.water;
+  ctx.beginPath();
+  ctx.moveTo(ox + 11, oy + 7);
+  ctx.quadraticCurveTo(ox + 29, oy + 2, ox + 45, oy + 9);
+  ctx.quadraticCurveTo(ox + 51, oy + 21, ox + 44, oy + 36);
+  ctx.quadraticCurveTo(ox + 27, oy + 43, ox + 9, oy + 35);
+  ctx.quadraticCurveTo(ox + 4, oy + 21, ox + 11, oy + 7);
+  ctx.closePath();
+  ctx.fill();
   drawPixels(ctx, rects(
-    [ox + 6, oy + 4, 36, 24, theme.water],
-    [ox + 2, oy + 10, 44, 12, theme.water],
-    [ox + 10, oy + 9, 14, 3, theme.waterLight],
-    [ox + 24, oy + 18, 12, 2, theme.waterLight],
-    [ox + 8, oy + 22, 6, 3, theme.waterLight]
+    [ox + 10, oy + 7, 8, 2, theme.waterLight],
+    [ox + 28, oy + 10, 12, 2, mix(theme.water, theme.waterLight, 0.7)],
+    [ox + 17, oy + 22, 7, 1, theme.waterLight],
+    [ox + 34, oy + 29, 9, 2, theme.waterLight],
+    [ox + 4, oy + 19, 3, 5, theme.grassDark],
+    [ox + 48, oy + 15, 3, 6, theme.grassDark],
+    [ox + 6, oy + 37, 4, 3, PALETTE.stone],
+    [ox + 44, oy + 38, 5, 3, PALETTE.stoneDark]
   ));
-  if (time) waterShimmer(ctx, ox, oy, time);
+  if (time) waterShimmer(ctx, ox + 2, oy + 2, time);
+}
+
+// --- Small settlement props -----------------------------------------------
+
+export function drawColonyProp(ctx, theme, type, ox, oy, seed = 0, time = 0) {
+  const wobble = Math.abs(seed) % 3;
+  if (type === 'hedge') {
+    drawSoftShadow(ctx, ox + 12, oy + 14, 14, 3, 0.18);
+    drawPixels(ctx, rects(
+      [ox + 1, oy + 7, 23, 10, theme.grassDark],
+      [ox + 4, oy + 3, 11, 10, PALETTE.leafMid],
+      [ox + 13, oy + 1, 9, 12, theme.grassLight],
+      [ox + 0, oy + 10, 8, 5, PALETTE.leafMid],
+      [ox + 5, oy + 5, 3, 2, PALETTE.leafBright],
+      [ox + 16, oy + 4, 3, 2, PALETTE.leafBright],
+      [ox + 20, oy + 10, 3, 2, theme.grassDark]
+    ));
+  } else if (type === 'barrel') {
+    drawSoftShadow(ctx, ox + 8, oy + 15, 8, 2, 0.22);
+    drawPixels(ctx, rects(
+      [ox + 3, oy + 3, 10, 13, PALETTE.plank],
+      [ox + 2, oy + 5, 12, 2, PALETTE.woodDark],
+      [ox + 2, oy + 12, 12, 2, PALETTE.woodDark],
+      [ox + 5, oy + 4, 2, 10, PALETTE.plankLight],
+      [ox + 4, oy + 1, 8, 2, PALETTE.stoneDark]
+    ));
+  } else if (type === 'crate') {
+    drawSoftShadow(ctx, ox + 8, oy + 14, 9, 2, 0.2);
+    drawPixels(ctx, rects(
+      [ox + 2, oy + 5, 14, 10, PALETTE.plank],
+      [ox + 2, oy + 5, 14, 2, PALETTE.plankLight],
+      [ox + 3, oy + 7, 2, 8, PALETTE.plankDark],
+      [ox + 13, oy + 7, 2, 8, PALETTE.plankDark],
+      [ox + 5, oy + 8, 8, 1, PALETTE.plankLight],
+      [ox + 7, oy + 10, 5, 1, PALETTE.plankLight]
+    ));
+  } else if (type === 'lantern') {
+    const pulse = 1 + ((Math.floor(time / 500) + wobble) % 2);
+    drawSoftShadow(ctx, ox + 7, oy + 25, 7, 2, 0.16);
+    drawPixels(ctx, rects(
+      [ox + 6, oy + 1, 2, 7, PALETTE.woodDark],
+      [ox + 2, oy + 7, 10, 2, PALETTE.metal],
+      [ox + 4, oy + 9, 6, 8, PALETTE.gold],
+      [ox + 5, oy + 10, pulse + 2, 5, PALETTE.goldLight],
+      [ox + 6, oy + 17, 2, 8, PALETTE.woodDark]
+    ));
+    drawTorchGlow(ctx, ox + 7, oy + 13, 12, 0.35);
+  } else if (type === 'bench') {
+    drawSoftShadow(ctx, ox + 11, oy + 12, 12, 2, 0.2);
+    drawPixels(ctx, rects(
+      [ox + 1, oy + 4, 22, 4, PALETTE.plankLight],
+      [ox + 3, oy + 8, 3, 8, PALETTE.woodDark],
+      [ox + 18, oy + 8, 3, 8, PALETTE.woodDark],
+      [ox + 2, oy + 2, 20, 2, PALETTE.plank]
+    ));
+  } else if (type === 'flowerbed') {
+    drawPixels(ctx, rects(
+      [ox + 1, oy + 8, 23, 7, PALETTE.soil],
+      [ox + 3, oy + 5, 3, 7, theme.grassLight],
+      [ox + 9, oy + 3, 3, 9, theme.grassLight],
+      [ox + 16, oy + 5, 3, 7, theme.grassLight],
+      [ox + 4, oy + 3, 2, 2, theme.flower ?? PALETTE.flower],
+      [ox + 10, oy + 1, 2, 2, PALETTE.goldLight],
+      [ox + 17, oy + 3, 2, 2, theme.flower ?? PALETTE.flower]
+    ));
+  } else if (type === 'fence') {
+    drawPixels(ctx, rects(
+      [ox, oy + 8, 32, 3, PALETTE.fence],
+      [ox + 2, oy + 2, 4, 14, PALETTE.fenceDark],
+      [ox + 14, oy + 2, 4, 14, PALETTE.fenceDark],
+      [ox + 26, oy + 2, 4, 14, PALETTE.fenceDark],
+      [ox + 2, oy + 2, 4, 2, PALETTE.fence]
+    ));
+  }
 }
 
 // --- Building sprites (LOTR-flavoured, original names) -----------------------
@@ -546,4 +677,57 @@ export function drawBuildingSprite(ctx, type, ox, oy, theme, time = 0) {
       drawHouseSprite(ctx, theme, 'rounddoor', ox, oy);
     }
   }
+}
+
+export function drawBuildingDetail(ctx, type, ox, oy, theme, time = 0) {
+  const roof = theme.roof;
+  const roofLight = mix(roof, '#ffffff', 0.18);
+  const wallShadow = mix(theme.grass, '#1b2925', 0.35);
+  const detail = [];
+
+  if (type === 'smial') {
+    for (let x = 18; x <= 48; x += 8) detail.push([ox + x, oy + 9 + ((x / 8) % 2), 5, 2, roofLight]);
+    detail.push([ox + 8, oy + 29, 5, 12, wallShadow], [ox + 52, oy + 30, 5, 11, wallShadow]);
+    detail.push([ox + 13, oy + 39, 7, 3, PALETTE.leafMid], [ox + 49, oy + 39, 7, 3, PALETTE.leafMid]);
+  } else if (type === 'inn') {
+    for (let x = 11; x <= 68; x += 9) detail.push([ox + x, oy + 12 + (x % 3), 6, 2, roofLight]);
+    detail.push(
+      [ox + 12, oy + 36, 12, 2, PALETTE.windowLight], [ox + 17, oy + 36, 2, 12, PALETTE.roofShadow],
+      [ox + 56, oy + 36, 12, 2, PALETTE.windowLight], [ox + 61, oy + 36, 2, 12, PALETTE.roofShadow],
+      [ox + 31, oy + 29, 16, 3, PALETTE.plankDark], [ox + 33, oy + 30, 12, 1, PALETTE.goldLight]
+    );
+    drawColonyProp(ctx, theme, 'lantern', ox, oy + 44, 1, time);
+    drawColonyProp(ctx, theme, 'lantern', ox + 70, oy + 44, 2, time);
+  } else if (type === 'barn') {
+    for (let x = 7; x <= 56; x += 10) detail.push([ox + x, oy + 28, 2, 20, mix('#9c5a3c', '#402c29', 0.18)]);
+    detail.push([ox + 14, oy + 10, 7, 2, '#b87a52'], [ox + 43, oy + 10, 7, 2, '#b87a52']);
+    detail.push([ox + 27, oy + 33, 3, 18, PALETTE.woodDark], [ox + 39, oy + 33, 3, 18, PALETTE.woodDark]);
+    detail.push([ox + 29, oy + 39, 12, 2, PALETTE.plankLight]);
+  } else if (type === 'market') {
+    detail.push(
+      [ox + 7, oy + 22, 2, 28, PALETTE.woodDark], [ox + 55, oy + 22, 2, 28, PALETTE.woodDark],
+      [ox + 13, oy + 25, 8, 7, PALETTE.flower], [ox + 23, oy + 25, 8, 7, PALETTE.gold],
+      [ox + 34, oy + 25, 8, 7, PALETTE.leafBright], [ox + 44, oy + 25, 8, 7, PALETTE.flower]
+    );
+    drawColonyProp(ctx, theme, 'crate', ox + 2, oy + 39, 3, time);
+    drawColonyProp(ctx, theme, 'crate', ox + 48, oy + 39, 4, time);
+  } else if (type === 'smithy') {
+    for (let x = 12; x <= 54; x += 10) detail.push([ox + x, oy + 9, 5, 2, roofLight]);
+    detail.push(
+      [ox + 7, oy + 30, 10, 4, PALETTE.metal], [ox + 9, oy + 28, 6, 2, PALETTE.metal],
+      [ox + 47, oy + 31, 10, 3, PALETTE.woodDark], [ox + 50, oy + 28, 4, 3, PALETTE.metal]
+    );
+    const spark = Math.floor(time / 300) % 2;
+    detail.push([ox + 52 + spark, oy + 23, 2, 2, PALETTE.goldLight], [ox + 58 - spark, oy + 20, 1, 1, PALETTE.gold]);
+  } else if (type === 'library') {
+    for (let x = 9; x <= 54; x += 9) detail.push([ox + x, oy + 12, 5, 2, roofLight]);
+    detail.push(
+      [ox + 12, oy + 36, 10, 2, PALETTE.windowLight], [ox + 16, oy + 36, 2, 12, PALETTE.roofShadow],
+      [ox + 44, oy + 36, 10, 2, PALETTE.windowLight], [ox + 48, oy + 36, 2, 12, PALETTE.roofShadow],
+      [ox + 25, oy + 30, 14, 2, PALETTE.linen]
+    );
+  } else if (type === 'well') {
+    detail.push([ox + 1, oy + 18, 3, 10, PALETTE.stoneDark], [ox + 12, oy + 18, 3, 10, PALETTE.stoneDark]);
+  }
+  drawPixels(ctx, detail);
 }
