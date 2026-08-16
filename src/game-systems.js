@@ -100,6 +100,29 @@ export function movePlayer(position, delta, map, blockedTiles = new Set()) {
   return next;
 }
 
+// Continuous movement in tile coordinates. The player keeps the existing grid
+// collision contract, but advances by elapsed time instead of keypress events.
+export function movePlayerRealtime(position, direction, deltaSeconds, map, blockedTiles = new Set(), speed = 4.5) {
+  const length = Math.hypot(direction.x ?? 0, direction.y ?? 0);
+  if (!length || deltaSeconds <= 0) return { ...position };
+  const distance = Math.min(deltaSeconds, 0.12) * speed;
+  const velocity = { x: (direction.x ?? 0) / length, y: (direction.y ?? 0) / length };
+  const canOccupy = (x, y) => {
+    const samples = [[x + 0.2, y + 0.2], [x + 0.8, y + 0.2], [x + 0.2, y + 0.8], [x + 0.8, y + 0.8]];
+    return samples.every(([sampleX, sampleY]) => {
+      const tileX = Math.floor(sampleX);
+      const tileY = Math.floor(sampleY);
+      return tileY >= 0 && tileY < map.length && tileX >= 0 && tileX < map[0].length && !blockedTiles.has(map[tileY][tileX]);
+    });
+  };
+  let next = { ...position };
+  const candidateX = next.x + velocity.x * distance;
+  if (canOccupy(candidateX, next.y)) next.x = candidateX;
+  const candidateY = next.y + velocity.y * distance;
+  if (canOccupy(next.x, candidateY)) next.y = candidateY;
+  return { x: Number(next.x.toFixed(4)), y: Number(next.y.toFixed(4)) };
+}
+
 export function getInteraction(position, points, radius = 1.5) {
   return points
     .map((point) => ({ ...point, distance: Math.hypot(point.x - position.x, point.y - position.y) }))
@@ -146,9 +169,9 @@ export function resolveVillageTheme(village) {
   const landscape = village?.landscape ?? 'heath';
   const roof = village?.roof === 'plum' ? 'plum' : 'moss';
   const themes = {
-    heath: { sky: '#cfe0bf', distant: '#9bb582', grass: '#7a9460', grassLight: '#9bb16e', grassDark: '#4f6b4c', water: '#6fa39b', waterLight: '#a8cfbd', dirt: '#a87555', path: '#d8b783', pathLight: '#eed9a7', roof: roof === 'moss' ? '#4d6347' : '#594753', paper: '#f4e6c8' },
-    river: { sky: '#c2d8da', distant: '#7fa3a8', grass: '#5f8b78', grassLight: '#8fae8d', grassDark: '#3f6657', water: '#4f8794', waterLight: '#a6cccc', dirt: '#a97056', path: '#d3bd91', pathLight: '#eee0bc', roof: roof === 'moss' ? '#405d58' : '#55495b', paper: '#eef2ea' },
-    woodland: { sky: '#c4cdb1', distant: '#768968', grass: '#5f7d56', grassLight: '#87a068', grassDark: '#385542', water: '#537c7c', waterLight: '#8eb5a5', dirt: '#956d53', path: '#c4ae82', pathLight: '#e4d19c', roof: roof === 'moss' ? '#3d5544' : '#51424e', paper: '#e9ead9' }
+    heath: { sky: '#a8d8df', distant: '#6fa574', grass: '#5e994f', grassLight: '#add565', grassDark: '#2f6844', water: '#3d9daa', waterLight: '#b6ead2', dirt: '#ad6848', path: '#dfb25e', pathLight: '#f6d98c', roof: roof === 'moss' ? '#356744' : '#68445f', paper: '#f7e8c6' },
+    river: { sky: '#91cfe0', distant: '#6097a1', grass: '#4f9679', grassLight: '#91c86d', grassDark: '#286450', water: '#348eac', waterLight: '#a9e7dd', dirt: '#ad6848', path: '#dbbe78', pathLight: '#f3e0a7', roof: roof === 'moss' ? '#2e625c' : '#654c68', paper: '#eef5e8' },
+    woodland: { sky: '#a8cba8', distant: '#5f8f65', grass: '#4b8b4d', grassLight: '#94c75f', grassDark: '#285d3c', water: '#3d8498', waterLight: '#9bd8b7', dirt: '#9c654c', path: '#d0ad68', pathLight: '#ecd28d', roof: roof === 'moss' ? '#2f5c42' : '#60465d', paper: '#edf0d4' }
   };
   return themes[landscape] ?? themes.heath;
 }
@@ -230,6 +253,42 @@ export const NPCS = [
 export function npcPositionAt(npc, clock) {
   const phase = timeOfDay(clock);
   return npc.schedule?.[phase] ?? { x: npc.x, y: npc.y };
+}
+
+// Render-time waypoint interpolation keeps scheduled villagers from teleporting
+// when the village clock crosses dawn, day, dusk, or night.
+export function npcMotionAt(npc, clock) {
+  const schedule = npc.schedule;
+  if (!schedule) return { x: npc.x, y: npc.y };
+  const phase = timeOfDay(clock);
+  const ranges = { night: [0, 300], dawn: [300, 450], day: [450, 1020], dusk: [1020, 1200] };
+  const [start, end] = ranges[phase];
+  const nextPhase = { night: 'dawn', dawn: 'day', day: 'dusk', dusk: 'night' }[phase];
+  const from = schedule[phase] ?? { x: npc.x, y: npc.y };
+  const to = schedule[nextPhase] ?? from;
+  const phaseProgress = Math.max(0, Math.min(1, (clock - start) / (end - start)));
+  const travelProgress = Math.max(0, Math.min(1, phaseProgress / 0.2));
+  return {
+    x: Number((from.x + (to.x - from.x) * travelProgress).toFixed(4)),
+    y: Number((from.y + (to.y - from.y) * travelProgress).toFixed(4))
+  };
+}
+
+export function wrapDialogueText(text, maxCharacters = 42) {
+  const words = String(text).trim().split(/\s+/).filter(Boolean);
+  const lines = [];
+  let line = '';
+  for (const word of words) {
+    const candidate = line ? `${line} ${word}` : word;
+    if (line && candidate.length > maxCharacters) {
+      lines.push(line);
+      line = word;
+    } else {
+      line = candidate;
+    }
+  }
+  if (line) lines.push(line);
+  return lines;
 }
 
 // Returns a WORLD_HEIGHT × WORLD_WIDTH grid of tile chars. Buildings occupy 'b'.

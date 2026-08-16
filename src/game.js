@@ -16,12 +16,15 @@ import {
   MAP_HEIGHT,
   MAP_WIDTH,
   movePlayer,
+  movePlayerRealtime,
   NPCS,
+  npcMotionAt,
   npcPositionAt,
   normalizeGameState,
   resolveVillageTheme,
   tileAt,
   timeOfDay,
+  wrapDialogueText,
   VIEW_H,
   VIEW_W,
   WORLD_BLOCKED,
@@ -90,10 +93,12 @@ const avatarContext = avatarCanvas?.getContext('2d');
 const setupScreen = document.querySelector('#setup-screen');
 const playScreen = document.querySelector('#play-screen');
 
-// Logical offscreen buffer for crisp pixel-art scaling.
+// Higher-resolution backing buffer: the art remains authored on the logical grid,
+// but is rasterised at 2× before the browser scales it into the game frame.
+const RENDER_SCALE = 2;
 const buffer = document.createElement('canvas');
-buffer.width = GRID_W;
-buffer.height = GRID_H;
+buffer.width = GRID_W * RENDER_SCALE;
+buffer.height = GRID_H * RENDER_SCALE;
 const bufferCtx = buffer?.getContext('2d');
 
 let state = loadState();
@@ -102,6 +107,12 @@ let editing = false;
 let setupSnapshot = null;
 let toastTimer;
 let lastMoveAt = 0;
+let playerMotion = { x: state.player.x, y: state.player.y, facing: 'down', phase: 0 };
+let heldDirections = new Set();
+let movementDistance = 0;
+let lastFrameAt = null;
+let lastPersistAt = 0;
+let dialogue = null;
 
 function loadState() {
   try {
@@ -118,6 +129,25 @@ function saveState() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   const saveStatus = document.querySelector('#save-status');
   if (saveStatus) saveStatus.textContent = 'Saved just now · local prototype';
+}
+
+function beginLogicalBuffer() {
+  bufferCtx.setTransform(RENDER_SCALE, 0, 0, RENDER_SCALE, 0, 0);
+  bufferCtx.imageSmoothingEnabled = false;
+  bufferCtx.clearRect(0, 0, GRID_W, GRID_H);
+}
+
+function endLogicalBuffer() {
+  bufferCtx.setTransform(1, 0, 0, 1, 0, 0);
+}
+
+function syncPlayerMotion() {
+  playerMotion = { x: state.player.x, y: state.player.y, facing: playerMotion.facing ?? 'down', phase: playerMotion.phase ?? 0 };
+  movementDistance = 0;
+}
+
+function persistPlayerMotion() {
+  state.player = { x: Number(playerMotion.x.toFixed(3)), y: Number(playerMotion.y.toFixed(3)) };
 }
 
 function escapeHtml(value) {
@@ -160,6 +190,9 @@ function openCreator(step = 1, isEditing = false) {
   setupScreen.hidden = false;
   playScreen.hidden = true;
   if (animHandle) { cancelAnimationFrame(animHandle); animHandle = null; }
+  heldDirections.clear();
+  dialogue = null;
+  lastFrameAt = null;
   document.querySelector('#cancel-edit').hidden = !isEditing;
   renderSetup();
   setupScreen.querySelector('input')?.focus();
@@ -168,6 +201,7 @@ function openCreator(step = 1, isEditing = false) {
 function closeCreator() {
   state.creationComplete = true;
   state.player = { x: 14, y: 11 };
+  syncPlayerMotion();
   saveState();
   setupSnapshot = null;
   editing = false;
@@ -320,8 +354,8 @@ function ensureWorldGrid() {
 }
 
 function cameraForPlayer(player) {
-  const camX = Math.max(0, Math.min(player.x - Math.floor(VIEW_W / 2), WORLD_WIDTH - VIEW_W));
-  const camY = Math.max(0, Math.min(player.y - Math.floor(VIEW_H / 2), WORLD_HEIGHT - VIEW_H));
+  const camX = Math.floor(Math.max(0, Math.min(player.x - Math.floor(VIEW_W / 2), WORLD_WIDTH - VIEW_W)));
+  const camY = Math.floor(Math.max(0, Math.min(player.y - Math.floor(VIEW_H / 2), WORLD_HEIGHT - VIEW_H)));
   return { camX, camY };
 }
 
@@ -401,13 +435,13 @@ function drawWorld(ctx, theme, village, spec, player, cam, time = 0) {
   const lighting = lightingFor(state.clock);
   const focusNpc = nearbyNpc();
   for (const npc of NPCS) {
-    const pos = npcPositionAt(npc, state.clock);
+    const pos = npcMotionAt(npc, state.clock);
     const { sx, sy } = worldToScreen(pos.x, pos.y);
     if (sx < -20 || sy < -30 || sx > GRID_W || sy > GRID_H) continue;
     const feetY = sy + TILE / 2 + 4;
     const isFocused = focusNpc?.id === npc.id;
     if (isFocused) drawSelectionRing(ctx, sx + TILE / 2, feetY, true);
-    drawHobbitSprite(ctx, { body: npc.body, hair: npc.hair, palette: npc.palette }, sx + TILE / 2, feetY);
+    drawHobbitSprite(ctx, { body: npc.body, hair: npc.hair, palette: npc.palette }, sx + TILE / 2, feetY, false, { moving: true, phase: time / 120 + npc.id.length });
     if (isFocused) drawNameplate(ctx, npc.name, sx + TILE / 2, feetY - 25, true);
     if (lighting.torch) drawTorchGlow(ctx, sx + TILE / 2, feetY - 18, 14, 0.5);
   }
@@ -416,7 +450,7 @@ function drawWorld(ctx, theme, village, spec, player, cam, time = 0) {
   const p = worldToScreen(player.x, player.y);
   const playerFeet = p.sy + TILE / 2 + 4;
   drawSelectionRing(ctx, p.sx + TILE / 2, playerFeet, true);
-  drawHobbitSprite(ctx, spec, p.sx + TILE / 2, playerFeet);
+  drawHobbitSprite(ctx, spec, p.sx + TILE / 2, playerFeet, false, player);
   if (lighting.torch) {
     drawTorchGlow(ctx, p.sx + TILE / 2, playerFeet - 16, 20, 0.7);
     // warm lantern glow at building doorways
@@ -466,23 +500,70 @@ function drawVillage(time = 0) {
   if (!context || !bufferCtx) return;
   const theme = themeForVillage();
   ensureWorldGrid();
-  const cam = cameraForPlayer(state.player);
-  bufferCtx.imageSmoothingEnabled = false;
-  bufferCtx.clearRect(0, 0, GRID_W, GRID_H);
-  drawWorld(bufferCtx, theme, state.village, state.hobbit, state.player, cam, time);
+  const cam = cameraForPlayer(playerMotion);
+  beginLogicalBuffer();
+  drawWorld(bufferCtx, theme, state.village, state.hobbit, playerMotion, cam, time);
+  endLogicalBuffer();
 
   context.imageSmoothingEnabled = false;
   context.clearRect(0, 0, canvas.width, canvas.height);
-  context.drawImage(buffer, 0, 0, GRID_W, GRID_H, 0, 0, canvas.width, canvas.height);
+  context.drawImage(buffer, 0, 0, buffer.width, buffer.height, 0, 0, canvas.width, canvas.height);
   drawInteractionPrompt();
+  drawDialogueOverlay();
 }
 
-// Gentle animation loop so water shimmer, chimney smoke, and torch flicker breathe.
+// Realtime animation loop: input is held between keydown/keyup events and
+// movement is integrated from elapsed time, so motion is continuous.
 let animHandle = null;
+function directionFromHeldKeys() {
+  const direction = { x: 0, y: 0 };
+  for (const key of heldDirections) {
+    if (key === 'up') direction.y -= 1;
+    if (key === 'down') direction.y += 1;
+    if (key === 'left') direction.x -= 1;
+    if (key === 'right') direction.x += 1;
+  }
+  return direction;
+}
+
+function updateRealtimeMotion(deltaSeconds, now) {
+  const direction = dialogue ? { x: 0, y: 0 } : directionFromHeldKeys();
+  const before = { x: playerMotion.x, y: playerMotion.y };
+  const next = movePlayerRealtime(playerMotion, direction, deltaSeconds, ensureWorldGrid(), WORLD_BLOCKED, 4.8);
+  const moved = Math.hypot(next.x - before.x, next.y - before.y);
+  playerMotion = {
+    ...playerMotion,
+    ...next,
+    moving: moved > 0.0001,
+    phase: playerMotion.phase + deltaSeconds * (moved > 0.0001 ? 14 : 2)
+  };
+  if (moved > 0.0001) {
+    const dominant = Math.abs(direction.x) > Math.abs(direction.y) ? direction.x : direction.y;
+    playerMotion.facing = Math.abs(direction.x) > Math.abs(direction.y) ? (dominant < 0 ? 'left' : 'right') : (dominant < 0 ? 'up' : 'down');
+    movementDistance += moved;
+    while (movementDistance >= 0.75) {
+      state.clock = advanceClock(state.clock, 5);
+      movementDistance -= 0.75;
+      updateHud();
+    }
+    persistPlayerMotion();
+    if (now - lastPersistAt > 400) {
+      saveState();
+      lastPersistAt = now;
+    }
+    if (Date.now() - lastMoveAt > 2500) addNote('Your footsteps make a soft path through the grass.');
+    lastMoveAt = Date.now();
+    document.querySelector('#canvas-hint').classList.add('is-hidden');
+  }
+}
+
 function startVillageAnimation() {
   if (animHandle) return;
   const tick = (now) => {
     if (!playScreen || playScreen.hidden) { animHandle = null; return; }
+    const deltaSeconds = lastFrameAt == null ? 0 : Math.min(0.12, (now - lastFrameAt) / 1000);
+    lastFrameAt = now;
+    updateRealtimeMotion(deltaSeconds, now);
     drawVillage(now);
     animHandle = requestAnimationFrame(tick);
   };
@@ -490,16 +571,16 @@ function startVillageAnimation() {
 }
 
 function drawInteractionPrompt() {
-  if (!context) return;
-  const cam = cameraForPlayer(state.player);
+  if (!context || dialogue) return;
+  const cam = cameraForPlayer(playerMotion);
   const npc = nearbyNpc();
-  const point = getInteraction(state.player, INTERACTIONS);
+  const point = getInteraction(playerMotion, INTERACTIONS);
   let label = null;
   if (npc) label = `E · Talk to ${npc.name}`;
   else if (point) label = `E · ${point.label}`;
   if (!label) return;
-  const cx = (state.player.x - cam.camX) * TILE + TILE / 2;
-  const cy = (state.player.y - cam.camY) * TILE;
+  const cx = (playerMotion.x - cam.camX) * TILE + TILE / 2;
+  const cy = (playerMotion.y - cam.camY) * TILE;
   const baseX = (cx / GRID_W) * canvas.width;
   const baseY = (cy / GRID_H) * canvas.height;
   const scaleX = canvas.width / GRID_W;
@@ -517,18 +598,48 @@ function drawInteractionPrompt() {
   context.fillText(label, baseX, py + 15 * scaleY);
 }
 
+function drawDialogueOverlay() {
+  if (!context || !dialogue) return;
+  const scaleX = canvas.width / GRID_W;
+  const scaleY = canvas.height / GRID_H;
+  const panelX = 12 * scaleX;
+  const panelY = 198 * scaleY;
+  const panelW = (GRID_W - 24) * scaleX;
+  const panelH = 78 * scaleY;
+  const lines = wrapDialogueText(dialogue.message, 58);
+  context.save();
+  context.fillStyle = 'rgba(10, 18, 17, .78)';
+  context.fillRect(panelX + 5 * scaleX, panelY + 5 * scaleY, panelW, panelH);
+  context.fillStyle = '#1c2a26';
+  context.fillRect(panelX, panelY, panelW, panelH);
+  context.strokeStyle = '#d9b866';
+  context.lineWidth = Math.max(2, scaleX);
+  context.strokeRect(panelX + scaleX, panelY + scaleY, panelW - 2 * scaleX, panelH - 2 * scaleY);
+  context.fillStyle = '#e7c875';
+  context.font = `600 ${Math.round(8 * scaleX)}px "DM Mono", monospace`;
+  context.textAlign = 'left';
+  context.fillText(dialogue.speaker.toUpperCase(), panelX + 12 * scaleX, panelY + 17 * scaleY);
+  context.fillStyle = '#f8ecd0';
+  context.font = `${Math.round(9 * scaleX)}px Manrope, sans-serif`;
+  lines.slice(0, 4).forEach((line, index) => context.fillText(line, panelX + 12 * scaleX, panelY + (35 + index * 13) * scaleY));
+  context.fillStyle = '#9fb09f';
+  context.font = `${Math.round(6 * scaleX)}px "DM Mono", monospace`;
+  context.textAlign = 'right';
+  context.fillText('E / SPACE  CLOSE', panelX + panelW - 12 * scaleX, panelY + panelH - 10 * scaleY);
+  context.restore();
+}
+
 function nearbyNpc() {
   return NPCS.find((npc) => {
     const pos = npcPositionAt(npc, state.clock);
-    return Math.hypot(pos.x - state.player.x, pos.y - state.player.y) <= 1.5;
+    return Math.hypot(pos.x - playerMotion.x, pos.y - playerMotion.y) <= 1.5;
   }) ?? null;
 }
 
 function drawCreatorPreview() {
   if (!creatorContext || !bufferCtx) return;
   const theme = themeForVillage();
-  bufferCtx.imageSmoothingEnabled = false;
-  bufferCtx.clearRect(0, 0, GRID_W, GRID_H);
+  beginLogicalBuffer();
   // preview backdrop at logical scale
   drawPixels(bufferCtx, [[0, 0, GRID_W, GRID_H, theme.sky]]);
   for (let x = 0; x < GRID_W; x += 16) {
@@ -550,9 +661,10 @@ function drawCreatorPreview() {
     drawPixels(bufferCtx, [[GRID_W * 0.36, GRID_H * 0.82 + 5, GRID_W * 0.46, 3, theme.pathLight]]);
   }
 
+  endLogicalBuffer();
   creatorContext.imageSmoothingEnabled = false;
   creatorContext.clearRect(0, 0, creatorCanvas.width, creatorCanvas.height);
-  creatorContext.drawImage(buffer, 0, 0, GRID_W, GRID_H, 0, 0, creatorCanvas.width, creatorCanvas.height);
+  creatorContext.drawImage(buffer, 0, 0, buffer.width, buffer.height, 0, 0, creatorCanvas.width, creatorCanvas.height);
 }
 
 function updateHud() {
@@ -579,14 +691,14 @@ function updateHud() {
   });
   document.querySelector('#village-log').innerHTML = state.notes.map((note) => `<li>${escapeHtml(note)}</li>`).join('');
   if (avatarContext && bufferCtx) {
-    bufferCtx.imageSmoothingEnabled = false;
-    bufferCtx.clearRect(0, 0, GRID_W, GRID_H);
+    beginLogicalBuffer();
     drawPixels(bufferCtx, [[0, 0, GRID_W, GRID_H, themeForVillage().paper ?? '#f4e6c8']]);
     // avatar uses the lower portion of the buffer for a head-and-shoulders crop
     drawHobbitSprite(bufferCtx, state.hobbit, GRID_W / 2, GRID_H * 0.92);
+    endLogicalBuffer();
     avatarContext.imageSmoothingEnabled = false;
     avatarContext.clearRect(0, 0, avatarCanvas.width, avatarCanvas.height);
-    avatarContext.drawImage(buffer, 0, 0, GRID_W, GRID_H, 0, 0, avatarCanvas.width, avatarCanvas.height);
+    avatarContext.drawImage(buffer, 0, 0, buffer.width, buffer.height, 0, 0, avatarCanvas.width, avatarCanvas.height);
   }
 }
 
@@ -609,27 +721,46 @@ function move(delta) {
   saveState();
 }
 
+function openDialogue(speaker, message) {
+  dialogue = { speaker, message };
+  document.querySelector('#canvas-hint')?.classList.add('is-hidden');
+  const live = document.querySelector('#dialogue-live');
+  if (live) live.textContent = `${speaker}: ${message}`;
+  drawVillage(performance.now());
+}
+
+function closeDialogue() {
+  if (!dialogue) return;
+  dialogue = null;
+  const live = document.querySelector('#dialogue-live');
+  if (live) live.textContent = '';
+  drawVillage(performance.now());
+}
+
 function interact() {
+  if (dialogue) return closeDialogue();
   const npc = nearbyNpc();
   if (npc) {
     state.clock = advanceClock(state.clock, 5);
     addNote(`${npc.name} says, “${npc.greet}”`);
-    drawVillage();
+    persistPlayerMotion();
     saveState();
-    return showToast(`${npc.name}: ${npc.greet}`);
+    return openDialogue(npc.name, npc.greet);
   }
-  const point = getInteraction(state.player, INTERACTIONS);
+  const point = getInteraction(playerMotion, INTERACTIONS);
   if (!point) return showToast('Nothing here but the evening breeze.');
   state.tasks[point.task] = true;
   state.clock = advanceClock(state.clock, 15);
   addNote(point.message);
-  drawVillage();
+  persistPlayerMotion();
   saveState();
-  showToast(point.message);
+  openDialogue('Village note', point.message);
 }
 
 function resetDay() {
   state = normalizeGameState({ ...state, player: { x: 14, y: 11 }, clock: 495, tasks: { garden: false, pond: false, gate: false, noticeboard: false }, notes: DEFAULT_NOTES });
+  syncPlayerMotion();
+  dialogue = null;
   updateHud();
   drawVillage();
   saveState();
@@ -695,16 +826,27 @@ function handleKeydown(event) {
   if (setupScreen && !setupScreen.hidden) return;
   if (['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName)) return;
   const keys = {
-    w: { x: 0, y: -1 }, ArrowUp: { x: 0, y: -1 },
-    s: { x: 0, y: 1 }, ArrowDown: { x: 0, y: 1 },
-    a: { x: -1, y: 0 }, ArrowLeft: { x: -1, y: 0 },
-    d: { x: 1, y: 0 }, ArrowRight: { x: 1, y: 0 }
+    w: 'up', ArrowUp: 'up',
+    s: 'down', ArrowDown: 'down',
+    a: 'left', ArrowLeft: 'left',
+    d: 'right', ArrowRight: 'right'
   };
   const key = event.key.length === 1 ? event.key.toLowerCase() : event.key;
-  if (keys[key]) { event.preventDefault(); move(keys[key]); }
+  if (dialogue) {
+    if (key === 'e' || event.key === ' ' || key === 'Escape') { event.preventDefault(); closeDialogue(); }
+    return;
+  }
+  if (keys[key]) { event.preventDefault(); heldDirections.add(keys[key]); }
   if (key === 'e' || event.key === ' ') { event.preventDefault(); interact(); }
   if (key === 'r') resetDay();
 }
+
+function handleKeyup(event) {
+  const keys = { w: 'up', s: 'down', a: 'left', d: 'right', ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right' };
+  const key = event.key.length === 1 ? event.key.toLowerCase() : event.key;
+  if (keys[key]) heldDirections.delete(keys[key]);
+}
+
 
 document.querySelector('#creation-form').addEventListener('submit', handleSetupSubmit);
 document.querySelector('#setup-back').addEventListener('click', () => { setupStep = 1; renderSetup(); });
@@ -724,6 +866,8 @@ document.querySelector('#fullscreen-button')?.addEventListener('click', toggleFu
 document.querySelector('#account-button').addEventListener('click', () => document.querySelector('#account-dialog').showModal());
 document.querySelector('#account-dialog').addEventListener('click', (event) => { if (event.target === event.currentTarget) event.currentTarget.close(); });
 document.addEventListener('keydown', handleKeydown);
+document.addEventListener('keyup', handleKeyup);
+document.addEventListener('visibilitychange', () => { if (document.hidden) heldDirections.clear(); });
 document.addEventListener('fullscreenchange', updateFullscreenLabel);
 
 if (!state.creationComplete) openCreator(1, false);

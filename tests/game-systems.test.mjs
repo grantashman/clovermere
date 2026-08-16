@@ -8,7 +8,10 @@ import {
   isCreationComplete,
   movePlayer,
   normalizeGameState,
-  advanceClock
+  advanceClock,
+  movePlayerRealtime,
+  npcMotionAt,
+  wrapDialogueText
 } from '../src/game-systems.js';
 
 const map = [
@@ -99,4 +102,23 @@ test('advanceClock wraps cleanly into the next day', () => {
 test('formatClock uses a friendly 12-hour label', () => {
   assert.equal(formatClock(0), '12:00 AM');
   assert.equal(formatClock(735), '12:15 PM');
+});
+
+test('realtime movement advances continuously and stops before blocked tiles', () => {
+  const open = movePlayerRealtime({ x: 1, y: 0 }, { x: 1, y: 0 }, 0.25, map, blocked, 2);
+  assert.ok(open.x > 1 && open.x < 2, 'movement should be fractional, not tile-snapped');
+  const blockedResult = movePlayerRealtime({ x: 1.5, y: 1 }, { x: 1, y: 0 }, 1, map, blocked, 4);
+  assert.equal(blockedResult.x, 1.5, 'blocked movement should not enter the water tile');
+});
+
+test('npc motion interpolates between schedule waypoints during a phase transition', () => {
+  const npc = { schedule: { dawn: { x: 2, y: 2 }, day: { x: 8, y: 2 }, dusk: { x: 8, y: 2 }, night: { x: 2, y: 2 } } };
+  const moving = npcMotionAt(npc, 310);
+  assert.ok(moving.x > 2 && moving.x < 8, 'NPC should be in transit rather than teleporting');
+});
+
+test('dialogue wrapping keeps lines within the in-world panel width', () => {
+  const lines = wrapDialogueText('The beans are climbing the trellis at last, and the whole garden smells like rain.', 28);
+  assert.ok(lines.length >= 2);
+  assert.ok(lines.every((line) => line.length <= 28));
 });

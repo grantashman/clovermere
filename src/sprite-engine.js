@@ -259,19 +259,23 @@ function hairRects(spec) {
   );
 }
 
-export function drawHobbitSprite(ctx, spec, cx, feetY, flip = false) {
+export function drawHobbitSprite(ctx, spec, cx, feetY, flip = false, motion = {}) {
   const skin = spec.palette.skin;
   const coat = spec.palette.coat;
   const accent = spec.palette.accent;
   const bodyW = spec.body === 'lean' ? 10 : spec.body === 'sturdy' ? 14 : 12;
+  const phase = Number(motion.phase ?? 0);
+  const bob = motion.moving ? Math.round(Math.sin(phase) * 0.8) : 0;
+  const animatedFeetY = feetY + bob;
   const left = Math.round(cx - bodyW / 2);
-  const top = feetY - 26;
+  const top = animatedFeetY - 26;
+  const stride = motion.moving ? Math.round(Math.sin(phase) * 1.2) : 0;
 
-  // ground shadow
+  // ground shadow stays planted while the body bobs above it
   drawSoftShadow(ctx, cx, feetY, bodyW * 0.72, 3, 0.24);
 
-  // feet (with sole shading)
-  drawPixels(ctx, rects([left + 1, feetY - 2, 4, 2, PALETTE.door], [left + bodyW - 5, feetY - 2, 4, 2, PALETTE.door], [left + 1, feetY, 4, 1, PALETTE.shadow], [left + bodyW - 5, feetY, 4, 1, PALETTE.shadow]));
+  // feet (with sole shading and alternating stride)
+  drawPixels(ctx, rects([left + 1 + stride, animatedFeetY - 2, 4, 2, PALETTE.door], [left + bodyW - 5 - stride, animatedFeetY - 2, 4, 2, PALETTE.door], [left + 1 + stride, animatedFeetY, 4, 1, PALETTE.shadow], [left + bodyW - 5 - stride, animatedFeetY, 4, 1, PALETTE.shadow]));
   // body / coat (with a shaded right side for roundness)
   drawPixels(ctx, rects([left, top + 12, bodyW, 12, coat]));
   drawPixels(ctx, rects([left + bodyW - 3, top + 12, 3, 12, mix(coat, '#1f2d28', 0.22)]));
@@ -292,8 +296,8 @@ export function drawHobbitSprite(ctx, spec, cx, feetY, flip = false) {
   drawPixels(ctx, rects([cx + 3, top + 7, 2, 4, mix(skin, '#1f2d28', 0.16)]));
   // ears
   drawPixels(ctx, rects([cx - 7, top + 4, 2, 3, skin], [cx + 5, top + 4, 2, 3, skin]));
-  // hair
-  drawPixels(ctx, hairRects(spec));
+  // hair is anchored to this character rather than the canvas origin
+  drawPixels(ctx, hairRects(spec), left - 2, top);
   // eyes
   drawPixels(ctx, rects([cx - 3, top + 6, 2, 2, PALETTE.ink], [cx + 1, top + 6, 2, 2, PALETTE.ink]));
   // nose/cheek

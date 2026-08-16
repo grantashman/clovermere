@@ -89,6 +89,14 @@ test('hobbit sprite changes silhouette for different bodies', () => {
   assert.notDeepEqual(round.ops, lean.ops, 'body shape should change rendering');
 });
 
+test('hobbit sprite animates bob and stride without changing its authored spec', () => {
+  const idle = makeContext();
+  drawHobbitSprite(idle.context, normalizeGameState({ hobbit: { body: 'round' } }).hobbit, 100, 200, false, { moving: false, phase: 0 });
+  const walking = makeContext();
+  drawHobbitSprite(walking.context, normalizeGameState({ hobbit: { body: 'round' } }).hobbit, 100, 200, false, { moving: true, phase: Math.PI / 2 });
+  assert.notDeepEqual(idle.ops, walking.ops, 'walking frame should differ from idle frame');
+});
+
 test('tree sprite stays within the logical canvas', () => {
   const { context, ops } = makeContext();
   drawTreeSprite(context, resolveVillageTheme({ landscape: 'heath' }), 3 * TILE, 3 * TILE, 0);
