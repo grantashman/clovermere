@@ -33,6 +33,7 @@ import {
   VIEW_W,
   WORLD_BLOCKED,
   WORLD_HEIGHT,
+  WORLD_LANDMARKS,
   WORLD_WIDTH,
   worldPixelPosition
 } from './game-systems.js';
@@ -63,6 +64,7 @@ import {
   drawSelectionRing,
   drawWeatherOverlay,
   drawWorldLabel,
+  drawWorldLandmark,
   GRID_H,
   GRID_W,
   TILE
@@ -98,13 +100,15 @@ const creatorCanvas = document.querySelector('#creator-canvas');
 const creatorContext = creatorCanvas?.getContext('2d');
 const avatarCanvas = document.querySelector('#avatar-canvas');
 const avatarContext = avatarCanvas?.getContext('2d');
+const minimapCanvas = document.querySelector('#minimap-canvas');
+const minimapContext = minimapCanvas?.getContext('2d');
 const setupScreen = document.querySelector('#setup-screen');
 const playScreen = document.querySelector('#play-screen');
 
 // Higher-resolution backing buffer: the art remains authored on the logical grid,
-// but is rasterised at 3× so a future desktop shell and high-DPI display retain
+// but is rasterised at 5× so a future desktop shell and high-DPI display retain
 // crisp edges without changing the world-coordinate contract.
-const RENDER_SCALE = 3;
+const RENDER_SCALE = 5;
 const ZOOM_MIN = 0.75;
 const ZOOM_MAX = 1.25;
 const ZOOM_STEP = 0.1;
@@ -128,6 +132,8 @@ let lastPersistAt = 0;
 let dialogue = null;
 let cameraZoom = DEFAULT_ZOOM;
 let bookOpen = true;
+let hudOpen = true;
+let minimapOpen = true;
 
 function loadState() {
   try {
@@ -197,6 +203,30 @@ function setBookOpen(open) {
   if (toggle) toggle.textContent = bookOpen ? 'Hide village book' : 'Village book';
 }
 
+function setHudOpen(open) {
+  hudOpen = Boolean(open);
+  const hud = document.querySelector('#game-window-hud');
+  const toggle = document.querySelector('#game-hud-toggle');
+  hud?.classList.toggle('hud-is-collapsed', !hudOpen);
+  toggle?.setAttribute('aria-expanded', String(hudOpen));
+  if (toggle) toggle.innerHTML = hudOpen ? 'HUD <span aria-hidden="true">⌃</span>' : 'HUD <span aria-hidden="true">⌄</span>';
+}
+
+function setMinimapOpen(open) {
+  minimapOpen = Boolean(open);
+  const shell = document.querySelector('#minimap-shell');
+  const reopen = document.querySelector('#minimap-reopen');
+  const toggles = [document.querySelector('#game-minimap-toggle')];
+  shell?.classList.toggle('is-collapsed', !minimapOpen);
+  if (reopen) reopen.hidden = minimapOpen;
+  toggles.forEach((toggle) => {
+    if (!toggle) return;
+    toggle.setAttribute('aria-expanded', String(minimapOpen));
+    toggle.textContent = minimapOpen ? 'Map' : 'Map +';
+  });
+  drawMinimap();
+}
+
 function setNestedValue(target, path, value) {
   const parts = path.split('.');
   let cursor = target;
@@ -214,6 +244,7 @@ function setChoice(group, value) {
   if (group.startsWith('palette.')) setNestedValue(state.hobbit, group, value);
   else if (group in state.hobbit) state.hobbit[group] = value;
   else state.village[group] = value;
+  worldGrid = null;
   renderSetup();
   drawVillage();
 }
@@ -455,6 +486,15 @@ function drawWorld(ctx, theme, village, spec, player, cam, time = 0, zoom = came
     return { sx: position.x, sy: position.y };
   };
 
+  // Large authored anchors establish readable destinations in the expanded map.
+  for (const landmark of WORLD_LANDMARKS) {
+    const { sx, sy } = worldToScreen(landmark.x, landmark.y);
+    const width = landmark.w * TILE;
+    const height = landmark.h * TILE;
+    if (sx < -width || sy < -height || sx > GRID_W || sy > GRID_H) continue;
+    drawWorldLandmark(ctx, theme, landmark.type, sx, sy, width, height, time);
+  }
+
   // building floor shadows (drawn before the buildings)
   for (const b of BUILDINGS) {
     const { sx, sy } = worldToScreen(b.x, b.y);
@@ -473,7 +513,7 @@ function drawWorld(ctx, theme, village, spec, player, cam, time = 0, zoom = came
   // garden, pond, bridge, noticeboard, gate props near the starting area
   const garden = worldToScreen(5, 9); drawSoftShadow(ctx, garden.sx + 3 * TILE, garden.sy + 3 * TILE, 3.4 * TILE, 5, 0.14); drawGardenSprite(ctx, theme, garden.sx, garden.sy, 7, 3, state.garden.stage);
   const pond = worldToScreen(11, 3); drawPondSprite(ctx, theme, pond.sx, pond.sy, time);
-  const bridge = worldToScreen(45, 17); drawBridgeSprite(ctx, theme, bridge.sx, bridge.sy);
+  const bridge = worldToScreen(67, 30); drawBridgeSprite(ctx, theme, bridge.sx, bridge.sy);
   const board = worldToScreen(30, 9); drawSoftShadow(ctx, board.sx + 25, board.sy + 24, 26, 4, 0.18); drawNoticeboardSprite(ctx, board.sx - 6, board.sy - 24);
   const gate = worldToScreen(60, 20); drawGateSprite(ctx, theme, gate.sx, gate.sy);
 
@@ -492,6 +532,11 @@ function drawWorld(ctx, theme, village, spec, player, cam, time = 0, zoom = came
   drawWorldLabel(ctx, 'Garden beds', gardenLabel.sx + TILE / 2, gardenLabel.sy - 8, '#b8c785');
   drawWorldLabel(ctx, 'Moon pond', pondLabel.sx + TILE / 2, pondLabel.sy - 8, '#b9d9d0');
   drawWorldLabel(ctx, 'Market', marketLabel.sx + TILE / 2, marketLabel.sy - 8, '#e2b96e');
+  for (const landmark of WORLD_LANDMARKS) {
+    const point = worldToScreen(landmark.x + landmark.w / 2, landmark.y);
+    if (point.sx < -80 || point.sy < -24 || point.sx > GRID_W + 80 || point.sy > GRID_H + 24) continue;
+    drawWorldLabel(ctx, landmark.label, point.sx, point.sy - 8, landmark.accent);
+  }
 
   // trees in the viewport (with their own shadows inside)
   for (let wy = baseCamY; wy < baseCamY + renderViewH; wy += 1) {
@@ -575,6 +620,81 @@ function drawInteriorWorld(ctx, time = 0) {
   drawWorldLabel(ctx, state.interior?.title ?? 'Inside', GRID_W / 2, 16, '#f0d487');
 }
 
+function drawMinimap() {
+  if (!minimapContext || !minimapCanvas) return;
+  const ctx = minimapContext;
+  const width = minimapCanvas.width;
+  const height = minimapCanvas.height;
+  const cellW = width / WORLD_WIDTH;
+  const cellH = height / WORLD_HEIGHT;
+  const theme = themeForVillage();
+  const grid = ensureWorldGrid();
+  ctx.save();
+  ctx.imageSmoothingEnabled = false;
+  ctx.clearRect(0, 0, width, height);
+  ctx.fillStyle = '#172822';
+  ctx.fillRect(0, 0, width, height);
+  const colors = {
+    g: theme.grass,
+    p: theme.path,
+    d: theme.dirt,
+    w: theme.water,
+    t: theme.grassDark,
+    b: '#8b6a59',
+    f: '#b38a55',
+    s: theme.sky,
+    h: theme.distant
+  };
+  for (let y = 0; y < WORLD_HEIGHT; y += 1) {
+    for (let x = 0; x < WORLD_WIDTH; x += 1) {
+      ctx.fillStyle = colors[grid[y]?.[x]] ?? colors.g;
+      ctx.fillRect(Math.floor(x * cellW), Math.floor(y * cellH), Math.ceil(cellW) + 1, Math.ceil(cellH) + 1);
+    }
+  }
+  // landmark plates make the expanded map legible even when zoomed far out.
+  for (const landmark of WORLD_LANDMARKS) {
+    ctx.fillStyle = `${landmark.accent}99`;
+    ctx.fillRect(landmark.x * cellW, landmark.y * cellH, landmark.w * cellW, landmark.h * cellH);
+    ctx.strokeStyle = landmark.accent;
+    ctx.lineWidth = 1;
+    ctx.strokeRect(landmark.x * cellW + .5, landmark.y * cellH + .5, landmark.w * cellW - 1, landmark.h * cellH - 1);
+  }
+  for (const building of BUILDINGS) {
+    ctx.fillStyle = building.type === 'gate' ? '#d3ae61' : '#7e5b4f';
+    ctx.fillRect(building.x * cellW, building.y * cellH, building.w * cellW, building.h * cellH);
+  }
+  const cam = cameraForPlayer(playerMotion);
+  ctx.strokeStyle = '#f5e7bf';
+  ctx.globalAlpha = .62;
+  ctx.lineWidth = 1.5;
+  ctx.strokeRect(cam.camX * cellW, cam.camY * cellH, cam.viewW * cellW, cam.viewH * cellH);
+  ctx.globalAlpha = 1;
+  for (const npc of NPCS) {
+    const pos = npcMotionAt(npc, state.clock);
+    ctx.fillStyle = '#e29178';
+    ctx.beginPath();
+    ctx.arc((pos.x + .5) * cellW, (pos.y + .5) * cellH, Math.max(2, cellW * .7), 0, Math.PI * 2);
+    ctx.fill();
+  }
+  const playerX = state.location === 'village' ? playerMotion.x : WORLD_WIDTH / 2;
+  const playerY = state.location === 'village' ? playerMotion.y : WORLD_HEIGHT / 2;
+  ctx.fillStyle = '#f8df88';
+  ctx.strokeStyle = '#24362f';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo((playerX + .5) * cellW, (playerY - .2) * cellH);
+  ctx.lineTo((playerX + 1.05) * cellW, (playerY + .5) * cellH);
+  ctx.lineTo((playerX + .5) * cellW, (playerY + 1.2) * cellH);
+  ctx.lineTo((playerX - .05) * cellW, (playerY + .5) * cellH);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = '#f7e8c6';
+  ctx.font = '700 9px "DM Mono", monospace';
+  ctx.fillText('N', width - 13, 12);
+  ctx.restore();
+}
+
 function drawVillage(time = 0) {
   if (!context || !bufferCtx) return;
   const theme = themeForVillage();
@@ -597,6 +717,7 @@ function drawVillage(time = 0) {
   context.drawImage(buffer, 0, 0, buffer.width, buffer.height, 0, 0, canvas.width, canvas.height);
   drawInteractionPrompt();
   drawDialogueOverlay();
+  drawMinimap();
 }
 
 // Realtime animation loop: input is held between keydown/keyup events and
@@ -828,7 +949,11 @@ function updateHud() {
   const canvasWrap = document.querySelector('.canvas-wrap');
   if (canvasWrap) canvasWrap.classList.toggle('is-interior', state.location !== 'village');
   setBookOpen(bookOpen);
+  setHudOpen(hudOpen);
+  setMinimapOpen(minimapOpen);
   updateZoomLabel();
+  const minimapLocation = document.querySelector('#minimap-location');
+  if (minimapLocation) minimapLocation.textContent = state.location === 'village' ? state.village.name : state.interior?.title ?? 'Interior';
   const windowLocation = document.querySelector('#window-hud-location');
   const windowContext = document.querySelector('#window-hud-context');
   if (windowLocation) windowLocation.textContent = state.location === 'village' ? state.village.name : state.interior?.title ?? 'Interior';
@@ -1126,6 +1251,9 @@ function handleKeydown(event) {
   }
   if (key === '-' || key === '_') { event.preventDefault(); setCameraZoom(-ZOOM_STEP); return; }
   if (key === '=' || key === '+') { event.preventDefault(); setCameraZoom(ZOOM_STEP); return; }
+  if (event.key === 'Tab') { event.preventDefault(); setHudOpen(!hudOpen); return; }
+  if (key === 'm') { event.preventDefault(); setMinimapOpen(!minimapOpen); return; }
+  if (key === 'b') { event.preventDefault(); setBookOpen(!bookOpen); return; }
   if (keys[key]) { event.preventDefault(); heldDirections.add(keys[key]); }
   if (key === 'e' || event.key === ' ') { event.preventDefault(); interact(); }
   if (key === 'r') resetDay();
@@ -1157,7 +1285,13 @@ document.querySelector('#leave-interior')?.addEventListener('click', leaveInteri
 document.querySelector('#game-interact-button')?.addEventListener('click', interact);
 document.querySelector('#game-fullscreen-button')?.addEventListener('click', toggleFullscreen);
 document.querySelector('#game-account-button')?.addEventListener('click', openAccountDialog);
+document.querySelector('#game-hud-toggle')?.addEventListener('click', () => setHudOpen(!hudOpen));
+document.querySelector('#game-hud-reopen')?.addEventListener('click', () => setHudOpen(true));
+document.querySelector('#game-minimap-toggle')?.addEventListener('click', () => setMinimapOpen(!minimapOpen));
+document.querySelector('#minimap-close')?.addEventListener('click', () => setMinimapOpen(false));
+document.querySelector('#minimap-reopen')?.addEventListener('click', () => setMinimapOpen(true));
 document.querySelector('#game-book-toggle')?.addEventListener('click', () => setBookOpen(!bookOpen));
+document.querySelector('#game-book-close')?.addEventListener('click', () => setBookOpen(false));
 document.querySelector('#game-zoom-out')?.addEventListener('click', () => setCameraZoom(-ZOOM_STEP));
 document.querySelector('#game-zoom-in')?.addEventListener('click', () => setCameraZoom(ZOOM_STEP));
 document.querySelector('#game-leave-button')?.addEventListener('click', leaveToLandingPage);

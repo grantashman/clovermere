@@ -23,4 +23,11 @@ test('play controls and web panels are contained by the game window', () => {
   assert.match(gameWindow, /id="game-zoom-in"/, 'the game window needs zoom controls');
   assert.match(gameWindow, /id="game-zoom-out"/, 'the game window needs zoom controls');
   assert.match(gameWindow, /role="dialog"/, 'account controls need an in-game dialog surface');
+  assert.match(gameWindow, /id="game-window-hud"/, 'the command layer should have one native HUD root');
+  assert.match(gameWindow, /id="game-hud-toggle"/, 'the HUD should be collapsible');
+  assert.match(gameWindow, /id="game-hud-reopen"/, 'a collapsed HUD should have a reopen affordance');
+  assert.match(gameWindow, /id="minimap-shell"/, 'the game window should contain a minimap shell');
+  assert.match(gameWindow, /id="minimap-canvas"/, 'the minimap should render to its own canvas');
+  assert.match(gameWindow, /id="minimap-close"/, 'the minimap should be closable');
+  assert.match(gameWindow, /id="minimap-reopen"/, 'a closed minimap should have a reopen affordance');
 });

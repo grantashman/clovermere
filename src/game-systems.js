@@ -218,9 +218,9 @@ export function resolveVillageTheme(village) {
   const landscape = village?.landscape ?? 'heath';
   const roof = village?.roof === 'plum' ? 'plum' : 'moss';
   const themes = {
-    heath: { sky: '#a8d8df', distant: '#6fa574', grass: '#5e994f', grassLight: '#add565', grassDark: '#2f6844', water: '#3d9daa', waterLight: '#b6ead2', dirt: '#ad6848', path: '#dfb25e', pathLight: '#f6d98c', roof: roof === 'moss' ? '#356744' : '#68445f', paper: '#f7e8c6' },
-    river: { sky: '#91cfe0', distant: '#6097a1', grass: '#4f9679', grassLight: '#91c86d', grassDark: '#286450', water: '#348eac', waterLight: '#a9e7dd', dirt: '#ad6848', path: '#dbbe78', pathLight: '#f3e0a7', roof: roof === 'moss' ? '#2e625c' : '#654c68', paper: '#eef5e8' },
-    woodland: { sky: '#a8cba8', distant: '#5f8f65', grass: '#4b8b4d', grassLight: '#94c75f', grassDark: '#285d3c', water: '#3d8498', waterLight: '#9bd8b7', dirt: '#9c654c', path: '#d0ad68', pathLight: '#ecd28d', roof: roof === 'moss' ? '#2f5c42' : '#60465d', paper: '#edf0d4' }
+    heath: { sky: '#a8d8df', distant: '#6fa574', grass: '#5e994f', grassMid: '#7eaf57', grassLight: '#add565', grassDark: '#2f6844', grassShade: '#3f7d43', flower: '#e29178', water: '#3d9daa', waterLight: '#b6ead2', dirt: '#ad6848', path: '#dfb25e', pathLight: '#f6d98c', roof: roof === 'moss' ? '#356744' : '#68445f', paper: '#f7e8c6' },
+    river: { sky: '#91cfe0', distant: '#6097a1', grass: '#4f9679', grassMid: '#70ad78', grassLight: '#91c86d', grassDark: '#286450', grassShade: '#3b7d64', flower: '#eaa27d', water: '#348eac', waterLight: '#a9e7dd', dirt: '#ad6848', path: '#dbbe78', pathLight: '#f3e0a7', roof: roof === 'moss' ? '#2e625c' : '#654c68', paper: '#eef5e8' },
+    woodland: { sky: '#a8cba8', distant: '#5f8f65', grass: '#4b8b4d', grassMid: '#6eaa52', grassLight: '#94c75f', grassDark: '#285d3c', grassShade: '#3c763e', flower: '#d88d8d', water: '#3d8498', waterLight: '#9bd8b7', dirt: '#9c654c', path: '#d0ad68', pathLight: '#ecd28d', roof: roof === 'moss' ? '#2f5c42' : '#60465d', paper: '#edf0d4' }
   };
   return themes[landscape] ?? themes.heath;
 }
@@ -239,10 +239,17 @@ export function tileAt(x, y, village) {
 
 // --- Expanded explorable world ---------------------------------------------
 
-export const WORLD_WIDTH = 64;
-export const WORLD_HEIGHT = 40;
+export const WORLD_WIDTH = 96;
+export const WORLD_HEIGHT = 64;
 export const VIEW_W = MAP_WIDTH; // 32 tiles visible
 export const VIEW_H = MAP_HEIGHT; // 18 tiles visible
+
+export const WORLD_LANDMARKS = [
+  { id: 'apple-orchard', type: 'orchard', x: 50, y: 6, w: 14, h: 9, label: 'Apple Orchard', accent: '#e5bd6b' },
+  { id: 'willowmere', type: 'willowmere', x: 77, y: 7, w: 14, h: 11, label: 'Willowmere', accent: '#a8d8c3' },
+  { id: 'stonecutters-hollow', type: 'quarry', x: 73, y: 38, w: 15, h: 10, label: 'Stonecutter’s Hollow', accent: '#d6c39d' },
+  { id: 'west-lookout', type: 'lookout', x: 7, y: 49, w: 12, h: 9, label: 'West Lookout', accent: '#d4ad63' }
+];
 
 // Convert a world tile coordinate to logical-pixel screen coordinates once.
 export function worldPixelPosition(wx, wy, camX, camY, tileSize = 16) {
@@ -364,33 +371,48 @@ export function buildWorldGrid(village) {
     const row = [];
     for (let x = 0; x < WORLD_WIDTH; x += 1) {
       if (x < 1 || y < 1 || x >= WORLD_WIDTH - 1 || y >= WORLD_HEIGHT - 1) row.push('t');
-      else if (y <= 2) row.push('s'); // open sky at the north edge
-      else if (y === 3) row.push('h'); // distant hills band
+      else if (y <= 4) row.push('s'); // open sky at the north edge
+      else if (y === 5) row.push('h'); // distant hills band
       else row.push('g');
     }
     grid.push(row);
   }
 
-  // River on the east with a bridge crossing (starts below the hills band).
-  for (let y = 5; y <= 32; y += 1) {
-    for (let x = 45; x <= 47; x += 1) {
-      if (y === 18) continue;
+  // Main river on the east with a broad bridge crossing.
+  for (let y = 7; y <= 56; y += 1) {
+    for (let x = 67; x <= 70; x += 1) {
+      if (y === 31 || y === 32) continue;
       grid[y][x] = 'w';
     }
   }
-  for (let x = 45; x <= 47; x += 1) {
-    grid[18][x] = 'p';
-    grid[17][x] = 'p';
-    grid[19][x] = 'p';
+  for (let x = 67; x <= 70; x += 1) {
+    grid[31][x] = 'p';
+    grid[32][x] = 'p';
+    grid[30][x] = 'p';
+    grid[33][x] = 'p';
+  }
+
+  // Willowmere, a shallow lake in the north-east, keeps the new regions from
+  // feeling like an empty rectangle while remaining a readable blocked shape.
+  for (let y = 8; y <= 17; y += 1) {
+    for (let x = 77; x <= 89; x += 1) {
+      const edge = (x === 77 || x === 89 || y === 8 || y === 17);
+      const notch = (x === 78 && y === 8) || (x === 88 && y === 17) || (x === 82 && y === 8);
+      if (!notch && (!edge || (x + y) % 3 !== 0)) grid[y][x] = 'w';
+    }
   }
 
   // Central path network.
   const pathCells = [];
-  for (let x = 5; x <= 60; x += 1) pathCells.push([x, 11]);
-  for (let y = 5; y <= 22; y += 1) pathCells.push([30, y]);
-  for (let y = 5; y <= 18; y += 1) pathCells.push([14, y]);
+  for (let x = 5; x <= 66; x += 1) pathCells.push([x, 11]);
+  for (let y = 6; y <= 48; y += 1) pathCells.push([30, y]);
+  for (let y = 6; y <= 18; y += 1) pathCells.push([14, y]);
   for (let x = 5; x <= 22; x += 1) pathCells.push([x, 16]);
   for (let x = 27; x <= 39; x += 1) pathCells.push([x, 14]);
+  for (let x = 30; x <= 67; x += 1) pathCells.push([x, 31]);
+  for (let y = 31; y <= 44; y += 1) pathCells.push([53, y]);
+  for (let x = 12; x <= 61; x += 1) pathCells.push([x, 44]);
+  for (let x = 60; x <= 88; x += 1) pathCells.push([x, 52]);
   for (const [x, y] of pathCells) {
     if (grid[y] && grid[y][x] && grid[y][x] === 'g') grid[y][x] = 'p';
   }
@@ -399,18 +421,34 @@ export function buildWorldGrid(village) {
   for (let y = 9; y <= 11; y += 1) for (let x = 5; x <= 11; x += 1) if (grid[y][x] === 'g') grid[y][x] = 'd';
   for (let y = 4; y <= 6; y += 1) for (let x = 11; x <= 14; x += 1) grid[y][x] = 'w';
 
-  // Woodland treeline at the south.
-  const woods = new Set(['12,34', '14,35', '16,33', '20,36', '24,34', '27,37', '31,35', '35,36', '40,34', '44,35', '48,33', '52,36', '56,34', '8,36', '18,35', '38,34']);
-  woods.forEach((cell) => {
-    const [x, y] = cell.split(',').map(Number);
-    if (grid[y] && grid[y][x]) grid[y][x] = 't';
-  });
+  // Orchard, southern deepwood, west ridge, and the far riverbank provide
+  // blocked silhouettes and varied travel routes across the larger map.
+  for (let y = 7; y <= 14; y += 1) {
+    for (let x = 50; x <= 63; x += 1) {
+      if (grid[y][x] === 'g' && (x * 5 + y * 3) % 4 !== 0) grid[y][x] = 't';
+    }
+  }
+  for (let y = 47; y <= 61; y += 1) {
+    for (let x = 4; x <= 25; x += 1) {
+      if (grid[y][x] === 'g' && (x * 7 + y * 11) % 5 < 3) grid[y][x] = 't';
+    }
+  }
+  for (let y = 35; y <= 60; y += 1) {
+    for (let x = 77; x <= 93; x += 1) {
+      if (grid[y][x] === 'g' && (x * 3 + y * 5) % 4 !== 1) grid[y][x] = 't';
+    }
+  }
+  for (let y = 22; y <= 30; y += 1) {
+    for (let x = 4; x <= 11; x += 1) {
+      if (grid[y][x] === 'g' && (x + y) % 3 !== 0) grid[y][x] = 't';
+    }
+  }
 
   // Building footprints block movement.
   for (const b of BUILDINGS) {
     for (let y = b.y; y < b.y + b.h; y += 1) {
       for (let x = b.x; x < b.x + b.w; x += 1) {
-        if (grid[y] && grid[y][x]) grid[y][x] = b.id === 'gate' ? 'g' : 'b';
+        if (grid[y] && grid[y][x]) grid[y][x] = b.type === 'gate' ? 'g' : 'b';
       }
     }
   }

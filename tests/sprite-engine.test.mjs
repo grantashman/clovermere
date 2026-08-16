@@ -22,6 +22,7 @@ import {
   drawSelectionRing,
   drawWeatherOverlay,
   drawWorldLabel,
+  drawWorldLandmark,
   waterShimmer,
   getPaletteColor,
   GRID_H,
@@ -58,7 +59,8 @@ function makeContext(width = GRID_W, height = GRID_H) {
     createLinearGradient: () => ({ addColorStop: () => {} }),
     createRadialGradient: () => ({ addColorStop: () => {} }),
     moveTo: () => ops.push(['moveTo']),
-    quadraticCurveTo: () => ops.push(['quadraticCurveTo'])
+    quadraticCurveTo: () => ops.push(['quadraticCurveTo']),
+    strokeRect: () => ops.push(['strokeRect'])
   };
   return { context, ops };
 }
@@ -66,6 +68,7 @@ function makeContext(width = GRID_W, height = GRID_H) {
 test('logical grid keeps the game map proportion', () => {
   assert.equal(GRID_W / TILE, 32);
   assert.equal(GRID_H / TILE, 18);
+  assert.ok(TILE >= 16, 'logical tiles should retain a readable high-resolution base');
 });
 
 test('palette resolves named colors and passes hex through', () => {
@@ -127,6 +130,8 @@ test('buildWorldGrid creates a larger explorable map with buildings and paths', 
   const grid = buildWorldGrid({ landscape: 'heath' });
   assert.equal(grid.length, WORLD_HEIGHT);
   assert.equal(grid[0].length, WORLD_WIDTH);
+  assert.ok(WORLD_WIDTH >= 90, 'the world should be substantially wider than the original slice');
+  assert.ok(WORLD_HEIGHT >= 60, 'the world should be substantially taller than the original slice');
   // A building footprint is solid.
   const home = BUILDINGS.find((b) => b.id === 'home');
   assert.equal(grid[home.y][home.x], 'b');
@@ -217,6 +222,14 @@ test('rich facade, pond bank, and colony prop helpers paint layered scene detail
   assert.ok(ops.some(([name]) => name === 'quadraticCurveTo'), 'pond bank should have an irregular silhouette');
 });
 
+test('expanded world landmarks paint authored destination anchors', () => {
+  for (const type of ['orchard', 'willowmere', 'quarry', 'lookout']) {
+    const scene = makeContext();
+    drawWorldLandmark(scene.context, resolveVillageTheme({ landscape: 'heath', roof: 'moss' }), type, 40, 40, 180, 130, 1200);
+    assert.ok(scene.ops.length > 0, `${type} should produce scene operations`);
+  }
+});
+
 test('weather overlays and world labels paint atmospheric guidance without errors', () => {
   const { context, ops } = makeContext();
   for (const weather of ['clear', 'mist', 'rain', 'golden-wind']) drawWeatherOverlay(context, weather, 1200);
@@ -244,8 +257,8 @@ test('crop stages and interior rooms render distinct authored visual states', ()
 test('buildWorldGrid reserves a sky/hill horizon at the north edge', () => {
   const grid = buildWorldGrid({ landscape: 'heath' });
   assert.equal(grid[1][10], 's', 'north row should be open sky');
-  assert.equal(grid[3][10], 'h', 'row just below sky should be distant hills');
-  assert.equal(grid[5][10], 'g', 'below the hills the ground begins');
+  assert.equal(grid[5][10], 'h', 'row below the expanded sky band should be distant hills');
+  assert.equal(grid[6][10], 'g', 'below the hills the ground begins');
   // buildings no longer collide with the horizon band
   const smial = BUILDINGS.find((b) => b.id === 'home');
   assert.ok(smial.y >= 4, 'home sits below the hills band');

@@ -167,12 +167,18 @@ export function waterShimmer(ctx, ox, oy, time) {
 export function drawTerrainDetail(ctx, theme, tile, ox, oy, seed = 0, time = 0) {
   const variant = Math.abs(seed) % 17;
   const grain = Math.abs(seed * 13) % 11;
+  const grassMid = theme.grassMid ?? mix(theme.grass, theme.grassLight, 0.48);
+  const grassShade = theme.grassShade ?? mix(theme.grass, theme.grassDark, 0.48);
+  const flower = theme.flower ?? PALETTE.flower;
   if (tile === 'g') {
-    // Low-contrast ground planes keep the field from reading as one flat fill.
+    // Multi-pass meadow dressing: a quiet base grain, a few directional blades,
+    // and occasional tiny flowers/pebbles. Each tile is deterministic but the
+    // density changes by region seed, so broad fields do not form a visible grid.
     drawPixels(ctx, rects(
-      [ox + 1 + (grain % 4), oy + 2, 4, 1, mix(theme.grass, theme.grassLight, 0.10)],
-      [ox + 10 - (grain % 3), oy + 5, 3, 1, mix(theme.grass, theme.grassDark, 0.10)],
-      [ox + 3, oy + 14 - (grain % 3), 6, 1, mix(theme.grass, theme.grassLight, 0.13)]
+      [ox + 1 + (grain % 4), oy + 2, 4, 1, mix(theme.grass, grassMid, 0.22)],
+      [ox + 10 - (grain % 3), oy + 5, 3, 1, mix(theme.grass, grassShade, 0.18)],
+      [ox + 3, oy + 14 - (grain % 3), 6, 1, mix(theme.grass, theme.grassLight, 0.18)],
+      [ox + 12 - (variant % 4), oy + 1 + (variant % 3), 1, 1, mix(theme.grass, theme.grassLight, 0.12)]
     ));
     if (variant === 1 || variant === 8 || variant === 14) {
       drawPixels(ctx, rects(
@@ -184,15 +190,16 @@ export function drawTerrainDetail(ctx, theme, tile, ox, oy, seed = 0, time = 0) 
     } else if (variant === 3 || variant === 12 || variant === 16) {
       drawPixels(ctx, rects(
         [ox + 3, oy + 9, 1, 5, theme.grassDark],
-        [ox + 6, oy + 7, 2, 7, theme.grassDark],
+        [ox + 6, oy + 7, 2, 7, grassShade],
         [ox + 9, oy + 10, 1, 4, theme.grassLight],
-        [ox + 11, oy + 8, 1, 5, theme.grassDark]
+        [ox + 11, oy + 8, 1, 5, theme.grassDark],
+        [ox + 5, oy + 5, 1, 3, grassMid]
       ));
     } else if (variant === 5 || variant === 10) {
       drawPixels(ctx, rects(
-        [ox + 4, oy + 10, 2, 2, theme.flower ?? PALETTE.flower],
+        [ox + 4, oy + 10, 2, 2, flower],
         [ox + 7, oy + 8, 2, 2, PALETTE.goldLight],
-        [ox + 9, oy + 11, 2, 2, theme.flower ?? PALETTE.flower],
+        [ox + 9, oy + 11, 2, 2, flower],
         [ox + 6, oy + 12, 5, 1, theme.grassDark]
       ));
     } else if (variant === 9 || variant === 13) {
@@ -200,7 +207,13 @@ export function drawTerrainDetail(ctx, theme, tile, ox, oy, seed = 0, time = 0) 
         [ox + 1, oy + 10, 10, 2, theme.grassDark],
         [ox + 3, oy + 8, 2, 2, theme.grassLight],
         [ox + 8, oy + 7, 2, 3, theme.grassLight],
-        [ox + 11, oy + 9, 2, 3, theme.grassDark]
+        [ox + 11, oy + 9, 2, 3, grassShade]
+      ));
+    } else if (variant % 4 === 0) {
+      drawPixels(ctx, rects(
+        [ox + 2, oy + 6, 2, 2, PALETTE.stone],
+        [ox + 4, oy + 7, 2, 1, PALETTE.stoneDark],
+        [ox + 12, oy + 13, 2, 1, mix(theme.grass, PALETTE.stone, 0.35)]
       ));
     }
   } else if (tile === 'p') {
@@ -208,20 +221,70 @@ export function drawTerrainDetail(ctx, theme, tile, ox, oy, seed = 0, time = 0) 
       [ox + 1, oy + 1, 14, 1, mix(theme.path, theme.grassDark, 0.18)],
       [ox + 2 + (grain % 5), oy + 4, 4, 1, theme.pathLight],
       [ox + 9, oy + 10 - (grain % 3), 5, 2, theme.pathLight],
-      [ox + 4, oy + 14, 3, 1, mix(theme.path, theme.grassDark, 0.22)]
+      [ox + 4, oy + 14, 3, 1, mix(theme.path, theme.grassDark, 0.22)],
+      [ox + 12 - (variant % 3), oy + 6, 2, 1, mix(theme.path, theme.pathLight, 0.5)]
     ));
   } else if (tile === 'd') {
     drawPixels(ctx, rects(
       [ox + 2, oy + 7, 4, 1, PALETTE.soil],
       [ox + 9, oy + 10, 4, 1, PALETTE.soil],
-      [ox + 5, oy + 14, 5, 1, mix(PALETTE.soil, '#3b2b28', 0.22)]
+      [ox + 5, oy + 14, 5, 1, mix(PALETTE.soil, '#3b2b28', 0.22)],
+      [ox + 12, oy + 3, 2, 1, mix(PALETTE.dirt, PALETTE.soil, 0.35)]
     ));
   } else if (tile === 'w' && variant % 3 === 0) {
     const shimmer = Math.floor(time / 700) % 2;
     drawPixels(ctx, [
       [ox + 2 + shimmer * 5, oy + 4 + (variant % 3) * 3, 5, 1, theme.waterLight],
-      [ox + 10 - shimmer * 3, oy + 12, 3, 1, mix(theme.water, theme.waterLight, 0.7)]
+      [ox + 10 - shimmer * 3, oy + 12, 3, 1, mix(theme.water, theme.waterLight, 0.7)],
+      [ox + 5, oy + 15 - shimmer, 2, 1, mix(theme.water, theme.waterLight, 0.5)]
     ]);
+  }
+}
+
+// Large region anchors make the expanded map feel authored rather than merely
+// tiled. They are built from the same procedural vocabulary as the settlement.
+export function drawWorldLandmark(ctx, theme, type, ox, oy, width, height, time = 0) {
+  drawSoftShadow(ctx, ox + width * 0.5, oy + height - 3, width * 0.38, 5, 0.16);
+  if (type === 'orchard') {
+    drawPixels(ctx, rects(
+      [ox + 2, oy + height - 12, width - 4, 4, theme.grassDark],
+      [ox + 8, oy + height - 17, width - 16, 2, theme.pathLight]
+    ));
+    for (const [x, y, seed] of [[12, 10, 1], [42, 7, 2], [78, 12, 3], [28, 36, 4], [62, 34, 5]]) {
+      drawTreeSprite(ctx, theme, ox + x, oy + y, seed);
+      drawPixels(ctx, rects([ox + x + 9, oy + y + 16, 3, 3, seed % 2 ? PALETTE.flower : PALETTE.gold]));
+    }
+  } else if (type === 'willowmere') {
+    ctx.fillStyle = mix(theme.water, '#213f45', 0.14);
+    ctx.fillRect(ox + 4, oy + 8, width - 8, height - 10);
+    drawPixels(ctx, rects(
+      [ox + 7, oy + 11, width - 14, 2, theme.waterLight],
+      [ox + 17, oy + 29, 22, 1, theme.waterLight],
+      [ox + width - 28, oy + 42, 16, 1, theme.waterLight]
+    ));
+    drawTreeSprite(ctx, theme, ox + width - 30, oy - 4, 2);
+    drawTreeSprite(ctx, theme, ox + 7, oy + height - 12, 4);
+    drawColonyProp(ctx, theme, 'flowerbed', ox + 22, oy + height - 13, 7, time);
+  } else if (type === 'quarry') {
+    drawPixels(ctx, rects(
+      [ox + 4, oy + 18, width - 8, height - 21, PALETTE.stoneDark],
+      [ox + 10, oy + 10, width - 20, height - 19, PALETTE.stone],
+      [ox + 18, oy + 24, 24, 3, PALETTE.shadow],
+      [ox + 50, oy + 31, 17, 3, PALETTE.shadow],
+      [ox + 22, oy + 15, 5, 3, PALETTE.goldLight],
+      [ox + 54, oy + 18, 4, 4, PALETTE.gold]
+    ));
+    drawColonyProp(ctx, theme, 'crate', ox + width - 28, oy + height - 22, 9, time);
+    drawColonyProp(ctx, theme, 'lantern', ox + 13, oy + height - 30, 3, time);
+  } else if (type === 'lookout') {
+    drawPixels(ctx, rects(
+      [ox + 5, oy + height - 16, width - 10, 4, theme.path],
+      [ox + 13, oy + 10, 4, height - 22, PALETTE.woodDark],
+      [ox + width - 17, oy + 10, 4, height - 22, PALETTE.woodDark],
+      [ox + 9, oy + 8, width - 18, 4, PALETTE.plankLight],
+      [ox + 18, oy + 13, width - 36, 2, PALETTE.gold]
+    ));
+    drawColonyProp(ctx, theme, 'bench', ox + 27, oy + height - 29, 4, time);
   }
 }
 
