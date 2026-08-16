@@ -5,3 +5,6 @@ dist/
 !.env.example
 .DS_Store
 .vercel/
+desktop/godot/.godot/
+desktop/godot/build/
+*.gd.uid

@@ -24,6 +24,21 @@ npm run dev
 
 Then open the URL Vite prints. Use `npm run check` for the same tests and build run by CI.
 
+## Native desktop slice
+
+The native client is being migrated in parallel under [`desktop/godot`](./desktop/godot). The hosted browser release remains the reference client while the Godot slice proves the richer desktop renderer and movement loop.
+
+The Windows test build is published as a ZIP containing `HobbitMoon.exe` on the project's [GitHub Releases](https://github.com/grantashman/hobbit-moon/releases) page. Download the latest `windows-x86_64.zip`, extract it, and double-click `HobbitMoon.exe`. Windows SmartScreen may show an unsigned-app warning while this is an early test build.
+
+The native slice currently includes the deterministic 240×160 world, layered procedural terrain, curved path overlays, settlement structures, continuous collision-safe movement, camera smoothing, 50%–200% zoom, save schema v6, and v5 coordinate migration. It is an engineering vertical slice, not yet the complete Hobbit Moon game loop.
+
+Local Godot commands:
+
+```bash
+godot --headless --path desktop/godot --script res://tests/world_contract_test.gd
+godot --path desktop/godot
+```
+
 ## Product direction
 
 The long-term shape is a PC-first village-life game with:

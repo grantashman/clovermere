@@ -1,0 +1,62 @@
+name: Build Windows native release
+
+on:
+  push:
+    tags:
+      - 'native-v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to create, for example native-v0.1.0'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: ubuntu-latest
+    env:
+      GODOT_VERSION: 4.7.1
+      GODOT_FLAVOR: 4.7.1.stable
+      RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+      - name: Install Godot and Windows export templates
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/godot/bin" "$RUNNER_TEMP/godot/templates" "$HOME/.local/share/godot/export_templates/$GODOT_FLAVOR"
+          curl -L --fail --retry 3 -o "$RUNNER_TEMP/godot/godot.zip" \
+            "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          unzip -q "$RUNNER_TEMP/godot/godot.zip" -d "$RUNNER_TEMP/godot/bin"
+          chmod +x "$RUNNER_TEMP/godot/bin/Godot_v${GODOT_VERSION}-stable_linux.x86_64"
+          curl -L --fail --retry 3 -o "$RUNNER_TEMP/godot/templates.tpz" \
+            "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
+          unzip -q "$RUNNER_TEMP/godot/templates.tpz" -d "$RUNNER_TEMP/godot/templates"
+          cp -R "$RUNNER_TEMP/godot/templates/templates/." "$HOME/.local/share/godot/export_templates/$GODOT_FLAVOR/"
+          echo "$RUNNER_TEMP/godot/bin" >> "$GITHUB_PATH"
+      - name: Run native contract before export
+        run: Godot_v${GODOT_VERSION}-stable_linux.x86_64 --headless --path desktop/godot --script res://tests/world_contract_test.gd
+      - name: Export Windows executable
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/hobbit-moon-build"
+          Godot_v${GODOT_VERSION}-stable_linux.x86_64 --headless --path desktop/godot --export-release "Windows Desktop" "$RUNNER_TEMP/hobbit-moon-build/HobbitMoon.exe"
+          test -s "$RUNNER_TEMP/hobbit-moon-build/HobbitMoon.exe"
+          cp desktop/godot/README.md "$RUNNER_TEMP/hobbit-moon-build/README-native.md"
+          cd "$RUNNER_TEMP/hobbit-moon-build"
+          zip -9 "HobbitMoon-${RELEASE_TAG}-windows-x86_64.zip" HobbitMoon.exe README-native.md
+      - name: Create GitHub Release and upload Windows build
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release create "$RELEASE_TAG" \
+            "$RUNNER_TEMP/hobbit-moon-build/HobbitMoon-${RELEASE_TAG}-windows-x86_64.zip" \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "Hobbit Moon ${RELEASE_TAG}" \
+            --generate-notes
