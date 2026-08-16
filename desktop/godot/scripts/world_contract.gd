@@ -10,6 +10,14 @@ const START_TILE := Vector2i(SETTLEMENT_ORIGIN.x + 14, SETTLEMENT_ORIGIN.y + 11)
 const START_POSITION := Vector2(START_TILE.x + 0.5, START_TILE.y + 0.5)
 const BLOCKED_TILES := {"t": true, "w": true, "r": true, "f": true, "b": true, "s": true, "h": true}
 
+const BUILDINGS := [
+    {"id": "greenbriar-cottage", "name": "Greenbriar Cottage", "x": SETTLEMENT_ORIGIN.x + 4, "y": SETTLEMENT_ORIGIN.y + 5, "w": 8, "h": 6, "kind": "cottage", "wall": "#c89468", "roof": "#465647"},
+    {"id": "moonrise-hall", "name": "Moonrise Hall", "x": SETTLEMENT_ORIGIN.x + 24, "y": SETTLEMENT_ORIGIN.y + 4, "w": 8, "h": 6, "kind": "hall", "wall": "#d0a16f", "roof": "#53654e"},
+    {"id": "tinker-workshop", "name": "Tinker Workshop", "x": SETTLEMENT_ORIGIN.x + 39, "y": SETTLEMENT_ORIGIN.y + 7, "w": 9, "h": 7, "kind": "workshop", "wall": "#b9865c", "roof": "#3f5148"},
+    {"id": "herbalists-garden", "name": "Herbalist's Garden", "x": SETTLEMENT_ORIGIN.x + 17, "y": SETTLEMENT_ORIGIN.y + 24, "w": 10, "h": 7, "kind": "garden", "wall": "#c99468", "roof": "#596a51"},
+    {"id": "old-barn", "name": "Old Barn", "x": SETTLEMENT_ORIGIN.x + 45, "y": SETTLEMENT_ORIGIN.y + 26, "w": 9, "h": 7, "kind": "barn", "wall": "#ad7452", "roof": "#4a5148"}
+]
+
 const LANDMARKS := [
     {"id": "apple-orchard", "name": "Apple Orchard", "x": 70, "y": 103, "w": 12, "h": 10},
     {"id": "willowmere", "name": "Willowmere", "x": 178, "y": 82, "w": 13, "h": 10},
@@ -70,6 +78,16 @@ func path_routes(village: Dictionary = {}) -> Array:
         routes.append({"start": start, "end": target, "width": 1.0, "bend": bend, "bridge": true})
     return routes
 
+func buildings() -> Array:
+    return BUILDINGS.duplicate(true)
+
+func building_at(tile: Vector2i) -> Dictionary:
+    for building in BUILDINGS:
+        var rect := Rect2i(int(building.x), int(building.y), int(building.w), int(building.h))
+        if rect.has_point(tile):
+            return building
+    return {}
+
 func _inside(grid: Array, x: int, y: int) -> bool:
     return y >= 0 and y < grid.size() and x >= 0 and x < grid[y].size()
 
@@ -82,7 +100,7 @@ func _paint_corridor(grid: Array, start: Vector2, finish: Vector2, width: float,
     var samples := maxi(1, ceili(distance * 4.0))
     var direction := (finish - start).normalized()
     var normal := Vector2(-direction.y, direction.x)
-    var radius := maxf(0.7, width * 0.78)
+    var radius := maxf(0.55, width * 0.58)
     var previous := Vector2i(-999, -999)
     for step in samples + 1:
         var t := float(step) / float(samples)
@@ -162,14 +180,7 @@ func build_grid(village: Dictionary = {}) -> Array:
         for x in range(ox - 1, ox + 32):
             if _inside(grid, x, y) and grid[y][x] == "w":
                 grid[y][x] = "g"
-    var buildings := [
-        {"x": ox + 4, "y": oy + 5, "w": 8, "h": 6},
-        {"x": ox + 24, "y": oy + 4, "w": 8, "h": 6},
-        {"x": ox + 39, "y": oy + 7, "w": 9, "h": 7},
-        {"x": ox + 17, "y": oy + 24, "w": 10, "h": 7},
-        {"x": ox + 45, "y": oy + 26, "w": 9, "h": 7}
-    ]
-    for building in buildings:
+    for building in BUILDINGS:
         for y in range(building.y, building.y + building.h):
             for x in range(building.x, building.x + building.w):
                 _set_cell(grid, x, y, "b")
@@ -182,6 +193,65 @@ func tile_at(grid: Array, tile: Vector2i) -> String:
 
 func is_walkable(grid: Array, tile: Vector2i) -> bool:
     return not BLOCKED_TILES.has(tile_at(grid, tile))
+
+func nearest_walkable(grid: Array, target: Vector2i, max_radius: int = 8) -> Vector2i:
+    if is_walkable(grid, target):
+        return target
+    for radius in range(1, max_radius + 1):
+        var candidates: Array[Vector2i] = []
+        for offset_y in range(-radius, radius + 1):
+            for offset_x in range(-radius, radius + 1):
+                if maxi(abs(offset_x), abs(offset_y)) != radius:
+                    continue
+                var candidate := target + Vector2i(offset_x, offset_y)
+                if is_walkable(grid, candidate):
+                    candidates.append(candidate)
+        candidates.sort_custom(func(a: Vector2i, b: Vector2i): return a.distance_squared_to(target) < b.distance_squared_to(target))
+        if not candidates.is_empty():
+            return candidates[0]
+    return target
+
+func find_path(grid: Array, start: Vector2i, requested_goal: Vector2i) -> Array:
+    var goal := nearest_walkable(grid, requested_goal)
+    if not is_walkable(grid, start) or not is_walkable(grid, goal):
+        return []
+    if start == goal:
+        return []
+    var frontier: Array[Vector2i] = [start]
+    var came_from := {}
+    var cost_so_far := {start: 0}
+    var directions := [Vector2i.RIGHT, Vector2i.LEFT, Vector2i.UP, Vector2i.DOWN]
+    while not frontier.is_empty():
+        var best_index := 0
+        for index in range(1, frontier.size()):
+            var candidate: Vector2i = frontier[index]
+            var best: Vector2i = frontier[best_index]
+            var candidate_score: int = int(cost_so_far[candidate]) + abs(candidate.x - goal.x) + abs(candidate.y - goal.y)
+            var best_score: int = int(cost_so_far[best]) + abs(best.x - goal.x) + abs(best.y - goal.y)
+            if candidate_score < best_score:
+                best_index = index
+        var current: Vector2i = frontier[best_index]
+        frontier.remove_at(best_index)
+        if current == goal:
+            break
+        for direction in directions:
+            var next: Vector2i = current + direction
+            if not is_walkable(grid, next):
+                continue
+            var new_cost := int(cost_so_far[current]) + 1
+            if not cost_so_far.has(next) or new_cost < int(cost_so_far[next]):
+                cost_so_far[next] = new_cost
+                came_from[next] = current
+                if not frontier.has(next):
+                    frontier.append(next)
+    if not came_from.has(goal):
+        return []
+    var path: Array = []
+    var current := goal
+    while current != start:
+        path.push_front(current)
+        current = came_from[current]
+    return path
 
 func _can_occupy(grid: Array, position: Vector2) -> bool:
     for offset in [Vector2(-0.28, -0.28), Vector2(0.28, -0.28), Vector2(-0.28, 0.28), Vector2(0.28, 0.28)]:

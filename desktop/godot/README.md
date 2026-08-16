@@ -12,12 +12,18 @@ This directory contains the native desktop client under active migration. The br
 - Layered terrain, smooth path overlays, settlement, and optional debug metrics
 - Static world compositing through a one-shot `SubViewport` texture so the live frame only redraws the player, camera, and HUD
 - A 75% native starting view for a more readable desktop composition; 50%–200% remains available
+- Authored cottage, hall, workshop, garden, and barn facades with distinct roof, window, timber, chimney, and prop details
+- Narrow curved footpaths with shoulders, wear marks, and cached click-to-move routes
+- Mouse controls: left-click ground to walk, left-click a building to approach and interact, right-click to cancel or revisit, and mouse wheel to zoom
 
 ## Local commands
 
 ```bash
 # World/save/movement contract test
 godot --headless --path . --script res://tests/world_contract_test.gd
+
+# Mouse click-to-move and building interaction smoke test
+godot --headless --path . --script res://tests/mouse_input_smoke.gd
 
 # Open the native slice
 godot --path .

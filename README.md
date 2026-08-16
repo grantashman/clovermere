@@ -30,12 +30,13 @@ The native client is being migrated in parallel under [`desktop/godot`](./deskto
 
 The Windows test build is published as a ZIP containing `HobbitMoon.exe` on the project's [GitHub Releases](https://github.com/grantashman/hobbit-moon/releases) page. Download the latest `windows-x86_64.zip`, extract it, and double-click `HobbitMoon.exe`. Windows SmartScreen may show an unsigned-app warning while this is an early test build.
 
-The native slice currently includes the deterministic 240×160 world, cached layered procedural terrain, narrower curved path overlays, authored landmark silhouettes, detailed settlement structures, continuous collision-safe movement, camera tracking, a readable 75% starting view with 50%–200% zoom, save schema v6, v5 coordinate migration, and a rendered steady-state performance smoke test. It is an engineering vertical slice, not yet the complete Hobbit Moon game loop.
+The native slice currently includes the deterministic 240×160 world, cached layered procedural terrain, narrower curved footpaths with shoulders and wear, authored cottage/hall/workshop/garden/barn structures, landmark silhouettes, continuous collision-safe movement, click-to-move pathfinding, click-to-approach building interaction, camera tracking, a readable 75% starting view with 50%–200% zoom, save schema v6, v5 coordinate migration, and rendered steady-state/input smoke tests. It is an engineering vertical slice, not yet the complete Hobbit Moon game loop.
 
 Local Godot commands:
 
 ```bash
 godot --headless --path desktop/godot --script res://tests/world_contract_test.gd
+godot --headless --path desktop/godot --script res://tests/mouse_input_smoke.gd
 godot --headless --path desktop/godot --script res://tests/render_smoke.gd
 godot --path desktop/godot
 ```
