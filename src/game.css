@@ -181,5 +181,19 @@ body.game-page:has(#play-screen:not([hidden])) .icon-button { color: #d6b76a; bo
 .inventory-card .eat-button:disabled { cursor: not-allowed; opacity: .45; }
 #weather-label { color: #b8c785; }
 
+.request-block { margin: .85rem 0 1rem; padding: .7rem; border: 1px solid rgba(184, 199, 133, .22); background: rgba(184, 199, 133, .07); }
+.request-heading { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
+.request-heading .eyebrow { margin: 0; color: #d4b86f; }
+.request-heading > span:last-child { color: #d4b86f; font: .55rem var(--mono); }
+.request-block strong { display: block; margin-top: .25rem; color: #f3e6c4; font-size: .7rem; }
+.request-block p { margin: .35rem 0 .6rem; color: #9eab9d; font-size: .6rem; line-height: 1.45; }
+.request-block .button { min-height: 2.25rem; font-size: .58rem; }
+.interior-hud { position: absolute; left: 2rem; right: 2rem; bottom: 2rem; z-index: 2; display: flex; align-items: flex-end; justify-content: space-between; gap: 1rem; padding: .85rem 1rem; color: #f4e9c9; background: rgba(24, 33, 31, .92); border: 1px solid rgba(226,185,110,.55); box-shadow: 0 10px 24px rgba(0,0,0,.25); }
+.interior-hud .eyebrow { margin-bottom: .35rem; color: #d4b86f; }
+.interior-hud strong { display: block; font: 500 1.15rem var(--display); }
+.interior-hud p { max-width: 34rem; margin: .25rem 0 0; color: #aab7aa; font-size: .62rem; line-height: 1.45; }
+.interior-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .5rem; }
+.interior-actions .button { min-height: 2.3rem; }
+
 @media (max-width: 1120px) { .colony-readout { justify-content: flex-end; flex-wrap: wrap; } }
-@media (max-width: 720px) { .stage-time { gap: .35rem; font-size: .58rem; } .colony-readout { display: none; } }
+@media (max-width: 720px) { .stage-time { gap: .35rem; font-size: .58rem; } .colony-readout { display: none; } .interior-hud { left: .8rem; right: .8rem; bottom: .8rem; align-items: stretch; flex-direction: column; } .interior-actions { justify-content: stretch; } .interior-actions .button { flex: 1; } }

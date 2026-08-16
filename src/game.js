@@ -7,6 +7,8 @@ import {
   createInviteCode,
   formatClock,
   getInteraction,
+  enterInterior,
+  exitInterior,
   INTERACTIONS,
   isCreationComplete,
   LANDSCAPE_LABELS,
@@ -35,7 +37,7 @@ import {
   worldPixelPosition
 } from './game-systems.js';
 import { supabase, supabaseConfigured } from './supabase-client.js';
-import { createDailyState, ITEMS, performActivity, WEATHER_LABELS } from './daily-loop.js';
+import { completeRequest, createDailyState, inventoryQuantity, ITEMS, performActivity, recordVillagerTalk, WEATHER_LABELS } from './daily-loop.js';
 import {
   drawBuildingSprite,
   drawBuildingShadow,
@@ -46,6 +48,7 @@ import {
   drawGardenSprite,
   drawHills,
   drawHobbitSprite,
+  drawInteriorScene,
   drawHouseSprite,
   drawNoticeboardSprite,
   drawPixels,
@@ -413,7 +416,7 @@ function drawWorld(ctx, theme, village, spec, player, cam, time = 0) {
   }
 
   // garden, pond, bridge, noticeboard, gate props near the starting area
-  const garden = worldToScreen(5, 9); drawSoftShadow(ctx, garden.sx + 3 * TILE, garden.sy + 3 * TILE, 3.4 * TILE, 5, 0.14); drawGardenSprite(ctx, theme, garden.sx, garden.sy);
+  const garden = worldToScreen(5, 9); drawSoftShadow(ctx, garden.sx + 3 * TILE, garden.sy + 3 * TILE, 3.4 * TILE, 5, 0.14); drawGardenSprite(ctx, theme, garden.sx, garden.sy, 7, 3, state.garden.stage);
   const pond = worldToScreen(11, 3); drawPondSprite(ctx, theme, pond.sx, pond.sy, time);
   const bridge = worldToScreen(45, 17); drawBridgeSprite(ctx, theme, bridge.sx, bridge.sy);
   const board = worldToScreen(30, 9); drawSoftShadow(ctx, board.sx + 25, board.sy + 24, 26, 4, 0.18); drawNoticeboardSprite(ctx, board.sx - 6, board.sy - 24);
@@ -511,13 +514,20 @@ function mixPath(theme) {
   return theme.pathLight;
 }
 
+function drawInteriorWorld(ctx, time = 0) {
+  drawInteriorScene(ctx, state.interior ?? { id: state.location }, time);
+  drawHobbitSprite(ctx, state.hobbit, GRID_W / 2, GRID_H - 42, false, playerMotion);
+  drawWorldLabel(ctx, state.interior?.title ?? 'Inside', GRID_W / 2, 16, '#f0d487');
+}
+
 function drawVillage(time = 0) {
   if (!context || !bufferCtx) return;
   const theme = themeForVillage();
   ensureWorldGrid();
   const cam = cameraForPlayer(playerMotion);
   beginLogicalBuffer();
-  drawWorld(bufferCtx, theme, state.village, state.hobbit, playerMotion, cam, time);
+  if (state.location === 'village') drawWorld(bufferCtx, theme, state.village, state.hobbit, playerMotion, cam, time);
+  else drawInteriorWorld(bufferCtx, time);
   endLogicalBuffer();
 
   context.imageSmoothingEnabled = false;
@@ -542,7 +552,7 @@ function directionFromHeldKeys() {
 }
 
 function updateRealtimeMotion(deltaSeconds, now) {
-  const direction = dialogue ? { x: 0, y: 0 } : directionFromHeldKeys();
+  const direction = dialogue || state.location !== 'village' ? { x: 0, y: 0 } : directionFromHeldKeys();
   const before = { x: playerMotion.x, y: playerMotion.y };
   const next = movePlayerRealtime(playerMotion, direction, deltaSeconds, ensureWorldGrid(), WORLD_BLOCKED, 4.8);
   const moved = Math.hypot(next.x - before.x, next.y - before.y);
@@ -588,10 +598,11 @@ function startVillageAnimation() {
 function drawInteractionPrompt() {
   if (!context || dialogue) return;
   const cam = cameraForPlayer(playerMotion);
-  const npc = nearbyNpc();
-  const point = getInteraction(playerMotion, INTERACTIONS);
+  const npc = state.location === 'village' ? nearbyNpc() : null;
+  const point = state.location === 'village' ? getInteraction(playerMotion, INTERACTIONS) : null;
   let label = null;
-  if (npc) label = `E · Talk to ${npc.name}`;
+  if (state.location !== 'village') label = state.location === 'home' ? 'E · Use the hearth or rest' : 'E · Listen by the window';
+  else if (npc) label = `E · Talk to ${npc.name}`;
   else if (point) label = `E · ${point.label}`;
   if (!label) return;
   const cx = (playerMotion.x - cam.camX) * TILE + TILE / 2;
@@ -730,9 +741,41 @@ function updateHud() {
     eatButton.disabled = mealQuantity < 1;
     eatButton.textContent = mealQuantity > 0 ? `Eat stew · +28 energy (${mealQuantity})` : 'No stew ready yet';
   }
-  const gardenStatus = state.garden.ready ? 'Ready to harvest' : state.garden.planted ? (state.garden.watered ? 'Growing · watered' : 'Needs water') : 'Empty bed';
+  const gardenStageLabels = { empty: 'Empty bed', sprout: 'Sprout · watered', leaf: 'Leafing · watered', flowering: 'Flowering · growing', ready: 'Ready to harvest' };
+  const gardenStatus = gardenStageLabels[state.garden.stage] ?? (state.garden.planted ? 'Growing' : 'Empty bed');
   document.querySelector('#garden-status').textContent = gardenStatus;
   document.querySelector('#activity-status').textContent = state.garden.ready ? 'The moonberries are ready. Return to the garden and press E.' : objective?.hint ?? 'Choose a place to work and press E.';
+  const request = state.request;
+  const requestLabel = document.querySelector('#request-label');
+  const requestCopy = document.querySelector('#request-copy');
+  const requestButton = document.querySelector('#request-button');
+  const relationshipLabel = document.querySelector('#relationship-label');
+  if (request) {
+    const relationship = state.relationships?.[request.npcId] ?? 0;
+    if (requestLabel) requestLabel.textContent = request.status === 'complete' ? `${request.title} · complete` : request.title;
+    if (requestCopy) requestCopy.textContent = request.status === 'complete' ? 'The kindness has been added to the village book.' : request.text;
+    if (relationshipLabel) relationshipLabel.textContent = `${request.npcId[0].toUpperCase()}${request.npcId.slice(1)} · ${'♥'.repeat(Math.min(5, Math.ceil(relationship / 2)))}${'♡'.repeat(Math.max(0, 5 - Math.ceil(relationship / 2)))}`;
+    if (requestButton) {
+      const held = inventoryQuantity(state.inventory, request.itemId);
+      requestButton.disabled = request.status === 'complete' || held < request.quantity;
+      requestButton.textContent = request.status === 'complete' ? 'Request complete' : held >= request.quantity ? 'Deliver the request' : `Need ${request.quantity} · ${ITEMS[request.itemId]?.shortName ?? request.itemId}`;
+    }
+  }
+  const interiorHud = document.querySelector('#interior-hud');
+  if (interiorHud) {
+    interiorHud.hidden = state.location === 'village';
+    if (state.location !== 'village') {
+      document.querySelector('#interior-title').textContent = state.interior?.title ?? 'Inside';
+      document.querySelector('#interior-subtitle').textContent = state.interior?.subtitle ?? '';
+      const interiorAction = document.querySelector('#interior-action');
+      if (interiorAction) {
+        const canCook = inventoryQuantity(state.inventory, 'silver_fish') > 0 && inventoryQuantity(state.inventory, 'moonberry') > 0;
+        const canEat = inventoryQuantity(state.inventory, 'pondside_stew') > 0;
+        interiorAction.disabled = state.location === 'home' && !canCook && !canEat;
+        interiorAction.textContent = state.location === 'home' ? (canCook ? 'Cook at the hearth' : canEat ? 'Eat by the hearth' : 'No meal ready') : 'Listen by the window';
+      }
+    }
+  }
   document.querySelector('#village-log').innerHTML = state.notes.map((note) => `<li>${escapeHtml(note)}</li>`).join('');
   if (avatarContext && bufferCtx) {
     beginLogicalBuffer();
@@ -804,7 +847,46 @@ function closeDialogue() {
   drawVillage(performance.now());
 }
 
+function deliverRequest() {
+  const result = completeRequest(state, state.request?.id);
+  if (!result.ok) {
+    showToast(result.message);
+    return openDialogue('Village book', result.message);
+  }
+  state = normalizeGameState({ ...state, ...result.state });
+  addNote(result.message);
+  saveState();
+  openDialogue('Village book', result.message);
+}
+
+function useInteriorAction() {
+  if (state.location === 'home') {
+    const canCook = inventoryQuantity(state.inventory, 'silver_fish') > 0 && inventoryQuantity(state.inventory, 'moonberry') > 0;
+    if (canCook) return performMealActivity('cook', 'Hearth');
+    if (inventoryQuantity(state.inventory, 'pondside_stew') > 0) return performMealActivity('eat', 'Hearth');
+    return openDialogue('Hearth', 'The fire is low. Bring a fish and a moonberry, then the pot can do its work.');
+  }
+  openDialogue('The Golden Perch', 'You sit by the window and hear the village settle around you. Wren has left a warm place at the table.');
+}
+
+function leaveInterior() {
+  state = normalizeGameState(exitInterior(state));
+  heldDirections.clear();
+  saveState();
+  updateHud();
+  drawVillage(performance.now());
+  showToast('You step back into the village light.');
+}
+
 function performPointActivity(point) {
+  if (point.interior) {
+    state = normalizeGameState(enterInterior(state, point.interior));
+    saveState();
+    updateHud();
+    drawVillage(performance.now());
+    showToast(`You enter ${state.interior.title}.`);
+    return;
+  }
   const result = performActivity(state, point.activity);
   if (!result.ok) {
     showToast(result.message);
@@ -823,19 +905,22 @@ function performPointActivity(point) {
 
 function interact() {
   if (dialogue) return closeDialogue();
+  if (state.location !== 'village') return useInteriorAction();
   const npc = nearbyNpc();
   if (npc) {
-    state.clock = advanceClock(state.clock, 5);
+    const social = recordVillagerTalk(state, npc.id);
+    state = normalizeGameState({ ...state, ...social.state, clock: advanceClock(state.clock, 5) });
     const greeting = npcGreetingFor(npc, state.weather);
+    const requestLine = state.request?.npcId === npc.id && state.request.status !== 'complete' ? ` ${state.request.text} Press the satchel button when you have it.` : '';
     markOnboardingStep('villager');
     addNote(`${npc.name} says, “${greeting}”`);
     persistPlayerMotion();
     saveState();
-    return openDialogue(npc.name, greeting);
+    return openDialogue(npc.name, `${greeting}${requestLine}`);
   }
   const point = getInteraction(playerMotion, INTERACTIONS);
   if (!point) return showToast('Nothing here but the evening breeze.');
-  if (point.activity) return performPointActivity(point);
+  if (point.activity || point.interior) return performPointActivity(point);
   state.tasks[point.task] = true;
   state.clock = advanceClock(state.clock, 15);
   addNote(point.message);
@@ -948,6 +1033,9 @@ document.querySelector('#edit-hobbit-button').addEventListener('click', () => op
 document.querySelector('#edit-village-button').addEventListener('click', () => openCreator(2, true));
 document.querySelector('#invite-button').addEventListener('click', makeInvite);
 document.querySelector('#eat-button')?.addEventListener('click', eatMeal);
+document.querySelector('#request-button')?.addEventListener('click', deliverRequest);
+document.querySelector('#interior-action')?.addEventListener('click', useInteriorAction);
+document.querySelector('#leave-interior')?.addEventListener('click', leaveInterior);
 document.querySelector('#copy-code').addEventListener('click', copyInvite);
 document.querySelector('#sign-in-button').addEventListener('click', sendMagicLink);
 document.querySelector('#fullscreen-button')?.addEventListener('click', toggleFullscreen);

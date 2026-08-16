@@ -35,6 +35,42 @@ export const WEATHER_LABELS = {
   'golden-wind': 'Golden wind'
 };
 
+export const RELATIONSHIP_IDS = ['pim', 'wren', 'cedar', 'mossy', 'daisy'];
+export const REQUEST_CATALOG = [
+  { id: 'pim-fish', npcId: 'pim', itemId: 'silver_fish', quantity: 1, rewardCoins: 6, rewardRelationship: 2, title: 'A fish for Pim', text: 'Pim is minding the beans and would love a silver fish for supper.' },
+  { id: 'daisy-berries', npcId: 'daisy', itemId: 'moonberry', quantity: 2, rewardCoins: 8, rewardRelationship: 2, title: 'Berries for Daisy', text: 'Daisy needs two moonberries for the market stall display.' },
+  { id: 'wren-stew', npcId: 'wren', itemId: 'pondside_stew', quantity: 1, rewardCoins: 10, rewardRelationship: 3, title: 'A bowl for Wren', text: 'Wren has set out the good bowls at the Golden Perch.' }
+];
+export const CROP_STAGES = ['empty', 'sprout', 'leaf', 'flowering', 'ready'];
+
+export function cropStageForGrowth(growthDays = 0) {
+  const growth = Math.max(0, Math.floor(Number(growthDays) || 0));
+  return CROP_STAGES[Math.min(4, growth + 1)];
+}
+
+function relationshipsFor(source = {}) {
+  return Object.fromEntries(RELATIONSHIP_IDS.map((id) => [id, Math.max(0, Math.min(10, Math.floor(Number(source[id]) || 0)))]));
+}
+
+function requestForDay(day = 3) {
+  return { ...REQUEST_CATALOG[Math.max(0, Math.floor(Number(day) || 3) - 3) % REQUEST_CATALOG.length] };
+}
+
+function gardenFor(source = {}) {
+  const planted = Boolean(source.planted || source.crop);
+  const ready = Boolean(source.ready || source.stage === 'ready');
+  const growthDays = Math.max(0, Math.floor(Number(source.growthDays) || (ready ? 3 : 0)));
+  const stage = planted ? (ready ? 'ready' : CROP_STAGES.includes(source.stage) && source.stage !== 'empty' ? source.stage : cropStageForGrowth(growthDays)) : 'empty';
+  return {
+    planted,
+    watered: planted ? Boolean(source.watered) : false,
+    ready: stage === 'ready',
+    crop: planted ? source.crop ?? 'moonberry' : null,
+    stage,
+    growthDays
+  };
+}
+
 export function seasonForDay(day = 3) {
   const safeDay = Number.isFinite(Number(day)) ? Math.max(1, Math.floor(Number(day))) : 3;
   return SEASONS[(safeDay - 1) % SEASONS.length];
@@ -55,11 +91,13 @@ export function createDailyState(options = {}) {
     maxEnergy: STARTING_ENERGY,
     coins: STARTING_COINS,
     inventory: { seed_packet: 1 },
-    garden: { planted: false, watered: false, ready: false },
+    garden: gardenFor(),
     season: seasonForDay(day),
     weather: weather.weather,
     weatherSeed: weather.seed,
-    onboarding: { garden: false, outing: false, villager: false, rest: false }
+    onboarding: { garden: false, outing: false, villager: false, rest: false },
+    relationships: relationshipsFor(),
+    request: requestForDay(day)
   };
 }
 
@@ -68,8 +106,10 @@ export function normalizeDailyState(source = {}) {
   const day = Number.isFinite(Number(source.day)) ? Math.max(1, Math.floor(Number(source.day))) : 3;
   const defaults = createDailyState({ day, landscape });
   const inventory = source.inventory && typeof source.inventory === 'object' ? source.inventory : defaults.inventory;
-  const garden = source.garden && typeof source.garden === 'object' ? source.garden : {};
+  const garden = gardenFor(source.garden && typeof source.garden === 'object' ? source.garden : {});
   const onboarding = source.onboarding && typeof source.onboarding === 'object' ? source.onboarding : {};
+  const relationships = relationshipsFor(source.relationships && typeof source.relationships === 'object' ? source.relationships : {});
+  const request = source.request && typeof source.request === 'object' && source.request.id ? { ...source.request } : requestForDay(day);
   const maxEnergy = Number.isFinite(source.maxEnergy) && source.maxEnergy > 0 ? source.maxEnergy : defaults.maxEnergy;
   const derivedWeather = weatherForDay(day, landscape);
   const weather = WEATHER_LABELS[source.weather] ? source.weather : derivedWeather.weather;
@@ -79,11 +119,7 @@ export function normalizeDailyState(source = {}) {
     maxEnergy,
     coins: Number.isFinite(source.coins) ? Math.max(0, Math.floor(source.coins)) : defaults.coins,
     inventory: Object.fromEntries(Object.entries(inventory).filter(([, quantity]) => Number(quantity) > 0).map(([id, quantity]) => [id, Math.max(0, Math.floor(Number(quantity)))])),
-    garden: {
-      planted: Boolean(garden.planted),
-      watered: Boolean(garden.watered),
-      ready: Boolean(garden.ready)
-    },
+    garden,
     season: typeof source.season === 'string' && SEASONS.includes(source.season) ? source.season : seasonForDay(day),
     weather,
     weatherSeed,
@@ -92,7 +128,9 @@ export function normalizeDailyState(source = {}) {
       outing: Boolean(onboarding.outing),
       villager: Boolean(onboarding.villager),
       rest: Boolean(onboarding.rest)
-    }
+    },
+    relationships,
+    request
   };
 }
 
@@ -128,7 +166,9 @@ function cloneDailyState(input) {
     ...input,
     ...normalized,
     inventory: { ...normalized.inventory },
-    garden: { ...normalized.garden }
+    garden: { ...normalized.garden },
+    relationships: { ...normalized.relationships },
+    request: { ...normalized.request }
   };
 }
 
@@ -155,11 +195,14 @@ export function advanceToNextDay(input) {
     season: seasonForDay(day),
     weather: weather.weather,
     weatherSeed: weather.seed,
-    garden: {
-      planted: next.garden.planted,
-      watered: false,
-      ready: next.garden.ready || (next.garden.planted && next.garden.watered)
-    }
+    request: next.request?.status === 'complete' ? requestForDay(day) : { ...next.request },
+    garden: (() => {
+      const garden = next.garden;
+      if (!garden.planted || garden.ready) return { ...garden, watered: false };
+      const growthDays = garden.watered ? garden.growthDays + 1 : garden.growthDays;
+      const stage = cropStageForGrowth(growthDays);
+      return { ...garden, watered: false, growthDays, stage, ready: stage === 'ready' };
+    })()
   };
 }
 
@@ -184,14 +227,14 @@ export function performActivity(input, activityId) {
     if (state.garden.ready) {
       const next = spend(state, { ...activity, energy: 4 });
       next.inventory = addItem(next.inventory, 'moonberry', 3);
-      next.garden = { planted: false, watered: false, ready: false };
+      next.garden = gardenFor();
       return { ok: true, state: next, message: 'You harvest three moonberries and tuck them safely in your satchel.' };
     }
     if (!state.garden.planted) {
       const inventory = removeItem(state.inventory, 'seed_packet', 1);
       if (!inventory) return fail(state, 'You have no moonberry seeds. Visit the market first.');
       const next = spend({ ...state, inventory }, activity);
-      next.garden = { planted: true, watered: true, ready: false };
+      next.garden = gardenFor({ planted: true, watered: true, crop: 'moonberry', stage: 'sprout', growthDays: 0 });
       return { ok: true, state: next, message: 'You plant a moonberry seed and give the little bed a careful drink.' };
     }
     if (state.garden.watered) return fail(state, 'The garden is already watered. Let the moonberries grow.');
@@ -224,4 +267,25 @@ export function performActivity(input, activityId) {
   }
 
   return fail(state, 'Nothing happens.');
+}
+
+export function recordVillagerTalk(input, npcId) {
+  const state = cloneDailyState(input);
+  if (!RELATIONSHIP_IDS.includes(npcId)) return fail(state, 'That villager is not part of this village.');
+  state.relationships[npcId] = Math.min(10, state.relationships[npcId] + 1);
+  return { ok: true, state, message: `${npcId[0].toUpperCase()}${npcId.slice(1)} seems glad you stopped for a word.` };
+}
+
+export function completeRequest(input, requestId = input?.request?.id) {
+  const state = cloneDailyState(input);
+  const request = state.request;
+  if (!request || request.id !== requestId) return fail(state, 'That request is no longer on the board.');
+  if (request.status === 'complete') return fail(state, 'You have already completed that request.');
+  const inventory = removeItem(state.inventory, request.itemId, request.quantity);
+  if (!inventory) return fail(state, `You need ${request.quantity} ${ITEMS[request.itemId]?.name ?? request.itemId} for that request.`);
+  state.inventory = inventory;
+  state.coins += request.rewardCoins;
+  state.relationships[request.npcId] = Math.min(10, (state.relationships[request.npcId] ?? 0) + request.rewardRelationship);
+  state.request = { ...request, status: 'complete', completedDay: state.day };
+  return { ok: true, state, message: `You complete ${request.title}. The village remembers the kindness.` };
 }

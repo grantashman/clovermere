@@ -437,21 +437,62 @@ export function drawTreeSprite(ctx, theme, ox, oy, seed = 0) {
   drawPixels(ctx, dabs);
 }
 
-export function drawGardenSprite(ctx, theme, ox, oy, cols = 7, rows = 3) {
+export function drawGardenSprite(ctx, theme, ox, oy, cols = 7, rows = 3, stage = 'ready') {
   drawPixels(ctx, rects([ox - 2, oy - 2, cols * 16 + 4, rows * 16 + 4, PALETTE.soil]));
+  if (stage === 'empty') return;
   for (let r = 0; r < rows; r += 1) {
     for (let c = 0; c < cols; c += 1) {
       const x = ox + c * 16;
       const y = oy + r * 16;
-      drawPixels(ctx, rects(
-        [x + 4, y + 6, 5, 9, theme.grassLight],
-        [x + 1, y + 8, 4, 3, theme.grassLight],
-        [x + 9, y + 7, 4, 3, theme.grassLight]
-      ));
-      if ((r + c) % 2 === 0) drawPixels(ctx, rects([x + 5, y + 1, 3, 3, PALETTE.gold]));
-      if ((r + c) % 3 === 0) drawPixels(ctx, rects([x + 8, y + 2, 3, 3, PALETTE.flower]));
+      if (stage === 'sprout') {
+        drawPixels(ctx, rects([x + 7, y + 9, 2, 5, theme.grassLight], [x + 4, y + 10, 4, 2, theme.grassLight], [x + 8, y + 7, 3, 2, PALETTE.gold]));
+      } else if (stage === 'leaf') {
+        drawPixels(ctx, rects([x + 5, y + 6, 4, 8, theme.grassLight], [x + 9, y + 7, 4, 7, theme.grassLight], [x + 2, y + 9, 5, 3, theme.grassLight], [x + 10, y + 4, 3, 3, PALETTE.leafBright]));
+      } else {
+        drawPixels(ctx, rects(
+          [x + 4, y + 6, 5, 9, theme.grassLight],
+          [x + 1, y + 8, 4, 3, theme.grassLight],
+          [x + 9, y + 7, 4, 3, theme.grassLight]
+        ));
+        if ((r + c) % 2 === 0) drawPixels(ctx, rects([x + 5, y + 1, 3, 3, stage === 'flowering' ? PALETTE.gold : PALETTE.goldLight]));
+        if ((r + c) % 3 === 0) drawPixels(ctx, rects([x + 8, y + 2, 3, 3, stage === 'flowering' ? PALETTE.flower : '#d6b65f']));
+      }
     }
   }
+}
+
+export function drawInteriorScene(ctx, interior = {}, time = 0) {
+  const inn = interior.id === 'inn' || interior.palette === 'inn';
+  const wall = inn ? '#b88761' : '#cfa873';
+  const wallLight = inn ? '#d9b27d' : '#e5c997';
+  const floor = inn ? '#7b5346' : '#795842';
+  const floorLight = inn ? '#a86d51' : '#9a6b4b';
+  const trim = inn ? '#4d3940' : '#4a3c4b';
+  drawPixels(ctx, rects(
+    [0, 0, GRID_W, GRID_H, wall],
+    [0, 0, GRID_W, 34, wallLight],
+    [0, 34, GRID_W, 5, trim],
+    [0, 39, GRID_W, GRID_H - 39, floor],
+    [0, 42, GRID_W, 2, floorLight],
+    [0, GRID_H - 8, GRID_W, 8, '#3b2b2d']
+  ));
+  for (let x = 0; x < GRID_W; x += 32) drawPixels(ctx, [[x, 45 + ((x / 32) % 2) * 8, 18, 2, floorLight]]);
+  if (inn) {
+    drawPixels(ctx, rects([52, 58, 150, 34, PALETTE.plank], [58, 64, 138, 5, PALETTE.plankLight], [62, 76, 24, 12, PALETTE.linen], [174, 76, 16, 12, PALETTE.linen]));
+    drawPixels(ctx, rects([360, 28, 76, 8, trim], [368, 36, 60, 30, '#8dc5b7'], [374, 42, 48, 2, '#d8ebd0'], [374, 56, 48, 2, '#d8ebd0']));
+  } else {
+    drawPixels(ctx, rects([72, 64, 118, 44, PALETTE.plank], [80, 72, 102, 5, PALETTE.plankLight], [88, 88, 86, 8, PALETTE.linen], [372, 68, 58, 20, PALETTE.linen], [378, 88, 46, 12, PALETTE.plank]));
+    drawPixels(ctx, rects([362, 98, 70, 10, PALETTE.plank], [372, 88, 50, 12, PALETTE.linen]));
+  }
+  ctx.fillStyle = '#3b2b2d';
+  ctx.beginPath();
+  ctx.arc(274, 82, 32, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#d17e46';
+  ctx.beginPath();
+  ctx.arc(274, 82, 22 + Math.round(Math.sin(time / 260) * 2), 0, Math.PI * 2);
+  ctx.fill();
+  drawPixels(ctx, rects([258, 102, 32, 6, PALETTE.stone], [264, 108, 20, 4, PALETTE.stoneDark], [264, 62, 20, 5, PALETTE.gold], [268, 56, 12, 7, PALETTE.goldLight]));
 }
 
 export function drawNoticeboardSprite(ctx, ox, oy) {

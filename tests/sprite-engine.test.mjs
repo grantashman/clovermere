@@ -6,6 +6,8 @@ import {
   drawBuildingSprite,
   drawBuildingDetail,
   drawColonyProp,
+  drawGardenSprite,
+  drawInteriorScene,
   drawPondSprite,
   drawBuildingShadow,
   drawHills,
@@ -210,6 +212,22 @@ test('weather overlays and world labels paint atmospheric guidance without error
   drawWorldLabel(context, 'Garden beds', 40, 60, '#f0d487');
   assert.ok(ops.some(([name]) => name === 'stroke'), 'rain should draw streaks');
   assert.ok(ops.some(([name]) => name === 'fillText'), 'world labels should be readable');
+});
+
+test('crop stages and interior rooms render distinct authored visual states', () => {
+  const theme = resolveVillageTheme({ landscape: 'heath' });
+  const empty = makeContext();
+  const sprout = makeContext();
+  const ready = makeContext();
+  drawGardenSprite(empty.context, theme, 40, 40, 3, 2, 'empty');
+  drawGardenSprite(sprout.context, theme, 40, 40, 3, 2, 'sprout');
+  drawGardenSprite(ready.context, theme, 40, 40, 3, 2, 'ready');
+  assert.notDeepEqual(empty.ops, sprout.ops);
+  assert.notDeepEqual(sprout.ops, ready.ops);
+  const room = makeContext();
+  drawInteriorScene(room.context, { id: 'home', title: 'Your Smial', palette: 'home' }, 1200);
+  assert.ok(room.ops.some(([name]) => name === 'fillRect'), 'interior should paint room planes');
+  assert.ok(room.ops.some(([name]) => name === 'arc'), 'interior should paint a round hearth');
 });
 
 test('buildWorldGrid reserves a sky/hill horizon at the north edge', () => {

@@ -15,7 +15,10 @@ import {
   wrapDialogueText,
   nextOnboardingObjective,
   normalizeOnboarding,
-  npcGreetingFor
+  npcGreetingFor,
+  INTERIOR_DEFINITIONS,
+  enterInterior,
+  exitInterior
 } from '../src/game-systems.js';
 
 const map = [
@@ -59,11 +62,11 @@ test('normalizeGameState preserves custom choices while filling new defaults', (
 
 test('normalizeGameState migrates older saves into the daily loop without overwriting explicit resources', () => {
   const migrated = normalizeGameState({ version: 2, inventory: {}, energy: 42, coins: 5, garden: { planted: true, watered: false, ready: false } });
-  assert.equal(migrated.version, 4);
+  assert.equal(migrated.version, 5);
   assert.equal(migrated.energy, 42);
   assert.equal(migrated.coins, 5);
   assert.deepEqual(migrated.inventory, {});
-  assert.deepEqual(migrated.garden, { planted: true, watered: false, ready: false });
+  assert.deepEqual(migrated.garden, { planted: true, watered: false, ready: false, crop: 'moonberry', stage: 'sprout', growthDays: 0 });
   assert.equal(normalizeGameState({ version: 2 }).inventory.seed_packet, 1);
   assert.equal(migrated.season, 'Late Summer');
   assert.ok(['clear', 'mist', 'rain', 'golden-wind'].includes(migrated.weather));
@@ -83,6 +86,18 @@ test('weather-aware greetings retain the authored greeting and add a readable re
   assert.equal(npcGreetingFor(pim, 'clear'), pim.greet);
   assert.notEqual(npcGreetingFor(pim, 'rain'), pim.greet);
   assert.match(npcGreetingFor(pim, 'rain'), /rain/i);
+});
+
+test('interior transitions keep the village save and expose authored room details', () => {
+  const village = createDefaultGameState();
+  const inside = enterInterior(village, 'home');
+  assert.equal(inside.location, 'home');
+  assert.equal(inside.interior.title, 'Your Smial');
+  assert.ok(INTERIOR_DEFINITIONS.home.objects.includes('hearth'));
+  const outside = exitInterior(inside);
+  assert.equal(outside.location, 'village');
+  assert.equal(outside.interior, null);
+  assert.deepEqual(outside.village, village.village);
 });
 
 test('isCreationComplete requires both a hobbit and village name', () => {

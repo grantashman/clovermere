@@ -10,14 +10,30 @@ export const HOUSE_LABELS = { rounddoor: 'Round door', stone: 'Stone cottage', g
 export const HAIR_LABELS = { waves: 'Waves', curls: 'Curls', bob: 'Short crop' };
 
 export const INTERACTIONS = [
-  { x: 7, y: 8, activity: 'rest', label: 'your smial', message: 'The hearth is banked and the bed is warm. You can rest here when the day has asked enough of you.' },
-  { x: 10, y: 8, activity: 'cook', label: 'hearth', message: 'The hearth is warm enough for a small meal.' },
+  { x: 7, y: 8, activity: 'rest', interior: 'home', label: 'your smial', message: 'The hearth is banked and the bed is warm. You can rest here when the day has asked enough of you.' },
+  { x: 10, y: 8, activity: 'cook', interior: 'home', label: 'hearth', message: 'The hearth is warm enough for a small meal.' },
+  { x: 27, y: 11, interior: 'inn', label: 'Golden Perch', message: 'The inn is warm and Wren has left a place by the window.' },
   { x: 7, y: 12, activity: 'garden', task: 'garden', label: 'garden beds', message: 'The moonberries are taking. You pinch back a leaf and give the soil a careful drink.' },
   { x: 13, y: 7, activity: 'fish', task: 'pond', label: 'moon pond', message: 'A silver fish turns under the water. The whole pond keeps the secret with you.' },
   { x: 24, y: 12, activity: 'market', label: 'market stalls', message: 'Daisy has seed packets laid out beneath the striped awning.' },
   { x: 28, y: 14, task: 'gate', label: 'village gate', message: 'You leave the gate unlatched. A friend should never have to knock twice.' },
   { x: 15, y: 8, task: 'noticeboard', label: 'noticeboard', message: 'The noticeboard has a new note: “Pie tasting at the long table, sunset.”' }
 ];
+
+export const INTERIOR_DEFINITIONS = {
+  home: { id: 'home', title: 'Your Smial', subtitle: 'A low room, a warm hearth, and a door you can always close.', palette: 'home', objects: ['hearth', 'table', 'bed', 'satchel'] },
+  inn: { id: 'inn', title: 'The Golden Perch', subtitle: 'Warm bread, low conversation, and a table by the window.', palette: 'inn', objects: ['hearth', 'counter', 'table', 'window'] }
+};
+
+export function enterInterior(state, interiorId) {
+  const interior = INTERIOR_DEFINITIONS[interiorId];
+  if (!interior) return state;
+  return { ...state, location: interiorId, interior: { ...interior } };
+}
+
+export function exitInterior(state) {
+  return { ...state, location: 'village', interior: null };
+}
 
 export const ONBOARDING_OBJECTIVES = [
   { id: 'garden', label: 'Inspect the garden beds', hint: 'Start close to home: press E at the garden.' },
@@ -63,11 +79,13 @@ export const DEFAULT_VILLAGE = {
 };
 
 export const DEFAULT_GAME_STATE = {
-  version: 4,
+  version: 5,
   creationComplete: false,
   hobbit: DEFAULT_HOBBIT,
   village: DEFAULT_VILLAGE,
   player: { x: 14, y: 11 },
+  location: 'village',
+  interior: null,
   clock: 495,
   day: 3,
   ...createDailyState(),
@@ -89,7 +107,7 @@ export function normalizeGameState(input = {}) {
   return {
     ...createDefaultGameState(),
     ...source,
-    version: 4,
+    version: 5,
     creationComplete: Boolean(source.creationComplete),
     hobbit: {
       ...DEFAULT_HOBBIT,
@@ -98,6 +116,8 @@ export function normalizeGameState(input = {}) {
     },
     village: { ...DEFAULT_VILLAGE, ...village },
     player: { ...DEFAULT_GAME_STATE.player, ...(source.player ?? {}) },
+    location: source.location === 'home' || source.location === 'inn' ? source.location : 'village',
+    interior: source.location === 'home' || source.location === 'inn' ? { ...INTERIOR_DEFINITIONS[source.location] } : null,
     ...normalizeDailyState(source),
     tasks: { ...DEFAULT_GAME_STATE.tasks, ...(source.tasks ?? {}) },
     notes: Array.isArray(source.notes) && source.notes.length ? source.notes.slice(0, 6) : [...DEFAULT_GAME_STATE.notes]
