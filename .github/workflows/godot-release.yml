@@ -40,10 +40,13 @@ jobs:
           echo "$RUNNER_TEMP/godot/bin" >> "$GITHUB_PATH"
       - name: Run world and save contract before export
         run: Godot_v${GODOT_VERSION}-stable_linux.x86_64 --headless --path desktop/godot --script res://tests/world_contract_test.gd
+      - name: Run day-state contract before export
+        run: Godot_v${GODOT_VERSION}-stable_linux.x86_64 --headless --path desktop/godot --script res://tests/day_state_test.gd
       - name: Run desktop input and UI flow checks before export
         run: |
           Godot_v${GODOT_VERSION}-stable_linux.x86_64 --headless --path desktop/godot --script res://tests/mouse_input_smoke.gd
           Godot_v${GODOT_VERSION}-stable_linux.x86_64 --headless --path desktop/godot --script res://tests/resource_interaction_smoke.gd
+          Godot_v${GODOT_VERSION}-stable_linux.x86_64 --headless --path desktop/godot --script res://tests/day_loop_smoke.gd
           Godot_v${GODOT_VERSION}-stable_linux.x86_64 --headless --path desktop/godot --script res://tests/ui_flow_smoke.gd
           Godot_v${GODOT_VERSION}-stable_linux.x86_64 --headless --path desktop/godot --script res://tests/render_smoke.gd
       - name: Export Windows executable

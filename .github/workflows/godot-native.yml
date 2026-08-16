@@ -29,6 +29,8 @@ jobs:
           echo "$RUNNER_TEMP/godot" >> "$GITHUB_PATH"
       - name: Run world and save contract
         run: godot --headless --path desktop/godot --script res://tests/world_contract_test.gd
+      - name: Run day-state contract
+        run: godot --headless --path desktop/godot --script res://tests/day_state_test.gd
       - name: Validate Godot project
         run: godot --headless --editor --quit --path desktop/godot
       - name: Smoke run desktop scene
@@ -37,6 +39,8 @@ jobs:
         run: godot --headless --path desktop/godot --script res://tests/mouse_input_smoke.gd
       - name: Verify resource interaction and persistence
         run: godot --headless --path desktop/godot --script res://tests/resource_interaction_smoke.gd
+      - name: Verify first day loop
+        run: godot --headless --path desktop/godot --script res://tests/day_loop_smoke.gd
       - name: Verify welcome, options, and save/load flow
         run: godot --headless --path desktop/godot --script res://tests/ui_flow_smoke.gd
       - name: Measure steady-state native renderer

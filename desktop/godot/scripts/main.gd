@@ -6,6 +6,7 @@ const PlayerAvatar = preload("res://scripts/player_avatar.gd")
 const TargetMarker = preload("res://scripts/target_marker.gd")
 const UiShell = preload("res://scripts/ui_shell.gd")
 const LightingOverlay = preload("res://scripts/lighting_overlay.gd")
+const DayState = preload("res://scripts/day_state.gd")
 
 
 const SAVE_PATH := "user://hobbit-moon-village-v2.json"
@@ -25,12 +26,15 @@ var target_marker: Node2D
 var camera: Camera2D
 var grid: Array = []
 var village: Dictionary = DEFAULT_VILLAGE.duplicate(true)
+var day_state = DayState.new()
 var player_position := World.START_POSITION
 var camera_zoom := 0.75
 var debug_visible := false
 var save_elapsed := 0.0
 var title_label: Label
 var subtitle_label: Label
+var day_label: Label
+var stores_label: Label
 var debug_label: Label
 var hint_label: Label
 var loading_overlay: ColorRect
@@ -295,7 +299,7 @@ func _queue_path_to(goal: Vector2i, building: Dictionary, resource: Dictionary =
 
 func _complete_building_interaction() -> void:
     var name := str(pending_building.get("name", "that place"))
-    interaction_message = "Arrived at %s  ·  right-click to revisit" % name
+    interaction_message = "Arrived at %s  ·  press E to sleep" % name if str(pending_building.get("id", "")) == "greenbriar-cottage" else "Arrived at %s  ·  right-click to revisit" % name
     interaction_timeout = 4.0
     _show_interaction_feedback()
     pending_building = {}
@@ -314,11 +318,50 @@ func _handle_resource_action() -> void:
                 resource = candidate
                 break
     if resource.is_empty():
+        if _is_near_home():
+            _sleep_at_home()
+            return
         interaction_message = "Nothing here needs a hand"
         interaction_timeout = 1.5
         _show_interaction_feedback()
         return
     _complete_resource_interaction_for(resource)
+
+func _is_near_home() -> bool:
+    for building in world.buildings():
+        if str(building.get("id", "")) != "greenbriar-cottage":
+            continue
+        var candidates := [
+            Vector2(int(building.x) + int(building.w) / 2, int(building.y) + int(building.h) + 1),
+            Vector2(int(building.x) + int(building.w) / 2, int(building.y) - 1),
+            Vector2(int(building.x) - 1, int(building.y) + int(building.h) / 2),
+            Vector2(int(building.x) + int(building.w), int(building.y) + int(building.h) / 2)
+        ]
+        for candidate in candidates:
+            if player_position.distance_to(candidate + Vector2(0.5, 0.5)) <= 2.0:
+                return true
+    return false
+
+func _sleep_at_home() -> bool:
+    if not _is_near_home() and game_started:
+        interaction_message = "Stand by Greenbriar Cottage to sleep"
+        interaction_timeout = 2.0
+        _show_interaction_feedback()
+        return false
+    day_state.sleep_next_day(world_changes, world.resources())
+    movement_path.clear()
+    pending_building = {}
+    pending_resource = {}
+    target_marker.clear_target()
+    interaction_message = "A new day begins  ·  %s  ·  energy restored" % day_state.format_clock()
+    interaction_timeout = 4.0
+    _refresh_world_state()
+    _save_game()
+    _refresh_hud()
+    _show_interaction_feedback()
+    if ui != null:
+        ui.notify("Day %d begins in Clovermere." % day_state.day)
+    return true
 
 func _complete_resource_interaction() -> void:
     _complete_resource_interaction_for(pending_resource)
@@ -329,16 +372,26 @@ func _complete_resource_interaction_for(resource: Dictionary) -> void:
     var resource_id := str(resource.get("id", ""))
     if resource_id.is_empty() or bool(world_changes.get(resource_id, false)):
         return
+    var work_result: Dictionary = day_state.work_resource(resource)
+    if not bool(work_result.get("ok", false)):
+        if str(work_result.get("reason", "")) == "too-tired":
+            interaction_message = "Too tired to work that  ·  sleep at Greenbriar Cottage"
+        else:
+            interaction_message = "That resource cannot be worked"
+        interaction_timeout = 2.5
+        _show_interaction_feedback()
+        return
     world_changes[resource_id] = true
     var kind := str(resource.get("kind", "resource"))
     var verb := "Gathered" if kind == "herb" else "Mined" if kind in ["stone", "ore"] else "Chopped"
-    interaction_message = "%s %s  ·  %s added to the stores" % [verb, str(resource.get("name", "resource")), str(resource.get("yield", "materials"))]
+    interaction_message = "%s %s  ·  %s ×%d  ·  %s" % [verb, str(resource.get("name", "resource")), str(resource.get("yield", "materials")), int(work_result.get("amount", 0)), day_state.format_clock()]
     interaction_timeout = 4.0
     pending_resource = {}
     pending_building = {}
     target_marker.clear_target()
     _refresh_world_state()
     _save_game()
+    _refresh_hud()
     _show_interaction_feedback()
 
 func _show_interaction_feedback() -> void:
@@ -373,6 +426,7 @@ func _start_new_journey() -> void:
     pending_building = {}
     pending_resource = {}
     world_changes.clear()
+    day_state = DayState.new()
     interaction_message = ""
     _refresh_world_state()
     game_started = true
@@ -516,7 +570,7 @@ func _build_hud() -> void:
     add_child(layer)
     var panel := ColorRect.new()
     panel.position = Vector2(20, 20)
-    panel.size = Vector2(392, 96)
+    panel.size = Vector2(520, 132)
     panel.color = Color(0.035, 0.08, 0.07, 0.94)
     panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
     layer.add_child(panel)
@@ -525,9 +579,11 @@ func _build_hud() -> void:
     logo.position = Vector2(53, 51)
     logo.scale = Vector2(0.33, 0.33)
     layer.add_child(logo)
-    title_label = _label(layer, Vector2(82, 30), Vector2(300, 28), 22, Color("#f0d487"))
-    subtitle_label = _label(layer, Vector2(83, 61), Vector2(300, 18), 12, Color("#b8c785"))
-    debug_label = _label(layer, Vector2(39, 98), Vector2(350, 45), 11, Color("#d9e1c1"))
+    title_label = _label(layer, Vector2(82, 30), Vector2(420, 28), 22, Color("#f0d487"))
+    subtitle_label = _label(layer, Vector2(83, 61), Vector2(420, 18), 12, Color("#b8c785"))
+    day_label = _label(layer, Vector2(83, 82), Vector2(420, 20), 14, Color("#e7d6a7"))
+    stores_label = _label(layer, Vector2(83, 104), Vector2(420, 18), 12, Color("#b8c785"))
+    debug_label = _label(layer, Vector2(39, 140), Vector2(450, 45), 11, Color("#d9e1c1"))
     debug_label.visible = debug_visible
     interaction_panel = ColorRect.new()
     interaction_panel.position = Vector2(20, 610)
@@ -570,7 +626,9 @@ func _refresh_hud() -> void:
     var tile := Vector2i(floori(player_position.x), floori(player_position.y))
     var tile_name := world.tile_at(grid, tile)
     debug_label.text = "POS  %6.2f, %6.2f   TILE  %s\nFPS  %3d       F  toggle metrics" % [player_position.x, player_position.y, tile_name, Engine.get_frames_per_second()]
-    hint_label.text = "Click ground  walk     Click a house  visit     Click a tree/stone/herb  work     E  work nearby     Right-click  cancel/visit     Wheel  zoom     WASD  wander"
+    day_label.text = "DAY %02d  ·  %s  ·  ENERGY %d/%d" % [day_state.day, day_state.format_clock(), day_state.energy, DayState.MAX_ENERGY]
+    stores_label.text = "TIMBER %02d   STONE %02d   ORE %02d   HERBS %02d" % [int(day_state.inventory.get("timber", 0)), int(day_state.inventory.get("stone", 0)), int(day_state.inventory.get("ore", 0)), int(day_state.inventory.get("herbs", 0))]
+    hint_label.text = "Click ground  walk     Click a house  visit     Click a tree/stone/herb  work     E  work nearby / sleep at home     Right-click  cancel/visit     Wheel  zoom     WASD  wander"
     interaction_label.text = interaction_message
     interaction_label.visible = not interaction_message.is_empty()
     interaction_panel.visible = not interaction_message.is_empty()
@@ -594,6 +652,10 @@ func _load_save() -> bool:
         player_position = Vector2(float(raw_player.get("x", World.START_POSITION.x)), float(raw_player.get("y", World.START_POSITION.y)))
     var loaded_changes = normalized.get("world_changes", {})
     world_changes = loaded_changes.duplicate(true) if loaded_changes is Dictionary else {}
+    var loaded_day_state = normalized.get("day_state", {})
+    day_state = DayState.new()
+    if loaded_day_state is Dictionary:
+        day_state.from_dict(loaded_day_state)
     _refresh_world_state()
     return true
 
@@ -603,7 +665,8 @@ func _save_game() -> bool:
         "village": village,
         "player": {"x": player_position.x, "y": player_position.y},
         "location": "village",
-        "world_changes": world_changes.duplicate(true)
+        "world_changes": world_changes.duplicate(true),
+        "day_state": day_state.to_dict()
     }
     var file := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
     if file != null:

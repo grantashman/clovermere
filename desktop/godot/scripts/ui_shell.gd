@@ -274,7 +274,7 @@ func _build_toast() -> PanelContainer:
     var panel := PanelContainer.new()
     panel.name = "UiToast"
     panel.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
-    panel.position = Vector2(-230, -94)
+    panel.position = Vector2(-230, -170)
     panel.size = Vector2(460, 48)
     panel.add_theme_stylebox_override("panel", _style(Color("#1d3b2d"), Color("#c0a35d"), 1, 7))
     panel.mouse_filter = Control.MOUSE_FILTER_IGNORE

@@ -15,6 +15,7 @@ func _initialize() -> void:
     require(scene.ui.current_page == "welcome", "welcome screen should appear after loading")
     require(scene.ui.welcome_continue != null, "welcome screen should expose continue control")
     require(scene.ui.options_screen != null, "options screen should be built with the welcome flow")
+    require(scene.ui.toast_panel.offset_top <= -160.0, "toast should sit clear of the gameplay interaction ribbon")
 
     scene.ui.show_options("welcome")
     require(scene.ui.current_page == "options", "options should open from welcome")

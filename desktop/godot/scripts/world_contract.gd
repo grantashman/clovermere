@@ -318,4 +318,6 @@ func normalize_save(source: Dictionary = {}) -> Dictionary:
     result["location"] = "village" if source.get("location", "village") not in ["home", "inn"] else source.get("location")
     var raw_changes = source.get("world_changes", {})
     result["world_changes"] = raw_changes.duplicate(true) if raw_changes is Dictionary else {}
+    var raw_day_state = source.get("day_state", {})
+    result["day_state"] = raw_day_state.duplicate(true) if raw_day_state is Dictionary else {}
     return result
