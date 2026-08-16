@@ -44,9 +44,12 @@ import {
   drawPondSprite,
   drawSky,
   drawSoftShadow,
+  drawTerrainDetail,
   drawTorchGlow,
   drawTreeSprite,
   drawVignette,
+  drawNameplate,
+  drawSelectionRing,
   GRID_H,
   GRID_W,
   TILE
@@ -324,6 +327,9 @@ function drawWorld(ctx, theme, village, spec, player, cam, time = 0) {
       if (wx <= 0 || wx >= WORLD_WIDTH - 1) continue;
       const tile = worldGrid[wy][wx];
       if (tile === 'g' || tile === 'p' || tile === 'd') drawTileDetail(ctx, wx - camX, wy - camY, wx, wy, theme, tile);
+      if (tile === 'g' || tile === 'p' || tile === 'd' || tile === 'w') {
+        drawTerrainDetail(ctx, theme, tile, (wx - camX) * TILE, (wy - camY) * TILE, wx * 31 + wy * 17, time);
+      }
     }
   }
 
@@ -365,18 +371,23 @@ function drawWorld(ctx, theme, village, spec, player, cam, time = 0) {
 
   // NPCs at their scheduled positions for the current clock
   const lighting = lightingFor(state.clock);
+  const focusNpc = nearbyNpc();
   for (const npc of NPCS) {
     const pos = npcPositionAt(npc, state.clock);
     const { sx, sy } = worldToScreen(pos.x, pos.y);
     if (sx < -20 || sy < -30 || sx > GRID_W || sy > GRID_H) continue;
     const feetY = sy + TILE / 2 + 4;
+    const isFocused = focusNpc?.id === npc.id;
+    if (isFocused) drawSelectionRing(ctx, sx + TILE / 2, feetY, true);
     drawHobbitSprite(ctx, { body: npc.body, hair: npc.hair, palette: npc.palette }, sx + TILE / 2, feetY);
+    if (isFocused) drawNameplate(ctx, npc.name, sx + TILE / 2, feetY - 25, true);
     if (lighting.torch) drawTorchGlow(ctx, sx + TILE / 2, feetY - 18, 14, 0.5);
   }
 
   // player
   const p = worldToScreen(player.x, player.y);
   const playerFeet = p.sy + TILE / 2 + 4;
+  drawSelectionRing(ctx, p.sx + TILE / 2, playerFeet, true);
   drawHobbitSprite(ctx, spec, p.sx + TILE / 2, playerFeet);
   if (lighting.torch) {
     drawTorchGlow(ctx, p.sx + TILE / 2, playerFeet - 16, 20, 0.7);
@@ -521,6 +532,9 @@ function updateHud() {
   document.querySelector('#stage-kicker').textContent = `${state.village.name} · ${landscapeLabel}`;
   document.querySelector('#clock-label').textContent = formatClock(state.clock);
   document.querySelector('#day-label').textContent = `Day ${state.day} · Late Summer`;
+  document.querySelector('#colony-population').textContent = String(NPCS.length + 1);
+  document.querySelector('#colony-phase').textContent = timeOfDay(state.clock);
+  document.querySelector('#colony-save').textContent = supabaseConfigured ? 'HOSTED' : 'LOCAL';
   document.querySelector('#hobbit-label').textContent = state.hobbit.name;
   document.querySelector('#hobbit-detail').textContent = `${HAIR_LABELS[state.hobbit.hair]} · ${state.village.name}`;
   document.querySelector('#village-label').textContent = state.village.name;

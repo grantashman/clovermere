@@ -120,6 +120,46 @@ button { -webkit-tap-highlight-color: transparent; }
 @media (max-width: 720px) { .game-header, .setup-shell, .game-layout { width: min(100% - 1.25rem, 1480px); }.game-header { min-height: 64px; }.game-header-actions { gap: .25rem; }.prototype-badge { display: none; }.game-header-actions .button { padding: .55rem .52rem; font-size: .56rem; }.setup-panel { padding: 1.35rem 1rem 1.15rem; }.setup-panel h1 { font-size: 3rem; }.setup-preview-panel { min-height: 420px; }.creator-art-wrap { min-height: 320px; padding: .45rem; }.preview-caption { align-items: flex-start; flex-direction: column; gap: .3rem; }.preview-caption span:last-child { text-align: left; }.choice-grid-three { gap: .35rem; }.choice-card { min-height: 4.5rem; }.choice-heading small { display: none; }.game-layout { margin-top: .3rem; }.stage-bar { align-items: flex-start; padding: .75rem; }.stage-bar strong { font-size: .95rem; }.canvas-wrap { padding: .35rem; }.canvas-hint { display: none; }.stage-footer { align-items: flex-start; flex-direction: column; padding: .75rem; gap: .6rem; }.village-sidebar { grid-template-columns: 1fr; }.identity-card, .village-card { grid-column: auto; }.identity-card { grid-template-columns: 70px 1fr auto; }.identity-art { width: 70px; height: 70px; }.path-options { gap: .25rem; }.path-choice { font-size: .52rem; }.toast { right: .75rem; bottom: .75rem; left: .75rem; max-width: none; } }
 @media (prefers-reduced-motion: reduce) { .button, .choice-card, .swatch, .toast { transition: none; } }
 
+/* Colony command centre redesign — original Hobbit Moon management chrome */
+body.game-page:has(#play-screen:not([hidden])) { color: #d8ded1; background: #131a19; }
+body.game-page:has(#play-screen:not([hidden])) .game-header { color: #d8ded1; }
+body.game-page:has(#play-screen:not([hidden])) .game-wordmark { color: #d8ded1; }
+body.game-page:has(#play-screen:not([hidden])) .wordmark-mark { color: #18211e; background: #d4ad63; box-shadow: 3px 3px 0 #536454; }
+body.game-page:has(#play-screen:not([hidden])) .prototype-badge { color: #a8b89b; }
+body.game-page:has(#play-screen:not([hidden])) .button-quiet { color: #aab7aa; border-color: rgba(191, 207, 186, .22); }
+body.game-page:has(#play-screen:not([hidden])) .button-quiet:hover { color: #f4e9c9; background: #28352f; border-color: #cba85e; }
+body.game-page:has(#play-screen:not([hidden])) .game-layout { width: min(100% - 2rem, 1600px); grid-template-columns: minmax(0, 1fr) minmax(320px, 360px); gap: .7rem; margin-top: .4rem; }
+body.game-page:has(#play-screen:not([hidden])) .game-stage,
+body.game-page:has(#play-screen:not([hidden])) .sidebar-card { border-color: #3b4942; background: #202a26; box-shadow: 0 18px 40px rgba(0,0,0,.22); }
+body.game-page:has(#play-screen:not([hidden])) .game-stage { border-radius: .35rem; }
+body.game-page:has(#play-screen:not([hidden])) .stage-bar { min-height: 74px; padding: .75rem 1rem; background: #18211f; border-color: #3b4942; }
+body.game-page:has(#play-screen:not([hidden])) .stage-kicker { color: #b8c785; }
+body.game-page:has(#play-screen:not([hidden])) .stage-bar strong { color: #f4e9c9; font: 600 1.2rem var(--display); }
+body.game-page:has(#play-screen:not([hidden])) .stage-time { color: #e4ca82; }
+body.game-page:has(#play-screen:not([hidden])) .weather-dot { background: #d4ad63; box-shadow: 0 0 0 .2rem rgba(212,173,99,.18); }
+.stage-title { min-width: 170px; }
+.colony-readout { display: flex; align-items: center; justify-content: center; gap: .45rem; color: #87978a; font: .57rem var(--mono); text-transform: uppercase; letter-spacing: .06em; }
+.colony-readout span { padding: .42rem .55rem; border: 1px solid rgba(183, 201, 175, .16); border-radius: .2rem; background: rgba(255,255,255,.025); white-space: nowrap; }
+.colony-readout b { color: #d7b468; font-weight: 500; }
+body.game-page:has(#play-screen:not([hidden])) .canvas-wrap { padding: .45rem; background: #111816; }
+body.game-page:has(#play-screen:not([hidden])) .canvas-wrap canvas { border: 2px solid #3e5148; border-radius: .2rem; box-shadow: inset 0 0 0 1px rgba(236,225,187,.08), 0 8px 18px rgba(0,0,0,.35); }
+body.game-page:has(#play-screen:not([hidden])) .stage-footer { padding: .65rem .9rem; color: #94a295; background: #18211f; border-color: #3b4942; }
+body.game-page:has(#play-screen:not([hidden])) kbd { color: #e2cb8b; background: #27332e; border-color: #536155; }
+body.game-page:has(#play-screen:not([hidden])) .identity-card { background: #2a3832; border-color: #526553; }
+body.game-page:has(#play-screen:not([hidden])) .sidebar-card { border-radius: .35rem; }
+body.game-page:has(#play-screen:not([hidden])) .card-heading h2 { color: #e9e1c6; }
+body.game-page:has(#play-screen:not([hidden])) .eyebrow { color: #aebe83; }
+body.game-page:has(#play-screen:not([hidden])) .task-list li,
+body.game-page:has(#play-screen:not([hidden])) .village-facts,
+body.game-page:has(#play-screen:not([hidden])) .village-log { color: #9eab9d; }
+body.game-page:has(#play-screen:not([hidden])) .today-card,
+body.game-page:has(#play-screen:not([hidden])) .log-card { background: #202a26; }
+body.game-page:has(#play-screen:not([hidden])) .village-card { background: #2a332d; }
+body.game-page:has(#play-screen:not([hidden])) .village-card .button-quiet { background: #1a2421; }
+body.game-page:has(#play-screen:not([hidden])) .identity-copy h1 { color: #f4e9c9; }
+body.game-page:has(#play-screen:not([hidden])) .identity-copy p:last-child { color: #acb8a8; }
+body.game-page:has(#play-screen:not([hidden])) .icon-button { color: #d6b76a; border-color: rgba(212,173,99,.32); }
+
 /* Play fullscreen by default: fill the viewport with the village */
 #play-screen:fullscreen { width: 100vw; height: 100vh; margin: 0; display: flex; flex-direction: column; gap: 0; background: var(--moss-deep); overflow: hidden; }
 #play-screen:fullscreen .game-header { width: 100%; padding: 0 1.2rem; min-height: 60px; margin: 0; }

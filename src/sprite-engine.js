@@ -110,6 +110,74 @@ export function waterShimmer(ctx, ox, oy, time) {
   ));
 }
 
+// Deterministic terrain dressing: original rocks, grasses, flowers, bank reeds,
+// and path stones make the colony map feel authored without a sprite sheet.
+export function drawTerrainDetail(ctx, theme, tile, ox, oy, seed = 0, time = 0) {
+  const variant = Math.abs(seed) % 17;
+  if (tile === 'g') {
+    if (variant === 1 || variant === 8) {
+      drawPixels(ctx, rects(
+        [ox + 3, oy + 11, 5, 2, PALETTE.trunk],
+        [ox + 4, oy + 10, 3, 1, PALETTE.stone],
+        [ox + 8, oy + 12, 2, 1, PALETTE.shadow]
+      ));
+    } else if (variant === 3 || variant === 12) {
+      drawPixels(ctx, rects(
+        [ox + 4, oy + 9, 1, 5, theme.grassDark],
+        [ox + 7, oy + 7, 1, 7, theme.grassDark],
+        [ox + 10, oy + 10, 1, 4, theme.grassLight]
+      ));
+    } else if (variant === 5) {
+      drawPixels(ctx, rects(
+        [ox + 5, oy + 10, 2, 2, theme.flower ?? PALETTE.flower],
+        [ox + 8, oy + 8, 2, 2, PALETTE.goldLight],
+        [ox + 7, oy + 12, 5, 1, theme.grassDark]
+      ));
+    } else if (variant === 9) {
+      drawPixels(ctx, rects(
+        [ox + 2, oy + 10, 10, 2, theme.grassDark],
+        [ox + 4, oy + 8, 2, 2, theme.grassLight],
+        [ox + 9, oy + 7, 2, 3, theme.grassLight]
+      ));
+    }
+  } else if (tile === 'p' && variant % 4 === 0) {
+    drawPixels(ctx, rects(
+      [ox + 2, oy + 3, 4, 1, PALETTE.stoneDark],
+      [ox + 3, oy + 4, 3, 1, PALETTE.stone]
+    ));
+  } else if (tile === 'd' && variant % 3 === 0) {
+    drawPixels(ctx, rects(
+      [ox + 2, oy + 7, 4, 1, PALETTE.soil],
+      [ox + 9, oy + 10, 3, 1, PALETTE.soil]
+    ));
+  } else if (tile === 'w' && variant % 4 === 0) {
+    const shimmer = Math.floor(time / 700) % 2;
+    drawPixels(ctx, [[ox + 2 + shimmer * 5, oy + 4 + (variant % 3) * 3, 5, 1, theme.waterLight]]);
+  }
+}
+
+// Amber selection marker used for the controlled colonist and the focused villager.
+export function drawSelectionRing(ctx, cx, feetY, active = true) {
+  ctx.strokeStyle = active ? '#e1bd64' : 'rgba(219, 228, 182, .42)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.ellipse(cx, feetY + 1, 11, 3, 0, 0, Math.PI * 2);
+  ctx.stroke();
+}
+
+// Small management-style nameplate; only focused villagers receive one by default.
+export function drawNameplate(ctx, label, cx, topY, active = false) {
+  ctx.save();
+  ctx.font = '7px "DM Mono", monospace';
+  ctx.textAlign = 'center';
+  const width = Math.max(34, ctx.measureText(label).width + 8);
+  ctx.fillStyle = active ? 'rgba(24, 33, 31, .94)' : 'rgba(24, 33, 31, .76)';
+  ctx.fillRect(cx - width / 2, topY - 10, width, 10);
+  ctx.fillStyle = active ? '#f0d487' : '#d8ded1';
+  ctx.fillText(label, cx, topY - 3);
+  ctx.restore();
+}
+
 // subtle darkening at the edges for depth
 export function drawVignette(ctx) {
   const grad = ctx.createRadialGradient(GRID_W / 2, GRID_H / 2, GRID_H * 0.35, GRID_W / 2, GRID_H / 2, GRID_H * 0.85);

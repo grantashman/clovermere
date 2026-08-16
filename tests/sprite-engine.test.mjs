@@ -8,8 +8,11 @@ import {
   drawHills,
   drawSky,
   drawSoftShadow,
+  drawTerrainDetail,
   drawTorchGlow,
   drawVignette,
+  drawNameplate,
+  drawSelectionRing,
   waterShimmer,
   getPaletteColor,
   GRID_H,
@@ -33,6 +36,7 @@ function makeContext(width = GRID_W, height = GRID_H) {
     beginPath: () => ops.push(['beginPath']),
     ellipse: () => ops.push(['ellipse']),
     arc: () => ops.push(['arc']),
+    stroke: () => ops.push(['stroke']),
     lineTo: () => ops.push(['lineTo']),
     closePath: () => ops.push(['closePath']),
     fill: () => ops.push(['fill']),
@@ -161,6 +165,17 @@ test('torch glow and water shimmer paint animated effects without error', () => 
   waterShimmer(context, 40, 40, 900);
   assert.ok(ops.some(([name]) => name === 'arc'), 'torch glow should draw a radial shape');
   assert.ok(ops.some(([name]) => name === 'fillRect'), 'water shimmer should draw highlight pixels');
+});
+
+test('terrain dressing, selection rings, and nameplates paint without error', () => {
+  const { context, ops } = makeContext();
+  const theme = resolveVillageTheme({ landscape: 'heath' });
+  drawTerrainDetail(context, theme, 'g', 16, 16, 18, 900);
+  drawTerrainDetail(context, theme, 'w', 32, 32, 8, 900);
+  drawSelectionRing(context, 80, 72, true);
+  drawNameplate(context, 'Pim Thistledown', 80, 50, true);
+  assert.ok(ops.some(([name]) => name === 'stroke'), 'selection ring should be outlined');
+  assert.ok(ops.some(([name]) => name === 'fillText'), 'nameplate should be legible');
 });
 
 test('buildWorldGrid reserves a sky/hill horizon at the north edge', () => {
