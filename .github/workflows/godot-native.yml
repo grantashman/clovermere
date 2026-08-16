@@ -33,3 +33,5 @@ jobs:
         run: godot --headless --editor --quit --path desktop/godot
       - name: Smoke run native scene
         run: godot --headless --path desktop/godot --quit-after 3
+      - name: Measure steady-state native renderer
+        run: godot --headless --path desktop/godot --script res://tests/render_smoke.gd

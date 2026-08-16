@@ -11,30 +11,31 @@ const ZOOM_MAX := 2.0
 const ZOOM_STEP := 0.1
 
 var world = World.new()
+var world_cache: SubViewport
+var world_sprite: Sprite2D
 var world_view: Node2D
 var player: Node2D
 var camera: Camera2D
 var grid: Array = []
 var village: Dictionary = DEFAULT_VILLAGE.duplicate(true)
 var player_position := World.START_POSITION
-var camera_zoom := 0.5
-var debug_visible := true
+var camera_zoom := 0.75
+var debug_visible := false
 var save_elapsed := 0.0
 var title_label: Label
 var subtitle_label: Label
 var debug_label: Label
 var hint_label: Label
+var loading_overlay: ColorRect
 
 func _ready() -> void:
     grid = world.build_grid(village)
     _load_save()
+    _build_world_cache()
     camera = Camera2D.new()
     camera.position_smoothing_enabled = false
     camera.zoom = Vector2(camera_zoom, camera_zoom)
     add_child(camera)
-    world_view = WorldView.new()
-    add_child(world_view)
-    world_view.configure(world, grid, village, camera)
     player = PlayerAvatar.new()
     player.scale = Vector2(1.55, 1.55)
     player.z_index = 20
@@ -45,7 +46,35 @@ func _ready() -> void:
     camera.reset_smoothing()
     _build_hud()
     _refresh_hud()
-    queue_redraw()
+    call_deferred("_finish_loading")
+
+func _finish_loading() -> void:
+    await RenderingServer.frame_post_draw
+    await get_tree().process_frame
+    if loading_overlay != null:
+        loading_overlay.visible = false
+
+func _build_world_cache() -> void:
+    world_cache = SubViewport.new()
+    world_cache.name = "StaticWorldCache"
+    world_cache.size = Vector2i(int(world.WORLD_WIDTH * World.TILE_SIZE), int(world.WORLD_HEIGHT * World.TILE_SIZE))
+    world_cache.render_target_clear_mode = SubViewport.CLEAR_MODE_ALWAYS
+    world_cache.render_target_update_mode = SubViewport.UPDATE_ONCE
+    world_cache.transparent_bg = false
+    world_cache.handle_input_locally = false
+    add_child(world_cache)
+
+    world_view = WorldView.new()
+    world_cache.add_child(world_view)
+    world_view.configure(world, grid, village, null)
+
+    world_sprite = Sprite2D.new()
+    world_sprite.name = "StaticWorldTexture"
+    world_sprite.texture = world_cache.get_texture()
+    world_sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+    world_sprite.position = Vector2(world_cache.size) * 0.5
+    world_sprite.z_index = -10
+    add_child(world_sprite)
 
 func _process(delta: float) -> void:
     var direction := Input.get_vector("move_left", "move_right", "move_up", "move_down")
@@ -82,14 +111,25 @@ func _build_hud() -> void:
     add_child(layer)
     var panel := ColorRect.new()
     panel.position = Vector2(20, 20)
-    panel.size = Vector2(390, 132)
-    panel.color = Color(0.035, 0.08, 0.07, 0.88)
+    panel.size = Vector2(340, 88)
+    panel.color = Color(0.035, 0.08, 0.07, 0.94)
     layer.add_child(panel)
-    title_label = _label(layer, Vector2(42, 37), Vector2(340, 30), 24, Color("#f0d487"))
-    subtitle_label = _label(layer, Vector2(43, 70), Vector2(340, 22), 14, Color("#b8c785"))
-    debug_label = _label(layer, Vector2(43, 96), Vector2(350, 45), 13, Color("#d9e1c1"))
-    hint_label = _label(layer, Vector2(30, 670), Vector2(1220, 30), 15, Color("#f0d487"))
+    title_label = _label(layer, Vector2(38, 31), Vector2(290, 28), 22, Color("#f0d487"))
+    subtitle_label = _label(layer, Vector2(39, 61), Vector2(290, 18), 12, Color("#b8c785"))
+    debug_label = _label(layer, Vector2(39, 98), Vector2(350, 45), 11, Color("#d9e1c1"))
+    debug_label.visible = debug_visible
+    hint_label = _label(layer, Vector2(30, 672), Vector2(1220, 24), 13, Color("#f0d487"))
     hint_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+
+    loading_overlay = ColorRect.new()
+    loading_overlay.position = Vector2.ZERO
+    loading_overlay.size = Vector2(1280, 720)
+    loading_overlay.color = Color("#132620")
+    loading_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    layer.add_child(loading_overlay)
+    var loading_label := _label(loading_overlay, Vector2(0, 326), Vector2(1280, 40), 22, Color("#f0d487"))
+    loading_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    loading_label.text = "Composing Moonrise Hollow…"
 
 func _label(parent: Node, position: Vector2, size: Vector2, font_size: int, color: Color) -> Label:
     var label := Label.new()

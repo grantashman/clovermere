@@ -9,7 +9,9 @@ This directory contains the native desktop client under active migration. The br
 - Save schema v6 with legacy v5 coordinate migration
 - Continuous collision-safe movement
 - 50%–200% camera zoom
-- Layered terrain, smooth path overlays, settlement, and debug metrics
+- Layered terrain, smooth path overlays, settlement, and optional debug metrics
+- Static world compositing through a one-shot `SubViewport` texture so the live frame only redraws the player, camera, and HUD
+- A 75% native starting view for a more readable desktop composition; 50%–200% remains available
 
 ## Local commands
 
@@ -22,6 +24,9 @@ godot --path .
 
 # Validate the project without opening a window
 godot --headless --editor --quit --path .
+
+# Rendered performance smoke test; expects at least 45 steady-state FPS
+xvfb-run -a godot --path . --script res://tests/render_smoke.gd
 ```
 
-The project intentionally starts without imported art assets. The current slice uses deterministic procedural pixel forms so renderer and pathing behavior can be measured before the production asset pack is introduced. For a downloaded Windows build, extract the release ZIP and run `HobbitMoon.exe` directly.
+The project intentionally starts without imported art assets. The current slice uses deterministic procedural pixel forms so renderer and pathing behavior can be measured before the production asset pack is introduced. The static world is composed behind a short loading veil on launch; gameplay then uses a single cached world texture instead of replaying thousands of tile primitives every frame. Press `F` to reveal the live metrics panel. For a downloaded Windows build, extract the release ZIP and run `HobbitMoon.exe` directly.
