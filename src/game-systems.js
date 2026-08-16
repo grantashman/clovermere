@@ -1,3 +1,5 @@
+import { createDailyState, normalizeDailyState } from './daily-loop.js';
+
 const INVITE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
 export const MAP_WIDTH = 32;
@@ -8,8 +10,10 @@ export const HOUSE_LABELS = { rounddoor: 'Round door', stone: 'Stone cottage', g
 export const HAIR_LABELS = { waves: 'Waves', curls: 'Curls', bob: 'Short crop' };
 
 export const INTERACTIONS = [
-  { x: 7, y: 12, task: 'garden', label: 'garden beds', message: 'The moonberries are taking. You pinch back a leaf and give the soil a careful drink.' },
-  { x: 24, y: 5, task: 'pond', label: 'moon pond', message: 'A silver fish turns under the water. The whole pond keeps the secret with you.' },
+  { x: 7, y: 8, activity: 'rest', label: 'your smial', message: 'The hearth is banked and the bed is warm. You can rest here when the day has asked enough of you.' },
+  { x: 7, y: 12, activity: 'garden', task: 'garden', label: 'garden beds', message: 'The moonberries are taking. You pinch back a leaf and give the soil a careful drink.' },
+  { x: 13, y: 7, activity: 'fish', task: 'pond', label: 'moon pond', message: 'A silver fish turns under the water. The whole pond keeps the secret with you.' },
+  { x: 24, y: 12, activity: 'market', label: 'market stalls', message: 'Daisy has seed packets laid out beneath the striped awning.' },
   { x: 28, y: 14, task: 'gate', label: 'village gate', message: 'You leave the gate unlatched. A friend should never have to knock twice.' },
   { x: 15, y: 8, task: 'noticeboard', label: 'noticeboard', message: 'The noticeboard has a new note: “Pie tasting at the long table, sunset.”' }
 ];
@@ -37,13 +41,14 @@ export const DEFAULT_VILLAGE = {
 };
 
 export const DEFAULT_GAME_STATE = {
-  version: 2,
+  version: 3,
   creationComplete: false,
   hobbit: DEFAULT_HOBBIT,
   village: DEFAULT_VILLAGE,
   player: { x: 14, y: 11 },
   clock: 495,
   day: 3,
+  ...createDailyState(),
   tasks: { garden: false, pond: false, gate: false, noticeboard: false },
   inviteCode: null,
   notes: ['You arrived before the kettle boiled.', 'The hill is quiet. The good kind.']
@@ -62,6 +67,7 @@ export function normalizeGameState(input = {}) {
   return {
     ...createDefaultGameState(),
     ...source,
+    version: 3,
     creationComplete: Boolean(source.creationComplete),
     hobbit: {
       ...DEFAULT_HOBBIT,
@@ -70,6 +76,7 @@ export function normalizeGameState(input = {}) {
     },
     village: { ...DEFAULT_VILLAGE, ...village },
     player: { ...DEFAULT_GAME_STATE.player, ...(source.player ?? {}) },
+    ...normalizeDailyState(source),
     tasks: { ...DEFAULT_GAME_STATE.tasks, ...(source.tasks ?? {}) },
     notes: Array.isArray(source.notes) && source.notes.length ? source.notes.slice(0, 6) : [...DEFAULT_GAME_STATE.notes]
   };

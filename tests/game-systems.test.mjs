@@ -53,6 +53,16 @@ test('normalizeGameState preserves custom choices while filling new defaults', (
   assert.equal(state.creationComplete, true);
 });
 
+test('normalizeGameState migrates older saves into the daily loop without overwriting explicit resources', () => {
+  const migrated = normalizeGameState({ version: 2, inventory: {}, energy: 42, coins: 5, garden: { planted: true, watered: false, ready: false } });
+  assert.equal(migrated.version, 3);
+  assert.equal(migrated.energy, 42);
+  assert.equal(migrated.coins, 5);
+  assert.deepEqual(migrated.inventory, {});
+  assert.deepEqual(migrated.garden, { planted: true, watered: false, ready: false });
+  assert.equal(normalizeGameState({ version: 2 }).inventory.seed_packet, 1);
+});
+
 test('isCreationComplete requires both a hobbit and village name', () => {
   const state = createDefaultGameState();
   state.hobbit.name = '';

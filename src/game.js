@@ -33,6 +33,7 @@ import {
   worldPixelPosition
 } from './game-systems.js';
 import { supabase, supabaseConfigured } from './supabase-client.js';
+import { createDailyState, ITEMS, performActivity } from './daily-loop.js';
 import {
   drawBuildingSprite,
   drawBuildingShadow,
@@ -675,6 +676,8 @@ function updateHud() {
   document.querySelector('#colony-population').textContent = String(NPCS.length + 1);
   document.querySelector('#colony-phase').textContent = timeOfDay(state.clock);
   document.querySelector('#colony-save').textContent = supabaseConfigured ? 'HOSTED' : 'LOCAL';
+  document.querySelector('#energy-label').textContent = `${Math.floor(state.energy)} / ${state.maxEnergy}`;
+  document.querySelector('#coin-label').textContent = String(state.coins);
   document.querySelector('#hobbit-label').textContent = state.hobbit.name;
   document.querySelector('#hobbit-detail').textContent = `${HAIR_LABELS[state.hobbit.hair]} · ${state.village.name}`;
   document.querySelector('#village-label').textContent = state.village.name;
@@ -689,6 +692,14 @@ function updateHud() {
     node.classList.toggle('is-complete', done);
     node.querySelector('.task-check').textContent = done ? '✓' : '○';
   });
+  const inventoryNode = document.querySelector('#inventory-list');
+  if (inventoryNode) {
+    const items = Object.entries(state.inventory).filter(([itemId, quantity]) => quantity > 0 && ITEMS[itemId]);
+    inventoryNode.innerHTML = items.length ? items.map(([itemId, quantity]) => `<li><span>${escapeHtml(ITEMS[itemId].name)}</span><b>${quantity}</b></li>`).join('') : '<li class="empty"><span>Nothing tucked away yet</span><b>—</b></li>';
+  }
+  const gardenStatus = state.garden.ready ? 'Ready to harvest' : state.garden.planted ? (state.garden.watered ? 'Growing · watered' : 'Needs water') : 'Empty bed';
+  document.querySelector('#garden-status').textContent = gardenStatus;
+  document.querySelector('#activity-status').textContent = state.garden.ready ? 'The moonberries are ready. Return to the garden and press E.' : 'Walk to a place of work and press E.';
   document.querySelector('#village-log').innerHTML = state.notes.map((note) => `<li>${escapeHtml(note)}</li>`).join('');
   if (avatarContext && bufferCtx) {
     beginLogicalBuffer();
@@ -737,6 +748,20 @@ function closeDialogue() {
   drawVillage(performance.now());
 }
 
+function performPointActivity(point) {
+  const result = performActivity(state, point.activity);
+  if (!result.ok) {
+    showToast(result.message);
+    return openDialogue(point.label, result.message);
+  }
+  state = normalizeGameState({ ...state, ...result.state });
+  if (point.task) state.tasks[point.task] = true;
+  addNote(result.message);
+  persistPlayerMotion();
+  saveState();
+  openDialogue(point.label, result.message);
+}
+
 function interact() {
   if (dialogue) return closeDialogue();
   const npc = nearbyNpc();
@@ -749,6 +774,7 @@ function interact() {
   }
   const point = getInteraction(playerMotion, INTERACTIONS);
   if (!point) return showToast('Nothing here but the evening breeze.');
+  if (point.activity) return performPointActivity(point);
   state.tasks[point.task] = true;
   state.clock = advanceClock(state.clock, 15);
   addNote(point.message);
@@ -758,7 +784,7 @@ function interact() {
 }
 
 function resetDay() {
-  state = normalizeGameState({ ...state, player: { x: 14, y: 11 }, clock: 495, tasks: { garden: false, pond: false, gate: false, noticeboard: false }, notes: DEFAULT_NOTES });
+  state = normalizeGameState({ ...state, ...createDailyState(), player: { x: 14, y: 11 }, clock: 495, day: 3, tasks: { garden: false, pond: false, gate: false, noticeboard: false }, notes: DEFAULT_NOTES });
   syncPlayerMotion();
   dialogue = null;
   updateHud();
