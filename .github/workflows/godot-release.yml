@@ -44,9 +44,15 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          preset = Path('desktop/godot/export_presets.cfg').read_text()
+          assert 'binary_format/embed_pck=true' in preset, 'Windows export must embed project data'
+          PY
           mkdir -p "$RUNNER_TEMP/hobbit-moon-build"
           Godot_v${GODOT_VERSION}-stable_linux.x86_64 --headless --path desktop/godot --export-release "Windows Desktop" "$RUNNER_TEMP/hobbit-moon-build/HobbitMoon.exe"
           test -s "$RUNNER_TEMP/hobbit-moon-build/HobbitMoon.exe"
+          test ! -e "$RUNNER_TEMP/hobbit-moon-build/HobbitMoon.pck"
           cp desktop/godot/README.md "$RUNNER_TEMP/hobbit-moon-build/README-native.md"
           cd "$RUNNER_TEMP/hobbit-moon-build"
           zip -9 "HobbitMoon-${RELEASE_TAG}-windows-x86_64.zip" HobbitMoon.exe README-native.md
