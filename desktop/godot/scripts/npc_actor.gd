@@ -1,6 +1,8 @@
 extends Node2D
 class_name ClovermereNpcActor
 
+const ArtAssetPack = preload("res://scripts/art_asset_pack.gd")
+
 var npc: Dictionary = {}
 var activity := "resting"
 var route: Array = []
@@ -13,6 +15,8 @@ var skin := Color("#d6a27a")
 var hair := Color("#563d32")
 var coat := Color("#7d8f5b")
 var accent := Color("#d6b36d")
+var uses_authored_art := false
+var authored_texture: Texture2D
 
 func set_npc(data: Dictionary) -> void:
     npc = data.duplicate(true)
@@ -20,6 +24,9 @@ func set_npc(data: Dictionary) -> void:
     hair = Color(str(npc.get("hair", "#563d32")))
     coat = Color(str(npc.get("coat", "#6b8159")))
     accent = Color(str(npc.get("accent", "#d6b36d")))
+    uses_authored_art = str(npc.get("id", "")) in ["alda-fen", "orin-reed"]
+    authored_texture = ArtAssetPack.texture_for("resident") if uses_authored_art else null
+    texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
     queue_redraw()
 
 func set_activity(next_activity: String) -> void:
@@ -60,6 +67,11 @@ func _process(delta: float) -> void:
 
 func _draw() -> void:
     var bob := sin(step_phase) * (0.8 if walking else 0.25)
+    if uses_authored_art and authored_texture != null:
+        draw_texture_rect(authored_texture, Rect2(-16, -24 + bob, 32, 48), false)
+        _draw_role_prop(bob)
+        _draw_work_effect(bob)
+        return
     var shadow_points := PackedVector2Array([
         Vector2(-10, 7) + shadow_offset, Vector2(-6, 4) + shadow_offset, Vector2(5, 4) + shadow_offset,
         Vector2(11, 7) + shadow_offset, Vector2(5, 10) + shadow_offset, Vector2(-6, 10) + shadow_offset

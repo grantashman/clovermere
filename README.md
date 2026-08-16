@@ -17,6 +17,7 @@ The native client currently includes:
 - Tinker Workshop material sink: 3 timber + 2 stone + 1 ore creates a persisted Tinker’s Kit that reduces future work energy costs by 20%; the HUD shows `KIT READY` after purchase.
 - Live resident layer: six role-specific NPC actors follow deterministic morning/work/evening/night schedules with route movement, idle/walk motion, role props, work-tool swings, impact sparks, and offset directional shadows.
 - Authored central-crossing benchmark layer with stronger building contact shadows, cottage/workshop props, crossing accents, and clock-driven cooler evening ambient lighting.
+- First authored benchmark asset pack: hand-built pixel PNGs for Greenbriar Cottage, Tinker Workshop, the crossing tree, boulder, foxglove patch, player, and two central residents, all using a locked Clovermere palette.
 - Collision-safe keyboard movement and mouse click-to-move pathfinding.
 - Contextual building interaction, target markers, camera tracking, and 50%–200% zoom.
 - Field-notes loading and welcome screens before gameplay.
@@ -39,7 +40,8 @@ godot --headless --path desktop/godot --script res://tests/day_state_test.gd
 godot --headless --path desktop/godot --script res://tests/npc_schedule_test.gd
 godot --headless --path desktop/godot --script res://tests/npc_actor_test.gd
 
-# Run timed work, feedback, workshop, and benchmark contracts
+# Run art asset, timed work, feedback, workshop, and benchmark contracts
+godot --headless --path desktop/godot --script res://tests/art_asset_pack_test.gd
 godot --headless --path desktop/godot --script res://tests/work_action_test.gd
 godot --headless --path desktop/godot --script res://tests/work_feedback_smoke.gd
 godot --headless --path desktop/godot --script res://tests/workshop_upgrade_test.gd

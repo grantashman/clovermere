@@ -1,6 +1,7 @@
 extends Node2D
 class_name ClovermereBenchmarkScene
 
+const ArtAssetPack = preload("res://scripts/art_asset_pack.gd")
 const TILE_SIZE := 16.0
 const BRASS := Color("#e1bf70")
 const SHADOW := Color("#152820")
@@ -13,6 +14,7 @@ var grid: Array = []
 var world_changes: Dictionary = {}
 var anchor_positions: Dictionary = {}
 var building_anchors: Dictionary = {}
+var art_sprites: Dictionary = {}
 
 func configure(_world, _grid: Array, _changes: Dictionary) -> Dictionary:
     world = _world
@@ -44,8 +46,30 @@ func configure(_world, _grid: Array, _changes: Dictionary) -> Dictionary:
         var resource_id := str(resource.get("id", ""))
         if resource_id in ["oak-at-the-crossing", "greycap-boulder", "foxglove-patch"]:
             anchor_positions[resource_id] = Vector2(float(resource.get("x", 0)) + 0.5, float(resource.get("y", 0)) + 0.5)
+    _mount_authored_assets()
     queue_redraw()
     return anchor_positions
+
+func _mount_authored_assets() -> void:
+    for node in art_sprites.values():
+        if is_instance_valid(node):
+            node.queue_free()
+    art_sprites.clear()
+    var cottage: Vector2 = _world_point(anchor_positions.get("greenbriar-cottage", Vector2.ZERO))
+    var workshop: Vector2 = _world_point(anchor_positions.get("tinker-workshop", Vector2.ZERO))
+    var tree: Vector2 = _world_point(anchor_positions.get("oak-at-the-crossing", Vector2.ZERO)) + Vector2(0, -8)
+    var stone: Vector2 = _world_point(anchor_positions.get("greycap-boulder", Vector2.ZERO)) + Vector2(0, 2)
+    var herb: Vector2 = _world_point(anchor_positions.get("foxglove-patch", Vector2.ZERO)) + Vector2(0, -2)
+    if anchor_positions.has("greenbriar-cottage"):
+        art_sprites["cottage"] = ArtAssetPack.sprite("cottage", self, cottage, 0)
+    if anchor_positions.has("tinker-workshop"):
+        art_sprites["workshop"] = ArtAssetPack.sprite("workshop", self, workshop, 0)
+    if anchor_positions.has("oak-at-the-crossing"):
+        art_sprites["tree"] = ArtAssetPack.sprite("tree", self, tree, 2)
+    if anchor_positions.has("greycap-boulder"):
+        art_sprites["stone"] = ArtAssetPack.sprite("stone", self, stone, 2)
+    if anchor_positions.has("foxglove-patch") and not bool(world_changes.get("foxglove-patch", false)):
+        art_sprites["herb"] = ArtAssetPack.sprite("herb", self, herb, 2)
 
 func benchmark_bounds() -> Rect2i:
     if world == null:

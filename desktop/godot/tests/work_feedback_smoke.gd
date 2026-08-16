@@ -12,6 +12,7 @@ func _initialize() -> void:
     await create_timer(1.0).timeout
     scene._start_new_journey()
     require(scene.benchmark_scene != null, "the native scene should mount the benchmark layer")
+    require(scene.player.uses_authored_art, "the player should use the authored benchmark sprite")
     var herb: Dictionary = scene.world.resources()[5]
     var herb_tile := Vector2i(int(herb.x), int(herb.y))
     var approach: Vector2i = scene.world.nearest_walkable(scene.grid, herb_tile + Vector2i(0, 1), 4)

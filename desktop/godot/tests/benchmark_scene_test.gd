@@ -22,6 +22,9 @@ func _initialize() -> void:
     require(benchmark.benchmark_bounds().has_point(Vector2i(world.SETTLEMENT_ORIGIN.x + 30, world.SETTLEMENT_ORIGIN.y + 11)), "benchmark bounds should include the central crossing")
     require(benchmark.is_authored_area(Vector2i(world.SETTLEMENT_ORIGIN.x + 30, world.SETTLEMENT_ORIGIN.y + 11)), "central crossing should be inside the authored area")
     require(not benchmark.is_authored_area(Vector2i(10, 10)), "far terrain should remain outside the benchmark area")
+    require(benchmark.art_sprites.has("cottage"), "benchmark should mount the authored cottage sprite")
+    require(benchmark.art_sprites.has("workshop"), "benchmark should mount the authored workshop sprite")
+    require(benchmark.art_sprites.has("tree") and benchmark.art_sprites.has("stone") and benchmark.art_sprites.has("herb"), "benchmark should mount authored resource sprites")
     benchmark.free()
 
     if failures.is_empty():

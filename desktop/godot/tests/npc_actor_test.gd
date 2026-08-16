@@ -26,6 +26,7 @@ func _initialize() -> void:
     require(actor.cast_shadow, "live NPC actors should cast directional shadows")
     require(actor.shadow_offset.x > 0.0 and actor.shadow_offset.y > 0.0, "actor shadow should be offset toward the light direction")
     require(actor.step_phase == 0.0, "new actors should begin at a stable animation phase")
+    require(actor.uses_authored_art, "benchmark residents should use the authored resident sprite")
     var moved: bool = actor.advance_navigation(0.2, 16.0, 2.0)
     require(moved, "an actor with a route should advance")
     require(actor.position.x > 24.0, "actor movement should follow the route in world pixels")

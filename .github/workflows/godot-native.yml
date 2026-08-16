@@ -37,6 +37,7 @@ jobs:
           godot --headless --path desktop/godot --script res://tests/workshop_upgrade_test.gd
       - name: Run benchmark and work-feedback contracts
         run: |
+          godot --headless --path desktop/godot --script res://tests/art_asset_pack_test.gd
           godot --headless --path desktop/godot --script res://tests/benchmark_scene_test.gd
           godot --headless --path desktop/godot --script res://tests/work_feedback_smoke.gd
       - name: Run NPC schedule contract
