@@ -120,6 +120,28 @@ export function formatClock(clock) {
   return `${shownHour}:${minutes} ${suffix}`;
 }
 
+// --- Time of day -----------------------------------------------------------
+
+// Phase from a minutes-since-midnight clock value.
+export function timeOfDay(clock) {
+  if (clock >= 5 * 60 && clock < 7.5 * 60) return 'dawn';
+  if (clock >= 7.5 * 60 && clock < 17 * 60) return 'day';
+  if (clock >= 17 * 60 && clock < 20 * 60) return 'dusk';
+  return 'night';
+}
+
+// Lighting overlay + torch state for a given clock.
+export function lightingFor(clock) {
+  const phase = timeOfDay(clock);
+  const table = {
+    dawn: { tint: 'rgb(255, 196, 140)', alpha: 0.16, torch: false },
+    day: { tint: 'rgb(255, 255, 255)', alpha: 0.0, torch: false },
+    dusk: { tint: 'rgb(232, 142, 86)', alpha: 0.26, torch: true },
+    night: { tint: 'rgb(40, 58, 96)', alpha: 0.42, torch: true }
+  };
+  return { phase, ...table[phase] };
+}
+
 export function resolveVillageTheme(village) {
   const landscape = village?.landscape ?? 'heath';
   const roof = village?.roof === 'plum' ? 'plum' : 'moss';
@@ -150,6 +172,11 @@ export const WORLD_HEIGHT = 40;
 export const VIEW_W = MAP_WIDTH; // 32 tiles visible
 export const VIEW_H = MAP_HEIGHT; // 18 tiles visible
 
+// Convert a world tile coordinate to logical-pixel screen coordinates once.
+export function worldPixelPosition(wx, wy, camX, camY, tileSize = 16) {
+  return { x: (wx - camX) * tileSize, y: (wy - camY) * tileSize };
+}
+
 export const BUILDINGS = [
   { id: 'home', type: 'smial', x: 5, y: 5, w: 4, h: 3, name: 'Your Smial' },
   { id: 'barn', type: 'barn', x: 10, y: 15, w: 4, h: 3, name: 'The Barn' },
@@ -162,12 +189,48 @@ export const BUILDINGS = [
 ];
 
 export const NPCS = [
-  { id: 'pim', name: 'Pim Thistledown', x: 9, y: 9, body: 'round', hair: 'waves', palette: { skin: '#d9a274', hair: '#5b3d32', coat: '#6c7f58', accent: '#d8a65b' }, greet: 'Morning! The beans are climbing the trellis at last.' },
-  { id: 'wren', name: 'Wren Applewood', x: 28, y: 12, body: 'sturdy', hair: 'curls', palette: { skin: '#e0b48a', hair: '#3f2e26', coat: '#8e5a4a', accent: '#e2b96e' }, greet: 'Welcome to the Perch. Pie is on at sunset, same as always.' },
-  { id: 'cedar', name: 'Old Cedar', x: 32, y: 14, body: 'lean', hair: 'bob', palette: { skin: '#c98f63', hair: '#6b5847', coat: '#4a3c4b', accent: '#9bb16e' }, greet: 'Sit a spell. The stars over the water are worth the wait.' },
-  { id: 'mossy', name: 'Mossy Greenhill', x: 36, y: 13, body: 'sturdy', hair: 'waves', palette: { skin: '#d9a274', hair: '#4a3326', coat: '#44566b', accent: '#d8a65b' }, greet: 'Need a hinge mended? Leave it by the anvil.' },
-  { id: 'daisy', name: 'Daisy Bramble', x: 23, y: 16, body: 'round', hair: 'curls', palette: { skin: '#e6bd95', hair: '#5b3d32', coat: '#b77b3f', accent: '#e29178' }, greet: 'Fresh moonberries, straight from the plot!' }
+  {
+    id: 'pim', name: 'Pim Thistledown',
+    x: 9, y: 9, body: 'round', hair: 'waves',
+    palette: { skin: '#d9a274', hair: '#5b3d32', coat: '#6c7f58', accent: '#d8a65b' },
+    greet: 'Morning! The beans are climbing the trellis at last.',
+    schedule: { dawn: { x: 9, y: 10 }, day: { x: 23, y: 11 }, dusk: { x: 9, y: 9 }, night: { x: 7, y: 8 } }
+  },
+  {
+    id: 'wren', name: 'Wren Applewood',
+    x: 28, y: 12, body: 'sturdy', hair: 'curls',
+    palette: { skin: '#e0b48a', hair: '#3f2e26', coat: '#8e5a4a', accent: '#e2b96e' },
+    greet: 'Welcome to the Perch. Pie is on at sunset, same as always.',
+    schedule: { dawn: { x: 28, y: 12 }, day: { x: 29, y: 12 }, dusk: { x: 28, y: 12 }, night: { x: 27, y: 11 } }
+  },
+  {
+    id: 'cedar', name: 'Old Cedar',
+    x: 32, y: 14, body: 'lean', hair: 'bob',
+    palette: { skin: '#c98f63', hair: '#6b5847', coat: '#4a3c4b', accent: '#9bb16e' },
+    greet: 'Sit a spell. The stars over the water are worth the wait.',
+    schedule: { dawn: { x: 30, y: 13 }, day: { x: 32, y: 14 }, dusk: { x: 31, y: 14 }, night: { x: 30, y: 13 } }
+  },
+  {
+    id: 'mossy', name: 'Mossy Greenhill',
+    x: 36, y: 13, body: 'sturdy', hair: 'waves',
+    palette: { skin: '#d9a274', hair: '#4a3326', coat: '#44566b', accent: '#d8a65b' },
+    greet: 'Need a hinge mended? Leave it by the anvil.',
+    schedule: { dawn: { x: 36, y: 13 }, day: { x: 36, y: 13 }, dusk: { x: 35, y: 13 }, night: { x: 35, y: 12 } }
+  },
+  {
+    id: 'daisy', name: 'Daisy Bramble',
+    x: 23, y: 16, body: 'round', hair: 'curls',
+    palette: { skin: '#e6bd95', hair: '#5b3d32', coat: '#b77b3f', accent: '#e29178' },
+    greet: 'Fresh moonberries, straight from the plot!',
+    schedule: { dawn: { x: 23, y: 16 }, day: { x: 23, y: 16 }, dusk: { x: 24, y: 16 }, night: { x: 22, y: 16 } }
+  }
 ];
+
+// Where an NPC stands at a given clock (snaps to their phase waypoint).
+export function npcPositionAt(npc, clock) {
+  const phase = timeOfDay(clock);
+  return npc.schedule?.[phase] ?? { x: npc.x, y: npc.y };
+}
 
 // Returns a WORLD_HEIGHT × WORLD_WIDTH grid of tile chars. Buildings occupy 'b'.
 export function buildWorldGrid(village) {

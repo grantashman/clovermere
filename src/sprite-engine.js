@@ -87,6 +87,29 @@ export function drawHills(ctx, theme) {
   }
 }
 
+// Warm radial glow for lanterns / torches at dusk and night.
+export function drawTorchGlow(ctx, cx, cy, radius, intensity = 1) {
+  const grad = ctx.createRadialGradient(cx, cy, 1, cx, cy, radius);
+  grad.addColorStop(0, `rgba(255, 210, 130, ${0.55 * intensity})`);
+  grad.addColorStop(0.4, `rgba(255, 180, 110, ${0.22 * intensity})`);
+  grad.addColorStop(1, 'rgba(255, 170, 90, 0)');
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+// Animated water shimmer highlight (phase driven by time in ms).
+export function waterShimmer(ctx, ox, oy, time) {
+  const t = (time / 600) % 4;
+  const off = [0, 3, 6, 3][Math.floor(t)];
+  drawPixels(ctx, rects(
+    [ox + 12 + off, oy + 9, 10, 1, '#ffffff'],
+    [ox + 24 - off, oy + 18, 9, 1, '#ffffff'],
+    [ox + 8 + off, oy + 22, 5, 1, '#ffffff']
+  ));
+}
+
 // subtle darkening at the edges for depth
 export function drawVignette(ctx) {
   const grad = ctx.createRadialGradient(GRID_W / 2, GRID_H / 2, GRID_H * 0.35, GRID_W / 2, GRID_H / 2, GRID_H * 0.85);
@@ -307,7 +330,7 @@ export function drawBridgeSprite(ctx, theme, ox, oy) {
   ));
 }
 
-export function drawPondSprite(ctx, theme, ox, oy) {
+export function drawPondSprite(ctx, theme, ox, oy, time = 0) {
   drawPixels(ctx, rects(
     [ox + 6, oy + 4, 36, 24, theme.water],
     [ox + 2, oy + 10, 44, 12, theme.water],
@@ -315,6 +338,7 @@ export function drawPondSprite(ctx, theme, ox, oy) {
     [ox + 24, oy + 18, 12, 2, theme.waterLight],
     [ox + 8, oy + 22, 6, 3, theme.waterLight]
   ));
+  if (time) waterShimmer(ctx, ox, oy, time);
 }
 
 // --- Building sprites (LOTR-flavoured, original names) -----------------------
@@ -331,7 +355,22 @@ function roofCap(ctx, ox, oy, w, roof) {
   drawPixels(ctx, rects([ox, oy, w, 2, roof]));
 }
 
-export function drawBuildingSprite(ctx, type, ox, oy, theme) {
+// Lit chimney with drifting smoke (time in ms for the wisp phase).
+function drawChimneySmoke(ctx, ox, oy, time) {
+  drawPixels(ctx, rects(
+    [ox + 58, oy - 8, 6, 10, '#5b4a3f'],
+    [ox + 58, oy - 8, 6, 2, '#6f5b4d']
+  ));
+  const t = (time / 500) % 6;
+  const puffs = [
+    [ox + 58 + (t < 3 ? t : 6 - t), oy - 12, 4, 3, 'rgba(220,220,210,0.5)'],
+    [ox + 60 - (t < 3 ? t : 6 - t), oy - 16, 4, 3, 'rgba(210,210,200,0.34)'],
+    [ox + 58 + (t < 3 ? t * 0.6 : 6 - t * 0.6), oy - 20, 3, 3, 'rgba(200,200,190,0.2)']
+  ];
+  drawPixels(ctx, puffs);
+}
+
+export function drawBuildingSprite(ctx, type, ox, oy, theme, time = 0) {
   switch (type) {
     case 'smial': {
       // round-doored hobbit smial, larger footprint
@@ -372,6 +411,7 @@ export function drawBuildingSprite(ctx, type, ox, oy, theme) {
       ));
       // roof highlight + warm window glow
       drawPixels(ctx, rects([ox + 10, oy + 9, 60, 2, mix(theme.roof, '#ffffff', 0.18)], [ox + 12, oy + 36, 12, 12, 'rgba(198, 226, 212, 0.25)'], [ox + 56, oy + 36, 12, 12, 'rgba(198, 226, 212, 0.25)']));
+      drawChimneySmoke(ctx, ox, oy, time);
       break;
     }
     case 'smithy': {
@@ -385,6 +425,7 @@ export function drawBuildingSprite(ctx, type, ox, oy, theme) {
         [ox + 46, oy + 30, 10, 10, '#3a3a3a'],
         [ox + 49, oy + 33, 4, 4, PALETTE.gold]
       ));
+      drawChimneySmoke(ctx, ox, oy, time);
       break;
     }
     case 'market': {

@@ -8,13 +8,15 @@ import {
   drawHills,
   drawSky,
   drawSoftShadow,
+  drawTorchGlow,
   drawVignette,
+  waterShimmer,
   getPaletteColor,
   GRID_H,
   GRID_W,
   TILE
 } from '../src/sprite-engine.js';
-import { createDefaultGameState, normalizeGameState, tileAt, resolveVillageTheme, BUILDINGS, NPCS, buildWorldGrid, WORLD_BLOCKED, WORLD_HEIGHT, WORLD_WIDTH } from '../src/game-systems.js';
+import { createDefaultGameState, normalizeGameState, tileAt, resolveVillageTheme, BUILDINGS, NPCS, buildWorldGrid, WORLD_BLOCKED, WORLD_HEIGHT, WORLD_WIDTH, timeOfDay, lightingFor, npcPositionAt, worldPixelPosition } from '../src/game-systems.js';
 
 let before;
 
@@ -153,6 +155,14 @@ test('sky, hills, soft shadow, and vignette paint without error', () => {
   assert.ok(calls === 5, 'expected all new visual helpers to run');
 });
 
+test('torch glow and water shimmer paint animated effects without error', () => {
+  const { context, ops } = makeContext();
+  drawTorchGlow(context, 80, 64, 18, 0.7);
+  waterShimmer(context, 40, 40, 900);
+  assert.ok(ops.some(([name]) => name === 'arc'), 'torch glow should draw a radial shape');
+  assert.ok(ops.some(([name]) => name === 'fillRect'), 'water shimmer should draw highlight pixels');
+});
+
 test('buildWorldGrid reserves a sky/hill horizon at the north edge', () => {
   const grid = buildWorldGrid({ landscape: 'heath' });
   assert.equal(grid[1][10], 's', 'north row should be open sky');
@@ -163,3 +173,38 @@ test('buildWorldGrid reserves a sky/hill horizon at the north edge', () => {
   assert.ok(smial.y >= 4, 'home sits below the hills band');
 });
 
+test('timeOfDay maps the clock to dawn/day/dusk/night phases', () => {
+  assert.equal(timeOfDay(6 * 60), 'dawn');
+  assert.equal(timeOfDay(12 * 60), 'day');
+  assert.equal(timeOfDay(18 * 60), 'dusk');
+  assert.equal(timeOfDay(23 * 60), 'night');
+  assert.equal(timeOfDay(3 * 60), 'night');
+});
+
+test('lightingFor returns a tint and torch state per phase', () => {
+  assert.equal(lightingFor(12 * 60).alpha, 0, 'day has no colour wash');
+  assert.equal(lightingFor(12 * 60).torch, false, 'day has no torches');
+  assert.ok(lightingFor(23 * 60).alpha > 0.3, 'night is strongly tinted');
+  assert.equal(lightingFor(19 * 60).torch, true, 'dusk lights the lanterns');
+});
+
+test('worldPixelPosition returns logical pixels exactly once', () => {
+  assert.deepEqual(worldPixelPosition(14, 10, 0, 1), { x: 224, y: 144 });
+  const visible = worldPixelPosition(14, 10, 0, 1);
+  assert.ok(visible.x < GRID_W && visible.y < GRID_H, 'spawn remains inside the logical viewport');
+});
+
+test('npcPositionAt snaps villagers to their schedule per phase', () => {
+  const pim = NPCS.find((n) => n.id === 'pim');
+  const day = npcPositionAt(pim, 12 * 60);
+  const night = npcPositionAt(pim, 23 * 60);
+  assert.deepEqual(day, pim.schedule.day);
+  assert.deepEqual(night, pim.schedule.night);
+  assert.notDeepEqual(day, night, 'pim moves between day and night');
+  for (const npc of NPCS) {
+    for (const phase of ['dawn', 'day', 'dusk', 'night']) {
+      assert.ok(npc.schedule[phase], `${npc.id} has a ${phase} waypoint`);
+      assert.ok(typeof npc.schedule[phase].x === 'number');
+    }
+  }
+});

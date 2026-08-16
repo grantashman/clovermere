@@ -12,18 +12,22 @@ import {
   LANDSCAPE_LABELS,
   HOUSE_LABELS,
   HAIR_LABELS,
+  lightingFor,
   MAP_HEIGHT,
   MAP_WIDTH,
   movePlayer,
   NPCS,
+  npcPositionAt,
   normalizeGameState,
   resolveVillageTheme,
   tileAt,
+  timeOfDay,
   VIEW_H,
   VIEW_W,
   WORLD_BLOCKED,
   WORLD_HEIGHT,
-  WORLD_WIDTH
+  WORLD_WIDTH,
+  worldPixelPosition
 } from './game-systems.js';
 import { supabase, supabaseConfigured } from './supabase-client.js';
 import {
@@ -40,6 +44,7 @@ import {
   drawPondSprite,
   drawSky,
   drawSoftShadow,
+  drawTorchGlow,
   drawTreeSprite,
   drawVignette,
   GRID_H,
@@ -131,6 +136,7 @@ function openCreator(step = 1, isEditing = false) {
   editing = isEditing;
   setupScreen.hidden = false;
   playScreen.hidden = true;
+  if (animHandle) { cancelAnimationFrame(animHandle); animHandle = null; }
   document.querySelector('#cancel-edit').hidden = !isEditing;
   renderSetup();
   setupScreen.querySelector('input')?.focus();
@@ -168,6 +174,7 @@ function requestPlayFullscreen() {
   } catch {
     /* fullscreen is optional; ignore if the browser blocks it */
   }
+  startVillageAnimation();
   updateFullscreenLabel();
 }
 
@@ -295,7 +302,7 @@ function cameraForPlayer(player) {
   return { camX, camY };
 }
 
-function drawWorld(ctx, theme, village, spec, player, cam) {
+function drawWorld(ctx, theme, village, spec, player, cam, time = 0) {
   // ground + horizon handled per-tile (sky/hill rows at the north edge)
   const { camX, camY } = cam;
   // ground tiles within the viewport window
@@ -320,7 +327,10 @@ function drawWorld(ctx, theme, village, spec, player, cam) {
     }
   }
 
-  const worldToScreen = (wx, wy) => ({ sx: (wx - camX) * TILE, sy: (wy - camY) * TILE });
+  const worldToScreen = (wx, wy) => {
+    const position = worldPixelPosition(wx, wy, camX, camY, TILE);
+    return { sx: position.x, sy: position.y };
+  };
 
   // building floor shadows (drawn before the buildings)
   for (const b of BUILDINGS) {
@@ -333,12 +343,12 @@ function drawWorld(ctx, theme, village, spec, player, cam) {
   for (const b of BUILDINGS) {
     const { sx, sy } = worldToScreen(b.x, b.y);
     if (sx < -80 || sy < -80 || sx > GRID_W || sy > GRID_H) continue;
-    drawBuildingSprite(ctx, b.type, sx, sy, theme);
+    drawBuildingSprite(ctx, b.type, sx, sy, theme, time);
   }
 
   // garden, pond, bridge, noticeboard, gate props near the starting area
   const garden = worldToScreen(5, 9); drawSoftShadow(ctx, garden.sx + 3 * TILE, garden.sy + 3 * TILE, 3.4 * TILE, 5, 0.14); drawGardenSprite(ctx, theme, garden.sx, garden.sy);
-  const pond = worldToScreen(11, 3); drawPondSprite(ctx, theme, pond.sx, pond.sy);
+  const pond = worldToScreen(11, 3); drawPondSprite(ctx, theme, pond.sx, pond.sy, time);
   const bridge = worldToScreen(45, 17); drawBridgeSprite(ctx, theme, bridge.sx, bridge.sy);
   const board = worldToScreen(30, 9); drawSoftShadow(ctx, board.sx + 25, board.sy + 24, 26, 4, 0.18); drawNoticeboardSprite(ctx, board.sx - 6, board.sy - 24);
   const gate = worldToScreen(60, 20); drawGateSprite(ctx, theme, gate.sx, gate.sy);
@@ -353,21 +363,41 @@ function drawWorld(ctx, theme, village, spec, player, cam) {
     }
   }
 
-  // NPCs
+  // NPCs at their scheduled positions for the current clock
+  const lighting = lightingFor(state.clock);
   for (const npc of NPCS) {
-    const { sx, sy } = worldToScreen(npc.x, npc.y);
+    const pos = npcPositionAt(npc, state.clock);
+    const { sx, sy } = worldToScreen(pos.x, pos.y);
     if (sx < -20 || sy < -30 || sx > GRID_W || sy > GRID_H) continue;
-    const feetY = sy * TILE + TILE / 2 + 4;
-    drawHobbitSprite(ctx, { body: npc.body, hair: npc.hair, palette: npc.palette }, sx * TILE + TILE / 2, feetY);
+    const feetY = sy + TILE / 2 + 4;
+    drawHobbitSprite(ctx, { body: npc.body, hair: npc.hair, palette: npc.palette }, sx + TILE / 2, feetY);
+    if (lighting.torch) drawTorchGlow(ctx, sx + TILE / 2, feetY - 18, 14, 0.5);
   }
 
   // player
   const p = worldToScreen(player.x, player.y);
-  const playerFeet = p.sy * TILE + TILE / 2 + 4;
-  drawHobbitSprite(ctx, spec, p.sx * TILE + TILE / 2, playerFeet);
+  const playerFeet = p.sy + TILE / 2 + 4;
+  drawHobbitSprite(ctx, spec, p.sx + TILE / 2, playerFeet);
+  if (lighting.torch) {
+    drawTorchGlow(ctx, p.sx + TILE / 2, playerFeet - 16, 20, 0.7);
+    // warm lantern glow at building doorways
+    for (const b of BUILDINGS) {
+      const { sx, sy } = worldToScreen(b.x, b.y);
+      if (sx < -40 || sy < -40 || sx > GRID_W || sy > GRID_H) continue;
+      drawTorchGlow(ctx, sx + (b.w * TILE) / 2, sy + b.h * TILE - 6, 18, 0.45);
+    }
+  }
 
   // depth vignette over the whole frame
   drawVignette(ctx);
+
+  // time-of-day colour wash
+  if (lighting.alpha > 0) {
+    ctx.fillStyle = lighting.tint;
+    ctx.globalAlpha = lighting.alpha;
+    ctx.fillRect(0, 0, GRID_W, GRID_H);
+    ctx.globalAlpha = 1;
+  }
 }
 
 function drawTileDetail(ctx, sx, sy, wx, wy, theme, tile) {
@@ -393,19 +423,31 @@ function mixPath(theme) {
   return theme.pathLight;
 }
 
-function drawVillage() {
+function drawVillage(time = 0) {
   if (!context || !bufferCtx) return;
   const theme = themeForVillage();
   ensureWorldGrid();
   const cam = cameraForPlayer(state.player);
   bufferCtx.imageSmoothingEnabled = false;
   bufferCtx.clearRect(0, 0, GRID_W, GRID_H);
-  drawWorld(bufferCtx, theme, state.village, state.hobbit, state.player, cam);
+  drawWorld(bufferCtx, theme, state.village, state.hobbit, state.player, cam, time);
 
   context.imageSmoothingEnabled = false;
   context.clearRect(0, 0, canvas.width, canvas.height);
   context.drawImage(buffer, 0, 0, GRID_W, GRID_H, 0, 0, canvas.width, canvas.height);
   drawInteractionPrompt();
+}
+
+// Gentle animation loop so water shimmer, chimney smoke, and torch flicker breathe.
+let animHandle = null;
+function startVillageAnimation() {
+  if (animHandle) return;
+  const tick = (now) => {
+    if (!playScreen || playScreen.hidden) { animHandle = null; return; }
+    drawVillage(now);
+    animHandle = requestAnimationFrame(tick);
+  };
+  animHandle = requestAnimationFrame(tick);
 }
 
 function drawInteractionPrompt() {
@@ -437,7 +479,10 @@ function drawInteractionPrompt() {
 }
 
 function nearbyNpc() {
-  return NPCS.find((npc) => Math.hypot(npc.x - state.player.x, npc.y - state.player.y) <= 1.5) ?? null;
+  return NPCS.find((npc) => {
+    const pos = npcPositionAt(npc, state.clock);
+    return Math.hypot(pos.x - state.player.x, pos.y - state.player.y) <= 1.5;
+  }) ?? null;
 }
 
 function drawCreatorPreview() {
