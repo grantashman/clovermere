@@ -25,6 +25,7 @@ jobs:
             https://github.com/godotengine/godot/releases/download/4.7.1-stable/Godot_v4.7.1-stable_linux.x86_64.zip
           unzip -q "$RUNNER_TEMP/godot/godot.zip" -d "$RUNNER_TEMP/godot"
           chmod +x "$RUNNER_TEMP/godot/Godot_v4.7.1-stable_linux.x86_64"
+          ln -s "$RUNNER_TEMP/godot/Godot_v4.7.1-stable_linux.x86_64" "$RUNNER_TEMP/godot/godot"
           echo "$RUNNER_TEMP/godot" >> "$GITHUB_PATH"
       - name: Run native world contract
         run: godot --headless --path desktop/godot --script res://tests/world_contract_test.gd
