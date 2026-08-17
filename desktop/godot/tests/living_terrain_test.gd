@@ -28,6 +28,8 @@ func _initialize() -> void:
     require(benchmark.resource_art_assets.get("oak-at-the-crossing", "") == "tree_stump", "cleared tree should use an authored stump state")
     require(benchmark.resource_art_assets.get("greycap-boulder", "") == "stone_fragments", "cleared stone should use authored fragments")
     require(benchmark.resource_art_assets.get("foxglove-patch", "") == "herb_stems", "cleared herbs should use authored stems")
+    benchmark.configure(world, world.build_grid({"name": "Clovermere", "landscape": "heath"}, {"birch-by-the-lane": true}), {"birch-by-the-lane": true})
+    require(benchmark.resource_art_assets.get("birch-by-the-lane", "") == "tree_debris", "a secondary cleared tree should use the felled debris variant")
 
     benchmark.set_time(1200)
     require(benchmark.fireflies_visible, "evening should enable subtle fireflies")

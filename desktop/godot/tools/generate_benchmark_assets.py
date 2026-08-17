@@ -269,6 +269,137 @@ def workshop() -> None:
     save(image, "workshop.png")
 
 
+def hall() -> None:
+    image, draw = canvas((128, 96))
+    draw.polygon([(4, 78), (123, 78), (127, 86), (114, 93), (13, 93), (0, 86)], fill=P["shadow"])
+    # Broad civic wall with a raised central hall.
+    draw.rectangle((8, 36, 119, 83), fill=P["ink"])
+    draw.rectangle((12, 39, 115, 81), fill=P["stone_dark"])
+    draw.rectangle((17, 42, 110, 79), fill=P["stone_light"])
+    draw.rectangle((20, 45, 107, 78), fill="#c5ad83")
+    # Stepped slate roof and central pediment.
+    draw.polygon([(3, 37), (63, 5), (124, 37), (118, 49), (9, 49)], fill=P["roof_dark"])
+    draw.polygon([(10, 35), (63, 10), (117, 35), (112, 43), (15, 43)], fill=P["roof"])
+    draw.polygon([(23, 34), (63, 14), (103, 34), (99, 39), (27, 39)], fill=P["roof_light"])
+    for x in range(28, 103, 13):
+        top = int(14 + abs(x - 63) * 0.42)
+        draw.line((x, top + 2, x, 40), fill=P["roof_dark"], width=2)
+    draw.rectangle((10, 43, 116, 47), fill=P["timber"])
+    # Stone pilasters and civic window rhythm.
+    for x in (20, 45, 79, 104):
+        draw.rectangle((x, 45, x + 4, 80), fill=P["timber"])
+    draw.rectangle((18, 60, 109, 64), fill=P["timber"])
+    for x in (27, 86):
+        draw.rectangle((x, 50, x + 17, 67), fill=P["ink"])
+        draw.rectangle((x + 3, 53, x + 14, 64), fill=P["glass"])
+        draw.rectangle((x + 8, 53, x + 10, 64), fill=P["timber"])
+        draw.rectangle((x + 3, 58, x + 14, 60), fill=P["timber"])
+    # Central clock and double oak doors.
+    draw.rectangle((56, 48, 72, 80), fill=P["timber"])
+    draw.rectangle((59, 52, 69, 80), fill=P["wood"])
+    draw.line((64, 55, 64, 64), fill=P["brass"], width=1)
+    draw.line((64, 64, 68, 64), fill=P["brass"], width=1)
+    draw.ellipse((55, 23, 71, 39), fill=P["timber"])
+    draw.ellipse((58, 26, 68, 36), fill=P["brass"])
+    draw.rectangle((62, 29, 64, 34), fill=P["deep"])
+    draw.rectangle((64, 31, 67, 33), fill=P["deep"])
+    draw.rectangle((53, 80, 75, 85), fill=P["timber"])
+    draw.rectangle((56, 85, 72, 89), fill=P["stone_light"])
+    # Small bell/flag at the ridge.
+    draw.rectangle((60, 5, 66, 15), fill=P["timber"])
+    draw.polygon([(66, 7), (77, 10), (66, 14)], fill=P["brass"])
+    save(image, "hall.png")
+
+
+def garden() -> None:
+    image, draw = canvas((160, 112))
+    draw.polygon([(4, 90), (153, 90), (159, 101), (144, 109), (15, 109), (0, 101)], fill=P["shadow"])
+    # Low herbalist house with greenhouse side wing.
+    draw.rectangle((8, 42, 151, 96), fill=P["ink"])
+    draw.rectangle((12, 45, 147, 94), fill=P["wall_shadow"])
+    draw.rectangle((16, 49, 143, 91), fill=P["wall_light"])
+    draw.rectangle((21, 53, 139, 90), fill="#d1a06b")
+    draw.polygon([(2, 43), (60, 12), (115, 37), (151, 26), (157, 44), (113, 56), (8, 56)], fill=P["roof_dark"])
+    draw.polygon([(10, 40), (60, 16), (111, 39), (145, 29), (150, 40), (111, 50), (15, 50)], fill=P["roof"])
+    draw.polygon([(20, 39), (60, 20), (101, 40), (97, 45), (23, 45)], fill=P["roof_light"])
+    for x in range(26, 98, 13):
+        top = int(20 + abs(x - 60) * 0.4)
+        draw.line((x, top + 2, x, 47), fill=P["roof_dark"], width=2)
+    draw.line((13, 50, 145, 50), fill=P["timber"], width=4)
+    # Herb house doors, windows, and greenhouse glass.
+    for x in (18, 53, 91, 137):
+        draw.rectangle((x, 50, x + 4, 93), fill=P["timber"])
+    draw.rectangle((18, 69, 140, 73), fill=P["timber"])
+    draw.rectangle((27, 57, 45, 70), fill=P["timber"])
+    draw.rectangle((30, 60, 42, 67), fill=P["glass"])
+    draw.rectangle((36, 60, 38, 67), fill=P["timber"])
+    draw.rectangle((105, 57, 127, 72), fill=P["timber"])
+    draw.rectangle((108, 60, 124, 69), fill=P["glass_light"])
+    draw.line((116, 60, 116, 69), fill=P["timber"], width=2)
+    draw.rectangle((60, 70, 82, 94), fill=P["timber"])
+    draw.rectangle((64, 73, 78, 94), fill=P["wood"])
+    draw.rectangle((75, 82, 77, 84), fill=P["brass"])
+    draw.rectangle((56, 94, 86, 99), fill=P["timber"])
+    # Lean-to greenhouse and hanging herb sign.
+    draw.polygon([(104, 91), (108, 53), (143, 45), (143, 91)], fill=P["timber"])
+    draw.polygon([(112, 56), (139, 49), (139, 88), (112, 88)], fill=P["glass"])
+    for x in (120, 130):
+        draw.line((x, 53, x, 89), fill=P["timber"], width=2)
+    draw.line((111, 69, 140, 69), fill=P["timber"], width=2)
+    draw.rectangle((125, 19, 137, 37), fill=P["timber"])
+    draw.rectangle((122, 17, 140, 22), fill=P["wood_light"])
+    draw.rectangle((128, 23, 134, 33), fill=P["herb"])
+    draw.rectangle((129, 21, 132, 25), fill=P["petal"])
+    # Front beds make the building read as a garden rather than a generic house.
+    for x in (21, 43, 103):
+        draw.rectangle((x, 96, x + 15, 102), fill=P["soil"])
+        draw.rectangle((x + 3, 94, x + 5, 98), fill=P["herb"])
+        draw.rectangle((x + 10, 93, x + 12, 98), fill=P["petal"])
+    save(image, "garden.png")
+
+
+def barn() -> None:
+    image, draw = canvas((144, 112))
+    draw.polygon([(4, 91), (136, 91), (143, 101), (131, 109), (13, 109), (0, 101)], fill=P["shadow"])
+    draw.rectangle((8, 39, 135, 98), fill=P["ink"])
+    draw.rectangle((12, 43, 131, 96), fill="#784c3d")
+    draw.rectangle((17, 47, 126, 93), fill="#a36249")
+    # Tall red-brown gambrel silhouette.
+    draw.polygon([(2, 41), (40, 12), (73, 3), (139, 35), (133, 55), (9, 55)], fill=P["roof_dark"])
+    draw.polygon([(10, 39), (43, 16), (73, 9), (131, 36), (126, 47), (15, 47)], fill="#4d4741")
+    draw.polygon([(20, 38), (47, 20), (72, 14), (118, 37), (114, 42), (24, 42)], fill=P["roof_light"])
+    for x in range(29, 121, 13):
+        top = int(15 + abs(x - 73) * 0.28)
+        draw.line((x, top + 2, x, 45), fill=P["roof_dark"], width=2)
+    draw.line((10, 46, 130, 46), fill=P["timber"], width=5)
+    # Heavy frame and cross-bracing.
+    for x in (17, 48, 98, 125):
+        draw.rectangle((x, 46, x + 5, 95), fill=P["timber"])
+    draw.rectangle((18, 66, 126, 71), fill=P["timber"])
+    draw.line((23, 49, 45, 66), fill=P["wood_light"], width=3)
+    draw.line((45, 49, 23, 66), fill=P["wood_light"], width=3)
+    draw.line((103, 49, 122, 66), fill=P["wood_light"], width=3)
+    draw.line((122, 49, 103, 66), fill=P["wood_light"], width=3)
+    # Wide sliding doors and hay loft.
+    draw.rectangle((55, 61, 91, 98), fill=P["timber"])
+    draw.rectangle((59, 65, 74, 96), fill=P["wood"])
+    draw.rectangle((76, 65, 87, 96), fill="#92553f")
+    draw.line((74, 65, 74, 96), fill=P["timber"], width=2)
+    draw.line((59, 80, 87, 80), fill=P["timber"], width=2)
+    draw.rectangle((62, 51, 84, 62), fill=P["timber"])
+    draw.rectangle((66, 54, 80, 59), fill=P["brass"])
+    draw.rectangle((70, 54, 72, 59), fill=P["timber"])
+    draw.rectangle((52, 97, 94, 102), fill=P["timber"])
+    draw.rectangle((20, 76, 42, 91), fill=P["timber"])
+    draw.rectangle((23, 79, 39, 88), fill=P["stone_light"])
+    draw.rectangle((103, 76, 124, 91), fill=P["timber"])
+    draw.rectangle((106, 79, 121, 88), fill=P["wood_light"])
+    # Hay fork on the gable.
+    draw.rectangle((72, 4, 75, 18), fill=P["timber"])
+    draw.line((66, 8, 81, 8), fill=P["brass"], width=2)
+    save(image, "barn.png")
+
+
 def tree() -> None:
     image, draw = canvas((48, 64))
     draw.polygon([(8, 56), (38, 54), (45, 59), (38, 63), (7, 62), (2, 59)], fill=P["shadow"])
@@ -394,6 +525,9 @@ def main() -> None:
     ambient_assets()
     cottage()
     workshop()
+    hall()
+    garden()
+    barn()
     tree()
     stone()
     herb()

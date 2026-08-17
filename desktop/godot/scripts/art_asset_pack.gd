@@ -38,6 +38,9 @@ const PALETTE := {
 const ASSET_PATHS := {
     "cottage": "res://assets/benchmark/cottage.png",
     "workshop": "res://assets/benchmark/workshop.png",
+    "hall": "res://assets/benchmark/hall.png",
+    "garden": "res://assets/benchmark/garden.png",
+    "barn": "res://assets/benchmark/barn.png",
     "tree": "res://assets/benchmark/tree.png",
     "stone": "res://assets/benchmark/stone.png",
     "ore": "res://assets/benchmark/ore.png",
@@ -106,10 +109,21 @@ static func resource_state_asset_ids() -> Array:
 static func ambient_asset_ids() -> Array:
     return AMBIENT_ASSET_IDS.duplicate()
 
-static func resource_asset_for(kind: String, cleared: bool) -> String:
+static func resource_asset_for(kind: String, cleared: bool, variant: String = "") -> String:
     if not cleared:
         return {"tree": "tree", "stone": "stone", "ore": "ore", "herb": "herb"}.get(kind, "")
+    if kind == "tree" and variant == "debris":
+        return "tree_debris"
     return {"tree": "tree_stump", "stone": "stone_fragments", "ore": "ore_fragments", "herb": "herb_stems"}.get(kind, "")
+
+static func facade_asset_for(building_id: String) -> String:
+    return {
+        "greenbriar-cottage": "cottage",
+        "clovermere-hall": "hall",
+        "tinker-workshop": "workshop",
+        "herbalists-garden": "garden",
+        "old-barn": "barn"
+    }.get(building_id, "")
 
 static func texture_for(asset_id: String) -> Texture2D:
     if _textures.has(asset_id):

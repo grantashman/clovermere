@@ -24,6 +24,9 @@ func _initialize() -> void:
     require(not benchmark.is_authored_area(Vector2i(10, 10)), "far terrain should remain outside the benchmark area")
     require(benchmark.art_sprites.has("cottage"), "benchmark should mount the authored cottage sprite")
     require(benchmark.art_sprites.has("workshop"), "benchmark should mount the authored workshop sprite")
+    require(benchmark.art_sprites.has("hall"), "benchmark should mount the authored Hall sprite")
+    require(benchmark.art_sprites.has("garden"), "benchmark should mount the authored Garden sprite")
+    require(benchmark.art_sprites.has("barn"), "benchmark should mount the authored Barn sprite")
     require(benchmark.art_sprites.has("tree") and benchmark.art_sprites.has("stone") and benchmark.art_sprites.has("herb"), "benchmark should mount authored resource sprites")
     benchmark.free()
 

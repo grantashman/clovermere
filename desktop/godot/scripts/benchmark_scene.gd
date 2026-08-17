@@ -19,6 +19,7 @@ var terrain_sprites: Dictionary = {}
 var resource_art_assets: Dictionary = {}
 var terrain_sprite: Sprite2D
 var animation_phase := 0.0
+var redraw_accumulator := 0.0
 var minute_of_day := 480
 var fireflies_visible := false
 var active_resource_id := ""
@@ -61,23 +62,33 @@ func configure(_world, _grid: Array, _changes: Dictionary) -> Dictionary:
     return anchor_positions
 
 func _process(delta: float) -> void:
-    animation_phase = fmod(animation_phase + maxf(delta, 0.0), TAU)
+    var step := maxf(delta, 0.0)
+    animation_phase = fmod(animation_phase + step, TAU)
+    redraw_accumulator += step
     for resource_id_variant in regrowth_resource_ids.keys():
         var resource_id: String = str(resource_id_variant)
-        regrowth_resource_ids[resource_id] = float(regrowth_resource_ids[resource_id]) - maxf(delta, 0.0)
+        regrowth_resource_ids[resource_id] = float(regrowth_resource_ids[resource_id]) - step
         if float(regrowth_resource_ids[resource_id]) <= 0.0:
             regrowth_resource_ids.erase(resource_id)
-    queue_redraw()
+    # The authored benchmark contains a comparatively expensive full-scene draw.
+    # Updating its animated accents at 20 Hz preserves readable motion while keeping
+    # the native desktop render budget above the release gate.
+    if redraw_accumulator >= (1.0 / 20.0):
+        redraw_accumulator = fmod(redraw_accumulator, 1.0 / 20.0)
+        queue_redraw()
 
 func set_time(minutes: int) -> void:
-    minute_of_day = posmod(minutes, 1440)
-    fireflies_visible = minute_of_day >= 1110 or minute_of_day < 330
+    var next_minute := posmod(minutes, 1440)
+    var next_fireflies := next_minute >= 1110 or next_minute < 330
+    if next_minute == minute_of_day and next_fireflies == fireflies_visible:
+        return
+    minute_of_day = next_minute
+    fireflies_visible = next_fireflies
     queue_redraw()
 
 func set_active_work(resource_id: String, progress: float) -> void:
     active_resource_id = resource_id
     active_work_progress = clampf(progress, 0.0, 1.0)
-    queue_redraw()
 
 func clear_active_work() -> void:
     active_resource_id = ""
@@ -192,6 +203,11 @@ func _mount_authored_assets() -> void:
         art_sprites["cottage"] = ArtAssetPack.sprite("cottage", self, cottage, 0)
     if anchor_positions.has("tinker-workshop"):
         art_sprites["workshop"] = ArtAssetPack.sprite("workshop", self, workshop, 0)
+    for building_id in ["clovermere-hall", "herbalists-garden", "old-barn"]:
+        var asset_id := ArtAssetPack.facade_asset_for(building_id)
+        if asset_id.is_empty() or not anchor_positions.has(building_id):
+            continue
+        art_sprites[asset_id] = ArtAssetPack.sprite(asset_id, self, _world_point(anchor_positions[building_id]), 0)
     for resource_variant in world.resources():
         if not resource_variant is Dictionary:
             continue
@@ -201,7 +217,9 @@ func _mount_authored_assets() -> void:
         if not anchor_positions.has(resource_id) or not is_authored_area(tile):
             continue
         var kind := str(resource.get("kind", ""))
-        var asset_id := ArtAssetPack.resource_asset_for(kind, bool(world_changes.get(resource_id, false)))
+        var cleared := bool(world_changes.get(resource_id, false))
+        var state_variant := "debris" if cleared and kind == "tree" and resource_id != "oak-at-the-crossing" else ""
+        var asset_id := ArtAssetPack.resource_asset_for(kind, cleared, state_variant)
         if asset_id.is_empty():
             continue
         resource_art_assets[resource_id] = asset_id
@@ -229,10 +247,13 @@ func _draw() -> void:
     if world == null:
         return
     _draw_crossing()
-    _draw_building_contact("greenbriar-cottage")
-    _draw_building_contact("tinker-workshop")
+    for building_id in ["greenbriar-cottage", "clovermere-hall", "tinker-workshop", "herbalists-garden", "old-barn"]:
+        _draw_building_contact(building_id)
     _draw_cottage_props()
+    _draw_hall_props()
     _draw_workshop_props()
+    _draw_garden_props()
+    _draw_barn_props()
     _draw_resource_contacts()
     _draw_living_terrain()
 
@@ -348,6 +369,38 @@ func _draw_workshop_props() -> void:
     draw_rect(Rect2(base + Vector2(48, 5), Vector2(5, 3)), Color("#b88954"), true)
     draw_line(base + Vector2(17, -1), base + Vector2(17, -12), Color("#d3b16f"), 2.0, false)
     draw_rect(Rect2(base + Vector2(13, -14), Vector2(8, 4)), Color("#263f32"), true)
+
+func _draw_hall_props() -> void:
+    var building: Dictionary = building_anchors.get("clovermere-hall", {})
+    if building.is_empty():
+        return
+    var base := Vector2(float(building.x), float(building.y + building.h + 1)) * TILE_SIZE
+    draw_rect(Rect2(base + Vector2(16, 0), Vector2(48, 5)), Color("#6f6250"), true)
+    draw_rect(Rect2(base + Vector2(27, -5), Vector2(24, 5)), Color("#b5a57b"), true)
+    draw_rect(Rect2(base + Vector2(58, -1), Vector2(3, 10)), Color("#704936"), true)
+    draw_circle(base + Vector2(59, -4), 4.0, Color(BRASS, 0.75))
+
+func _draw_garden_props() -> void:
+    var building: Dictionary = building_anchors.get("herbalists-garden", {})
+    if building.is_empty():
+        return
+    var base := Vector2(float(building.x), float(building.y + building.h + 1)) * TILE_SIZE
+    for offset in [4.0, 28.0, 52.0, 76.0, 100.0]:
+        draw_rect(Rect2(base + Vector2(offset, 2), Vector2(17, 5)), Color("#875d4d"), true)
+        draw_rect(Rect2(base + Vector2(offset + 4, -2), Vector2(2, 5)), HERB, true)
+        draw_rect(Rect2(base + Vector2(offset + 11, -3), Vector2(2, 6)), Color("#d7b46f"), true)
+    draw_rect(Rect2(base + Vector2(130, -1), Vector2(12, 7)), Color("#704936"), true)
+    draw_rect(Rect2(base + Vector2(132, 1), Vector2(8, 3)), Color("#a9c987"), true)
+
+func _draw_barn_props() -> void:
+    var building: Dictionary = building_anchors.get("old-barn", {})
+    if building.is_empty():
+        return
+    var base := Vector2(float(building.x), float(building.y + building.h + 1)) * TILE_SIZE
+    draw_rect(Rect2(base + Vector2(8, 1), Vector2(28, 8)), Color("#704936"), true)
+    draw_rect(Rect2(base + Vector2(11, -2), Vector2(22, 4)), Color("#c48959"), true)
+    draw_rect(Rect2(base + Vector2(89, 0), Vector2(16, 9)), Color("#704936"), true)
+    draw_rect(Rect2(base + Vector2(92, 2), Vector2(10, 5)), Color("#a7a78d"), true)
 
 func _draw_resource_contacts() -> void:
     for resource_id in ["oak-at-the-crossing", "greycap-boulder", "foxglove-patch"]:

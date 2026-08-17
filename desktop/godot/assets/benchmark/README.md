@@ -7,7 +7,10 @@ This directory is the first authored pixel-asset set for Clovermere. It is inten
 | File | Use | Native size |
 | --- | --- | ---: |
 | `cottage.png` | Greenbriar Cottage benchmark facade | 128×96 |
+| `hall.png` | Clovermere Hall civic facade | 128×96 |
 | `workshop.png` | Tinker Workshop benchmark facade | 144×112 |
+| `garden.png` | Herbalist's Garden greenhouse facade | 160×112 |
+| `barn.png` | Old Barn gambrel facade | 144×112 |
 | `tree.png` | Oak at the Crossing | 48×64 |
 | `ore.png` | Ironroot Vein benchmark resource | 40×32 |
 | `stone.png` | Greycap Boulder | 40×32 |
@@ -55,8 +58,9 @@ The central benchmark now mounts the terrain foundation over its existing cached
 - intact/cleared resource sprites for trees, stone, ore, and herbs;
 - short-lived herb regrowth sprouts after sleeping;
 - three restrained evening firefly points and deterministic tree foliage sway;
+- five authored settlement facades now cover Cottage, Hall, Workshop, Herbalist's Garden, and Barn;
 - distant terrain remains procedural and cached.
 
-The next visual pass should author transitions for the remaining settlement structures and expand the living-state treatment to broader destruction/regrowth rules.
+The next visual pass should expand destruction/regrowth stages beyond the current benchmark resource states and begin the storage/recipes material loop.
 
 The central benchmark remains the acceptance scene for every new asset family.

@@ -20,7 +20,9 @@ This directory contains the canonical native desktop client. The former browser/
 - Tinker Workshop interaction with one persisted `Tinker’s Kit` recipe (3 timber + 2 stone + 1 ore) that reduces future work energy cost by 20%; `KIT READY` appears in the HUD after purchase
 - Deterministic resident schedules: morning opening, role-specific work, evening strolling, and night resting; live route movement, idle/walk bob, role props, work-tool animation, impact sparks, and offset directional shadows
 - Central-crossing benchmark overlay with building contact shadows, cottage/workshop props, crossing accents, resource contacts, and clock-driven cooler evening ambient lighting
-- First authored benchmark asset pack at `assets/benchmark/`: hand-built pixel PNGs for the two benchmark buildings, three nearby resources, the player, and two central residents, generated from `tools/generate_benchmark_assets.py` and registered through `scripts/art_asset_pack.gd`
+- First authored benchmark asset pack at `assets/benchmark/`: hand-built pixel PNGs for Greenbriar Cottage, Clovermere Hall, Tinker Workshop, Herbalist's Garden, Old Barn, benchmark resources, the player, and residents, generated from `tools/generate_benchmark_assets.py` and registered through `scripts/art_asset_pack.gd`
+- Living resource states and ambient benchmark motion: tree stump/debris, stone/ore fragments, harvested herb stems, active-work pulses, herb regrowth sprouts, water shimmer, foliage sway, and restrained evening fireflies
+
 - Terrain foundation pack at `assets/benchmark/`: three sparse grass variants, woodland and soil pockets, connectivity-selected path straights/corners/T-junctions/crossings, and registered water/bank tiles. The benchmark terrain is composited into one texture so it does not add thousands of live scene nodes; distant terrain remains procedural and cached
 - Material contact-edge shading and a separate world-space lighting compositor for window glows, player lantern radius, and future shadow/dusk expansion
 - Mouse controls: left-click ground to walk, left-click a building to approach and interact, right-click to cancel or revisit, and mouse wheel to zoom
@@ -44,6 +46,7 @@ godot --headless --path . --script res://tests/player_scale_test.gd
 
 # Art asset, timed work, feedback, workshop, and benchmark contract tests
 godot --headless --path . --script res://tests/art_asset_pack_test.gd
+godot --headless --path . --script res://tests/facade_asset_test.gd
 godot --headless --path . --script res://tests/terrain_asset_test.gd
 godot --headless --path . --script res://tests/work_action_test.gd
 godot --headless --path . --script res://tests/work_feedback_smoke.gd
