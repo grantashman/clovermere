@@ -65,6 +65,12 @@ func _draw() -> void:
         _draw_cottage(palette)
     elif building_id == "tinker-workshop":
         _draw_workshop(palette)
+    elif building_id == "clovermere-hall":
+        _draw_hall_interior(palette)
+    elif building_id == "herbalists-garden":
+        _draw_garden_interior(palette)
+    elif building_id == "old-barn":
+        _draw_barn_interior(palette)
     _draw_exit(palette)
     _draw_time_lighting(palette)
 
@@ -87,6 +93,8 @@ func _draw_walls(room: Rect2, palette: Dictionary) -> void:
     _draw_window(Vector2(8, 1) * TILE_SIZE, palette)
     if building_id == "tinker-workshop":
         _draw_window(Vector2(14, 1) * TILE_SIZE, palette)
+    elif building_id in ["clovermere-hall", "herbalists-garden", "old-barn"]:
+        _draw_window(Vector2(14, 1) * TILE_SIZE, palette)
 
 func _draw_window(position: Vector2, palette: Dictionary) -> void:
     var glow: Color = palette.light if _is_evening() else Color("#a8c6a1")
@@ -99,6 +107,12 @@ func _draw_rug(palette: Dictionary) -> void:
     var rug := Rect2(Vector2(5, 7) * TILE_SIZE, Vector2(8, 2) * TILE_SIZE)
     if building_id == "tinker-workshop":
         rug = Rect2(Vector2(4, 8) * TILE_SIZE, Vector2(12, 2) * TILE_SIZE)
+    elif building_id == "clovermere-hall":
+        rug = Rect2(Vector2(4, 6) * TILE_SIZE, Vector2(10, 3) * TILE_SIZE)
+    elif building_id == "herbalists-garden":
+        rug = Rect2(Vector2(4, 8) * TILE_SIZE, Vector2(12, 2) * TILE_SIZE)
+    elif building_id == "old-barn":
+        rug = Rect2(Vector2(4, 7) * TILE_SIZE, Vector2(12, 2) * TILE_SIZE)
     draw_rect(rug.grow(3), Color(palette.ink, 0.45), true)
     draw_rect(rug, palette.rug, true)
     draw_rect(Rect2(rug.position + Vector2(5, 5), rug.size - Vector2(10, 10)), palette.accent.darkened(0.25), false, 2.0)
@@ -107,6 +121,7 @@ func _draw_cottage(palette: Dictionary) -> void:
     _draw_hearth(interaction_world_position("hearth"), palette)
     _draw_bed(interaction_world_position("bed"), palette)
     _draw_chest(interaction_world_position("storage-chest"), palette)
+    _draw_pantry(interaction_world_position("pantry"), palette)
     _draw_table(Vector2(8.5, 6.0) * TILE_SIZE, palette)
     _draw_shelf(Vector2(2.5, 2.5) * TILE_SIZE, 3, palette)
     _draw_potted_plant(Vector2(15.5, 8.0) * TILE_SIZE, palette)
@@ -119,6 +134,66 @@ func _draw_workshop(palette: Dictionary) -> void:
     _draw_crate(Vector2(15.5, 8.5) * TILE_SIZE, palette)
     _draw_crate(Vector2(17.0, 8.5) * TILE_SIZE, palette)
 
+func _draw_hall_interior(palette: Dictionary) -> void:
+    _draw_notice_board(interaction_world_position("notice-board"), palette)
+    _draw_table(interaction_world_position("town-table"), palette)
+    _draw_records(interaction_world_position("village-records"), palette)
+    _draw_shelf(Vector2(2.5, 2.5) * TILE_SIZE, 3, palette)
+
+func _draw_garden_interior(palette: Dictionary) -> void:
+    _draw_garden_bench(interaction_world_position("seed-table"), palette)
+    _draw_drying_rack(interaction_world_position("drying-rack"), palette)
+    _draw_garden_bench(interaction_world_position("herb-bench"), palette)
+    for row in range(3):
+        var y := 6.0 + float(row * 1.25)
+        draw_rect(Rect2(Vector2(3, y) * TILE_SIZE, Vector2(14, 0.75) * TILE_SIZE), Color("#614c3a"), true)
+        for x in range(4, 17, 3):
+            draw_line(Vector2(x, y + 0.45) * TILE_SIZE, Vector2(x + 0.15, y - 0.1) * TILE_SIZE, palette.accent, 2.0, false)
+
+func _draw_barn_interior(palette: Dictionary) -> void:
+    _draw_hay_loft(interaction_world_position("hay-loft"), palette)
+    _draw_garden_bench(interaction_world_position("feed-bench"), palette)
+    _draw_tack_wall(interaction_world_position("tack-wall"), palette)
+    for x in [4.0, 16.0]:
+        draw_rect(Rect2(Vector2(x, 7) * TILE_SIZE, Vector2(2, 3) * TILE_SIZE), Color("#6b4935"), true)
+        draw_rect(Rect2(Vector2(x + 0.4, 7.4) * TILE_SIZE, Vector2(1.2, 2.2) * TILE_SIZE), Color("#c08a4d"), true)
+
+func _draw_notice_board(position: Vector2, palette: Dictionary) -> void:
+    draw_rect(Rect2(position - Vector2(25, 26), Vector2(50, 48)), Color(palette.ink, 0.6), true)
+    draw_rect(Rect2(position - Vector2(22, 22), Vector2(44, 38)), Color("#8d6545"), true)
+    for offset in [Vector2(-13, -10), Vector2(2, -11), Vector2(-8, 3), Vector2(9, 6)]:
+        draw_rect(Rect2(position + offset, Vector2(9, 5)), palette.accent, true)
+
+func _draw_records(position: Vector2, palette: Dictionary) -> void:
+    draw_rect(Rect2(position - Vector2(22, 25), Vector2(44, 50)), Color("#3e4038"), true)
+    draw_rect(Rect2(position - Vector2(18, 20), Vector2(36, 40)), Color("#76513b"), true)
+    for row in range(4):
+        draw_rect(Rect2(position + Vector2(-12, -13 + row * 8), Vector2(24, 3)), palette.accent.darkened(0.2), true)
+
+func _draw_garden_bench(position: Vector2, palette: Dictionary) -> void:
+    draw_rect(Rect2(position - Vector2(30, 10), Vector2(60, 18)), Color(palette.ink, 0.5), true)
+    draw_rect(Rect2(position - Vector2(27, 8), Vector2(54, 12)), Color("#6c7f54"), true)
+    draw_rect(Rect2(position - Vector2(25, 2), Vector2(50, 4)), palette.accent, true)
+    draw_circle(position + Vector2(-12, -6), 5.0, Color("#d3b56e"), true)
+    draw_circle(position + Vector2(5, -5), 4.0, Color("#b2c77a"), true)
+
+func _draw_drying_rack(position: Vector2, palette: Dictionary) -> void:
+    draw_rect(Rect2(position - Vector2(25, 24), Vector2(50, 8)), Color("#6b4935"), true)
+    for x in range(-18, 20, 9):
+        draw_line(position + Vector2(x, -17), position + Vector2(x + 2, 2), palette.accent, 2.0, false)
+        draw_circle(position + Vector2(x + 2, 4), 3.0, Color("#88a65d"), true)
+
+func _draw_hay_loft(position: Vector2, palette: Dictionary) -> void:
+    draw_rect(Rect2(position - Vector2(29, 20), Vector2(58, 35)), Color(palette.ink, 0.55), true)
+    draw_rect(Rect2(position - Vector2(25, 16), Vector2(50, 28)), Color("#b9894e"), true)
+    for offset in [Vector2(-14, -6), Vector2(2, -7), Vector2(-6, 6), Vector2(12, 6)]:
+        draw_line(position + offset, position + offset + Vector2(8, 5), Color("#e0bb67"), 2.0, false)
+
+func _draw_tack_wall(position: Vector2, palette: Dictionary) -> void:
+    draw_rect(Rect2(position - Vector2(28, 20), Vector2(56, 10)), Color("#684837"), true)
+    for x in [-18, -6, 6, 18]:
+        draw_line(position + Vector2(x, -5), position + Vector2(x + 3, -24), palette.accent, 3.0, false)
+        draw_circle(position + Vector2(x + 3, -24), 3.0, Color("#b9784d"), true)
 func _draw_hearth(position: Vector2, palette: Dictionary) -> void:
     draw_rect(Rect2(position - Vector2(22, 17), Vector2(44, 28)), Color(palette.ink, 0.65), true)
     draw_rect(Rect2(position - Vector2(19, 15), Vector2(38, 24)), Color("#6b4935"), true)
@@ -137,6 +212,17 @@ func _draw_chest(position: Vector2, _palette: Dictionary) -> void:
     draw_rect(Rect2(position - Vector2(17, 11), Vector2(34, 21)), Color("#8b5d3e"), true)
     draw_line(position + Vector2(-17, 0), position + Vector2(17, 0), Color("#d0a663"), 2.0)
     draw_rect(Rect2(position - Vector2(2, -2), Vector2(4, 7)), Color("#e0bd67"), true)
+
+func _draw_pantry(position: Vector2, palette: Dictionary) -> void:
+    draw_rect(Rect2(position - Vector2(25, 22), Vector2(50, 42)), Color(palette.ink, 0.58), true)
+    draw_rect(Rect2(position - Vector2(22, 19), Vector2(44, 36)), Color("#76513b"), true)
+    draw_rect(Rect2(position - Vector2(17, 14), Vector2(34, 9)), Color("#b9824f"), true)
+    draw_rect(Rect2(position - Vector2(17, 2), Vector2(34, 15)), Color("#5a4033"), true)
+    draw_line(position + Vector2(-16, -2), position + Vector2(16, -2), Color("#d0a663"), 2.0)
+    draw_rect(Rect2(position + Vector2(-6, -27), Vector2(12, 7)), Color("#4e493d"), true)
+    draw_circle(position + Vector2(0, -29), 4.0, palette.light, true)
+    draw_rect(Rect2(position + Vector2(-13, 7), Vector2(7, 6)), palette.accent, true)
+    draw_rect(Rect2(position + Vector2(5, 7), Vector2(7, 6)), Color("#d0a663"), true)
 
 func _draw_table(position: Vector2, palette: Dictionary) -> void:
     draw_rect(Rect2(position - Vector2(31, 10), Vector2(62, 19)), Color(palette.ink, 0.48), true)

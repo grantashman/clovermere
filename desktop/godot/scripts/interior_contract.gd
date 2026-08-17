@@ -19,7 +19,59 @@ const INTERIOR_DEFINITIONS := {
         "interactions": [
             {"id": "hearth", "name": "Hearth", "x": 4, "y": 5, "action": "rest"},
             {"id": "bed", "name": "Bed", "x": 14, "y": 3, "action": "sleep"},
-            {"id": "storage-chest", "name": "Storage Chest", "x": 8, "y": 9, "action": "storage"}
+            {"id": "storage-chest", "name": "Storage Chest", "x": 8, "y": 9, "action": "storage"},
+            {"id": "pantry", "name": "Hearth Pantry", "x": 12, "y": 7, "action": "cook"}
+        ]
+    },
+    "clovermere-hall": {
+        "location": "clovermere-hall",
+        "name": "Clovermere Hall · Common Room",
+        "short_name": "Clovermere Hall",
+        "width": 18,
+        "height": 12,
+        "spawn": Vector2(9.0, 9.0),
+        "exit": Vector2i(9, 10),
+        "wall_color": "#80644b",
+        "floor_color": "#aa8259",
+        "rug_color": "#6c6954",
+        "interactions": [
+            {"id": "notice-board", "name": "Notice Board", "x": 4, "y": 4, "action": "inspect"},
+            {"id": "town-table", "name": "Town Table", "x": 9, "y": 5, "action": "inspect"},
+            {"id": "village-records", "name": "Village Records", "x": 14, "y": 4, "action": "inspect"}
+        ]
+    },
+    "herbalists-garden": {
+        "location": "herbalists-garden",
+        "name": "Herbalist's Garden · Glasshouse",
+        "short_name": "Herbalist's Garden",
+        "width": 20,
+        "height": 13,
+        "spawn": Vector2(10.0, 10.0),
+        "exit": Vector2i(10, 11),
+        "wall_color": "#637456",
+        "floor_color": "#839268",
+        "rug_color": "#617351",
+        "interactions": [
+            {"id": "seed-table", "name": "Seed Table", "x": 6, "y": 5, "action": "inspect"},
+            {"id": "drying-rack", "name": "Drying Rack", "x": 15, "y": 4, "action": "inspect"},
+            {"id": "herb-bench", "name": "Herb Bench", "x": 8, "y": 8, "action": "inspect"}
+        ]
+    },
+    "old-barn": {
+        "location": "old-barn",
+        "name": "Old Barn · Loft",
+        "short_name": "Old Barn",
+        "width": 20,
+        "height": 13,
+        "spawn": Vector2(10.0, 10.0),
+        "exit": Vector2i(10, 11),
+        "wall_color": "#754f3f",
+        "floor_color": "#9b704d",
+        "rug_color": "#655043",
+        "interactions": [
+            {"id": "hay-loft", "name": "Hay Loft", "x": 5, "y": 4, "action": "inspect"},
+            {"id": "feed-bench", "name": "Feed Bench", "x": 10, "y": 5, "action": "inspect"},
+            {"id": "tack-wall", "name": "Tack Wall", "x": 15, "y": 4, "action": "inspect"}
         ]
     },
     "tinker-workshop": {
@@ -63,7 +115,7 @@ const DIALOGUE_LINES := {
 }
 
 func location_ids() -> Array[String]:
-    return ["greenbriar-cottage", "tinker-workshop"]
+    return ["greenbriar-cottage", "clovermere-hall", "tinker-workshop", "herbalists-garden", "old-barn"]
 
 func transition_seconds() -> float:
     return TRANSITION_SECONDS

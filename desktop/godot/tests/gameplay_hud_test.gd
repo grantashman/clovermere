@@ -28,6 +28,8 @@ func _initialize() -> void:
     require(scene.gameplay_hud.management_mode == "pack", "pack command should select the pack tab")
     scene.gameplay_hud.open_crafting()
     require(scene.gameplay_hud.management_mode == "craft", "craft command should select the craft tab")
+    scene.gameplay_hud.open_cooking()
+    require(scene.gameplay_hud.management_mode == "cook", "cooking command should select the hearth tab")
     scene.gameplay_hud.close_management()
     require(not scene.gameplay_hud.management_panel.visible, "management panel should close cleanly")
 

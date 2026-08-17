@@ -7,6 +7,7 @@ signal pack_requested
 signal craft_requested
 signal pause_requested
 signal recipe_requested(recipe_id: String)
+signal cooking_requested(recipe_id: String)
 signal storage_requested
 
 const FOREST_DEEP := Color("#091610")
@@ -181,8 +182,10 @@ func _build_management_panel() -> void:
     tabs.add_theme_constant_override("separation", 6)
     var pack_tab := _tab_button("PACK", func(): open_pack())
     var craft_tab := _tab_button("CRAFT", func(): open_crafting())
+    var cook_tab := _tab_button("HEARTH", func(): open_cooking())
     tabs.add_child(pack_tab)
     tabs.add_child(craft_tab)
+    tabs.add_child(cook_tab)
     column.add_child(tabs)
     var rule := HSeparator.new()
     rule.add_theme_stylebox_override("separator", _style(WOOD_LIGHT, WOOD_LIGHT, 0, 1))
@@ -208,19 +211,23 @@ func _refresh_management() -> void:
         management_title.text = "FIELD PACK"
         mode_hint.text = "Carry what you need. Home stores wait at Greenbriar Cottage."
         _build_pack_content()
-    else:
+    elif management_mode == "craft":
         management_title.text = "WORKSHOP RECIPES"
         mode_hint.text = "Crafting is available at Tinker Workshop."
         _build_craft_content()
+    else:
+        management_title.text = "HEARTH PANTRY"
+        mode_hint.text = "Make one warm thing before the road asks more of you."
+        _build_cook_content()
 
 func _build_pack_content() -> void:
     var carried: Dictionary = _snapshot.get("inventory", {})
     var stored: Dictionary = _snapshot.get("storage", {})
     management_content.add_child(_section_label("CARRIED MATERIALS"))
-    for material in ["timber", "stone", "ore", "herbs"]:
+    for material in ["timber", "stone", "ore", "herbs", "fish"]:
         management_content.add_child(_material_row(material, int(carried.get(material, 0)), MOSS))
     management_content.add_child(_section_label("HOME STORES"))
-    for material in ["timber", "stone", "ore", "herbs"]:
+    for material in ["timber", "stone", "ore", "herbs", "fish"]:
         management_content.add_child(_material_row(material, int(stored.get(material, 0)), PARCHMENT_DIM))
     var note := _body_label("Sleeping at home automatically stores your carried materials.", 11, PARCHMENT_DIM)
     note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -264,11 +271,46 @@ func _build_craft_content() -> void:
         note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
         management_content.add_child(note)
 
+func _build_cook_content() -> void:
+    var cooking: Dictionary = _snapshot.get("cooking", {})
+    var near_home := bool(_snapshot.get("near_home", false)) and bool(_snapshot.get("interior_mode", false))
+    for recipe_id in ["hearth-tea"]:
+        var recipe: Dictionary = cooking.get(recipe_id, {})
+        if recipe.is_empty():
+            continue
+        var card := PanelContainer.new()
+        card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+        card.custom_minimum_size = Vector2(320, 126)
+        card.add_theme_stylebox_override("panel", _style(Color("#3c3027"), WOOD_LIGHT, 1, 3))
+        var card_margin := _margin(card, 10, 8, 10, 8)
+        var card_column := VBoxContainer.new()
+        card_column.add_theme_constant_override("separation", 4)
+        card_margin.add_child(card_column)
+        var row := HBoxContainer.new()
+        var name := _body_label(str(recipe.get("name", recipe_id)), 14, PARCHMENT)
+        name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+        row.add_child(name)
+        var cook := _small_button("MAKE", func(id: String = recipe_id): cooking_requested.emit(id))
+        cook.disabled = not near_home or not bool(recipe.get("craftable", false))
+        row.add_child(cook)
+        card_column.add_child(row)
+        var summary := _body_label(str(recipe.get("summary", "")), 10, PARCHMENT_DIM)
+        summary.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+        card_column.add_child(summary)
+        var timing := "%d ENERGY  ·  %d MINUTES" % [int(recipe.get("energy", 0)), int(recipe.get("minutes", 0))]
+        card_column.add_child(_body_label(timing, 10, BRASS))
+        card_column.add_child(_body_label(_cost_text(recipe.get("cost", {}), recipe), 10, PARCHMENT_DIM))
+        management_content.add_child(card)
+    if not near_home:
+        var note := _body_label("Stand at the Cottage Hearth Pantry to cook.", 11, PARCHMENT_DIM)
+        note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+        management_content.add_child(note)
+
 func _cost_text(cost: Dictionary, recipe: Dictionary) -> String:
     if bool(recipe.get("owned", false)):
         return "ALREADY FITTED"
     var parts: Array[String] = []
-    for material in ["timber", "stone", "ore", "herbs"]:
+    for material in ["timber", "stone", "ore", "herbs", "fish"]:
         if cost.has(material):
             parts.append("%d %s" % [int(cost[material]), material.to_upper()])
     return "  ·  ".join(parts)
@@ -294,6 +336,11 @@ func open_pack() -> void:
 
 func open_crafting() -> void:
     management_mode = "craft"
+    management_panel.visible = true
+    _refresh_management()
+
+func open_cooking() -> void:
+    management_mode = "cook"
     management_panel.visible = true
     _refresh_management()
 
@@ -333,10 +380,10 @@ func refresh(snapshot: Dictionary) -> void:
     var storage: Dictionary = snapshot.get("storage", {})
     var carried_total := 0
     var stored_total := 0
-    for material in ["timber", "stone", "ore", "herbs"]:
+    for material in ["timber", "stone", "ore", "herbs", "fish"]:
         carried_total += int(inventory.get(material, 0))
         stored_total += int(storage.get(material, 0))
-    stores_label.text = "T%02d  ·  S%02d  ·  O%02d  ·  HERBS %02d  ·  STORES %02d%s" % [int(inventory.get("timber", 0)), int(inventory.get("stone", 0)), int(inventory.get("ore", 0)), int(inventory.get("herbs", 0)), stored_total, "  ·  KIT FITTED" if bool(snapshot.get("kit_ready", false)) else ""]
+    stores_label.text = "T%02d  ·  S%02d  ·  O%02d  ·  HERBS %02d  ·  FISH %02d  ·  STORES %02d%s" % [int(inventory.get("timber", 0)), int(inventory.get("stone", 0)), int(inventory.get("ore", 0)), int(inventory.get("herbs", 0)), int(inventory.get("fish", 0)), stored_total, "  ·  KIT FITTED" if bool(snapshot.get("kit_ready", false)) else ""]
     hint_label.text = str(snapshot.get("hint", "Click to walk  ·  B pack  ·  C craft  ·  E interact  ·  Wheel zoom"))
     debug_label.text = str(snapshot.get("debug", ""))
     debug_label.visible = bool(snapshot.get("debug_visible", false))

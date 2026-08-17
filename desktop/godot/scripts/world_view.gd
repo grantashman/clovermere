@@ -367,14 +367,14 @@ func _draw_landmarks(bounds: Rect2) -> void:
             ]), COLORS.path_light)
 
 func _draw_resources(bounds: Rect2) -> void:
-    for resource in world.resources():
+    for resource in world.resources(village):
         var centre := Vector2((float(resource.x) + 0.5) * TILE, (float(resource.y) + 0.5) * TILE)
         if not bounds.grow(48.0).has_point(centre):
             continue
         var cleared := bool(world_changes.get(str(resource.id), false))
-        _draw_resource(centre, str(resource.get("kind", "")), cleared)
+        _draw_resource(centre, str(resource.get("kind", "")), cleared, int(resource.get("variant", 0)))
 
-func _draw_resource(centre: Vector2, kind: String, cleared: bool) -> void:
+func _draw_resource(centre: Vector2, kind: String, cleared: bool, variant: int = 0) -> void:
     draw_rect(Rect2(centre + Vector2(-9, 7), Vector2(18, 4)), Color("#26372e"), true)
     if cleared:
         if kind == "tree":
@@ -385,16 +385,22 @@ func _draw_resource(centre: Vector2, kind: String, cleared: bool) -> void:
             draw_rect(Rect2(centre + Vector2(-6, -2), Vector2(12, 7)), COLORS.rock_dark, true)
             draw_rect(Rect2(centre + Vector2(-4, -4), Vector2(8, 4)), COLORS.rock, true)
             draw_rect(Rect2(centre + Vector2(-2, -3), Vector2(3, 1)), COLORS.rock_light, true)
+        elif kind == "fish":
+            draw_rect(Rect2(centre + Vector2(-7, -2), Vector2(14, 5)), COLORS.water_dark, true)
+            draw_colored_polygon(PackedVector2Array([centre + Vector2(7, 0), centre + Vector2(12, -5), centre + Vector2(12, 5)]), COLORS.water_light)
+            draw_rect(Rect2(centre + Vector2(-3, -1), Vector2(2, 2)), COLORS.window_warm, true)
         else:
             draw_rect(Rect2(centre + Vector2(-7, 1), Vector2(14, 3)), COLORS.grass_dark, true)
             draw_rect(Rect2(centre + Vector2(-4, -4), Vector2(2, 5)), COLORS.grass_light, true)
         return
     if kind == "tree":
+        var canopy: Color = [COLORS.tree, COLORS.tree_light, COLORS.moss_light][posmod(variant, 3)]
         draw_rect(Rect2(centre + Vector2(-3, -5), Vector2(6, 15)), COLORS.wood, true)
-        draw_circle(centre + Vector2(-5, -6), 9.0, COLORS.tree_dark, true, -1.0, false)
-        draw_circle(centre + Vector2(5, -8), 10.0, COLORS.tree, true, -1.0, false)
-        draw_circle(centre + Vector2(0, -15), 7.0, COLORS.tree_light, true, -1.0, false)
-        draw_rect(Rect2(centre + Vector2(-7, -10), Vector2(4, 2)), COLORS.moss_light, true)
+        draw_circle(centre + Vector2(-5, -6), 10.0, COLORS.tree_dark, true, -1.0, false)
+        draw_circle(centre + Vector2(5, -8), 11.0, canopy, true, -1.0, false)
+        draw_circle(centre + Vector2(0, -16), 8.0, COLORS.tree_light, true, -1.0, false)
+        draw_rect(Rect2(centre + Vector2(-8, -10), Vector2(4, 2)), COLORS.moss_light, true)
+        draw_rect(Rect2(centre + Vector2(5, -14), Vector2(3, 2)), COLORS.grass_light, true)
     elif kind == "stone":
         draw_colored_polygon(PackedVector2Array([
             centre + Vector2(-9, 5), centre + Vector2(-6, -5), centre + Vector2(1, -9), centre + Vector2(9, -3), centre + Vector2(7, 6)
@@ -410,6 +416,13 @@ func _draw_resource(centre: Vector2, kind: String, cleared: bool) -> void:
         draw_rect(Rect2(centre + Vector2(-3, -4), Vector2(3, 3)), Color("#9bb6a0"), true)
         draw_rect(Rect2(centre + Vector2(2, 0), Vector2(3, 3)), Color("#6f9c8b"), true)
         draw_rect(Rect2(centre + Vector2(-1, 4), Vector2(2, 2)), Color("#bdd5ad"), true)
+    elif kind == "fish":
+        var fish_color := COLORS.water_light if posmod(variant, 2) == 0 else COLORS.moss_light
+        draw_arc(centre + Vector2(0, 2), 13.0, 0.15, 2.95, 12, Color(fish_color, 0.5), 1.0, false)
+        draw_arc(centre + Vector2(0, 2), 8.0, 0.25, 2.9, 10, Color(fish_color, 0.72), 1.0, false)
+        draw_rect(Rect2(centre + Vector2(-8, -3), Vector2(16, 6)), COLORS.water_dark, true)
+        draw_colored_polygon(PackedVector2Array([centre + Vector2(8, 0), centre + Vector2(14, -6), centre + Vector2(14, 6)]), fish_color)
+        draw_rect(Rect2(centre + Vector2(-4, -2), Vector2(3, 3)), COLORS.window_warm, true)
     elif kind == "herb":
         for offset in [-5.0, 0.0, 5.0]:
             draw_line(centre + Vector2(offset, 5), centre + Vector2(offset - 1, -5), COLORS.grass_light, 1.0, false)

@@ -19,7 +19,7 @@ This directory contains the canonical native desktop client. The former browser/
 - Timed resource actions with real progress, resource-specific work labels, player tool motion, impact feedback, cancellation, movement/right-click cancellation, and exact-once completion
 - Tinker Workshop recipes consume field-pack materials: Tinker’s Kit (3 timber + 2 stone + 1 ore) reduces work energy cost by 20%; Wayfarer’s Satchel (5 timber + 2 herbs) reduces work time by 20%; Hearthward Charm (2 stone + 2 herbs + 3 ore) raises maximum daily energy to 115. Sleeping at Greenbriar Cottage stores the field pack; `TAKE STORES` returns home materials at the cottage.
 - Traditional PC-game HUD redesign: compact status card, `B` field-pack view, `C` workshop-recipes view, keyboard-accessible action bar, `T` resident dialogue, and a full-world minimap; the UI uses original forest-green, timber-brown, parchment, brass, and moss tones rather than protected LOTR/Tolkien assets or branding
-- Enterable authored interiors: Greenbriar Cottage Hearth Room includes a hearth, bed, storage chest, sleep/storage actions, and warm evening light; Tinker Workshop Workroom includes a workbench, forge, tool rack, and recipe access. A short transition blocks input, hides the exterior/minimap, and saves the exterior position plus interior location without changing schema 7.
+- Enterable authored interiors: Greenbriar Cottage Hearth Room includes a hearth, bed, storage chest, Hearth Pantry cooking, and warm evening light; Tinker Workshop Workroom, Clovermere Hall Common Room, Herbalist's Garden Glasshouse, and Old Barn Loft are also enterable with distinct authored furniture and interaction points. A short transition blocks input, hides the exterior/minimap, and saves the exterior position plus interior location without changing schema 7.
 - Village Memory: Alda Fen, Tobin Wren, and Orin Reed move through introduction → acquainted → trusted stages; each offers one material-backed favor with a persisted completion flag, a contextual dialogue response, and a small gameplay reward. Trusted residents offer one small later-day gift; completed favors mount Garden blooms, a Workshop brazier, and eastern lane markers in the authored benchmark. `T` remains the talk shortcut.
 - Deterministic resident schedules: morning opening, role-specific work, evening strolling, and night resting; live route movement, idle/walk bob, role props, work-tool animation, impact sparks, and offset directional shadows
 - Authored central-crossing benchmark layer with explicit terrain/contact/building/resource/foreground depth bands, stronger building contact shadows, cottage/workshop props, crossing accents, material cluster overlays, six role-specific resident sprites, and clock-driven cooler evening ambient lighting with warm facade window accents.
@@ -28,6 +28,7 @@ This directory contains the canonical native desktop client. The former browser/
 - Resource recovery is deterministic and persistent: trees recover through felled → sprout → young → restored over three sleeps, stone/ore recover over two sleeps, and herbs retain their established next-day restoration. Cleared terrain receives resource-specific scars, fractures, or crystal cues.
 
 - Terrain foundation pack at `assets/benchmark/`: three sparse grass variants, woodland and soil pockets, connectivity-selected path straights/corners/T-junctions/crossings, and registered water/bank tiles. The benchmark terrain is composited into one texture so it does not add thousands of live scene nodes; distant terrain remains procedural and cached
+- Procedural resource field: deterministic generated trees, stone outcrops, ore seams, herbs, and fishing spots are distributed across all four world quadrants, avoid building footprints, and use an authored distant-resource overlay for readable silhouettes and clear states
 - Material contact-edge shading and a separate world-space lighting compositor for window glows, player lantern radius, and future shadow/dusk expansion
 - Mouse controls: left-click ground to walk, left-click a building to approach and interact, right-click to cancel or revisit, and mouse wheel to zoom
 - Welcome/loading flow that opens before gameplay and defaults to fullscreen on desktop
@@ -43,15 +44,20 @@ godot --headless --path . --script res://tests/world_contract_test.gd
 # Day-state contract
 godot --headless --path . --script res://tests/day_state_test.gd
 
-# Storage, recipe, minimap, traditional PC HUD, interior, and Village Memory contracts
+# Storage, recipe, minimap, traditional PC HUD, interior, Village Memory, and pantry contracts
 godot --headless --path . --script res://tests/storage_recipe_test.gd
 godot --headless --path . --script res://tests/minimap_test.gd
 godot --headless --path . --script res://tests/gameplay_hud_test.gd
 godot --headless --path . --script res://tests/interior_contract_test.gd
 godot --headless --path . --script res://tests/interior_scene_test.gd
 godot --headless --path . --script res://tests/interior_transition_smoke.gd
+godot --headless --path . --script res://tests/all_buildings_interior_smoke.gd
 godot --headless --path . --script res://tests/village_memory_test.gd
 godot --headless --path . --script res://tests/village_memory_smoke.gd
+godot --headless --path . --script res://tests/pantry_test.gd
+godot --headless --path . --script res://tests/pantry_smoke.gd
+godot --headless --path . --script res://tests/procedural_resource_test.gd
+godot --headless --path . --script res://tests/procedural_resource_overlay_test.gd
 
 # NPC actor, player-scale, and schedule contract tests
 godot --headless --path . --script res://tests/npc_schedule_test.gd

@@ -16,6 +16,7 @@ const GameplayHud = preload("res://scripts/gameplay_hud.gd")
 const InteriorContract = preload("res://scripts/interior_contract.gd")
 const InteriorScene = preload("res://scripts/interior_scene.gd")
 const VillageMemory = preload("res://scripts/village_memory.gd")
+const ProceduralResourceOverlay = preload("res://scripts/procedural_resource_overlay.gd")
 
 
 const SAVE_PATH := "user://hobbit-moon-village-v2.json"
@@ -30,6 +31,7 @@ const WORK_MINUTES_PER_SECOND := 5.0
 var world = World.new()
 var world_cache: SubViewport
 var world_sprite: Sprite2D
+var procedural_resource_overlay: Node2D
 var world_view: Node2D
 var benchmark_scene: Node2D
 var lighting_overlay: Node2D
@@ -97,7 +99,7 @@ func _ready() -> void:
     benchmark_scene.name = "CentralCrossingBenchmark"
     benchmark_scene.z_index = 4
     add_child(benchmark_scene)
-    benchmark_scene.configure(world, grid, world_changes, resource_states, village_memory.consequence_flags(resident_memory))
+    benchmark_scene.configure(world, grid, world_changes, resource_states, village_memory.consequence_flags(resident_memory), village)
     camera = Camera2D.new()
     camera.position_smoothing_enabled = false
     camera.zoom = Vector2(camera_zoom, camera_zoom)
@@ -174,6 +176,12 @@ func _build_world_cache() -> void:
     world_sprite.position = Vector2(world_cache.size) * 0.5
     world_sprite.z_index = -10
     add_child(world_sprite)
+
+    procedural_resource_overlay = ProceduralResourceOverlay.new()
+    procedural_resource_overlay.name = "ProceduralResourceField"
+    procedural_resource_overlay.z_index = 6
+    procedural_resource_overlay.configure(world, village, world_changes)
+    add_child(procedural_resource_overlay)
 
     lighting_overlay = LightingOverlay.new()
     lighting_overlay.name = "WorldLighting"
@@ -365,7 +373,7 @@ func _handle_world_click(world_position: Vector2) -> void:
     if not building.is_empty():
         _queue_building_interaction(building)
         return
-    var resource := world.resource_at(tile)
+    var resource := world.resource_at(tile, village)
     if not resource.is_empty() and not bool(world_changes.get(str(resource.id), false)):
         _queue_resource_interaction(resource)
         return
@@ -376,7 +384,7 @@ func _handle_context_click(world_position: Vector2) -> void:
     _cancel_work_action("Work cancelled  ·  target changed")
     var tile := Vector2i(floori(world_position.x / World.TILE_SIZE), floori(world_position.y / World.TILE_SIZE))
     var building := world.building_at(tile)
-    var resource := world.resource_at(tile)
+    var resource := world.resource_at(tile, village)
     if not resource.is_empty() and not bool(world_changes.get(str(resource.id), false)):
         _queue_resource_interaction(resource)
         return
@@ -481,6 +489,12 @@ func _handle_interior_action() -> void:
         _sleep_at_home()
     elif action == "storage":
         _withdraw_home_stores()
+    elif action == "cook":
+        interaction_message = "The Hearth Pantry is ready  ·  press MAKE"
+        interaction_timeout = 3.0
+        _show_interaction_feedback()
+        if gameplay_hud != null:
+            gameplay_hud.open_cooking()
     elif action == "craft":
         interaction_message = "The workbench is ready  ·  press C to view recipes"
         interaction_timeout = 3.0
@@ -553,9 +567,9 @@ func _handle_resource_action() -> void:
         _handle_building_action()
         return
     var tile := Vector2i(floori(player_position.x), floori(player_position.y))
-    var resource := world.resource_at(tile)
+    var resource := world.resource_at(tile, village)
     if resource.is_empty():
-        for candidate in world.resources():
+        for candidate in world.resources(village):
             if bool(world_changes.get(str(candidate.id), false)):
                 continue
             var candidate_tile := Vector2i(int(candidate.x), int(candidate.y))
@@ -605,6 +619,27 @@ func _is_near_workshop() -> bool:
             if player_position.distance_to(candidate + Vector2(0.5, 0.5)) <= 2.0:
                 return true
     return false
+
+func _cook_recipe(recipe_id: String) -> void:
+    if not _in_interior() or interior_location != "greenbriar-cottage":
+        interaction_message = "Stand at the Cottage Hearth Pantry to cook"
+        interaction_timeout = 2.5
+        _show_interaction_feedback()
+        return
+    var result: Dictionary = day_state.cook_recipe(recipe_id)
+    if bool(result.get("ok", false)):
+        interaction_message = "%s made  ·  +%d energy  ·  %d minutes" % [str(result.get("name", recipe_id)), int(result.get("energy", 0)), int(result.get("minutes", 0))]
+        interaction_timeout = 4.0
+        _save_game()
+        _refresh_hud()
+        _show_interaction_feedback()
+        if gameplay_hud != null:
+            gameplay_hud.open_cooking()
+        return
+    var reason := str(result.get("reason", ""))
+    interaction_message = "Not enough pantry ingredients" if reason == "missing-materials" else "The Hearth Pantry cannot make that yet"
+    interaction_timeout = 2.5
+    _show_interaction_feedback()
 
 func _craft_recipe(recipe_id: String) -> void:
     if not _is_near_workshop():
@@ -695,7 +730,7 @@ func _sleep_at_home() -> bool:
         _show_interaction_feedback()
         return false
     var deposited := day_state.deposit_inventory()
-    var restored_ids: Array[String] = day_state.sleep_next_day(world_changes, world.resources(), resource_states)
+    var restored_ids: Array[String] = day_state.sleep_next_day(world_changes, world.resources(village), resource_states)
     movement_path.clear()
     pending_building = {}
     pending_resource = {}
@@ -800,6 +835,8 @@ func _work_label(resource: Dictionary) -> String:
         return "MINING ORE"
     if kind == "herb":
         return "GATHERING HERBS"
+    if kind == "fish":
+        return "FISHING"
     return "WORKING"
 
 func _apply_completed_resource_work(resource: Dictionary, work_result: Dictionary) -> void:
@@ -841,7 +878,7 @@ func command_interact_with_building(building_id: String) -> void:
             return
 
 func command_interact_with_resource(resource_id: String) -> void:
-    for resource in world.resources():
+    for resource in world.resources(village):
         if str(resource.get("id", "")) == resource_id and not bool(world_changes.get(resource_id, false)):
             _queue_resource_interaction(resource)
             return
@@ -873,6 +910,8 @@ func _begin_interior_transition() -> void:
 func _set_world_visibility(visible: bool) -> void:
     if world_sprite != null:
         world_sprite.visible = visible
+    if procedural_resource_overlay != null:
+        procedural_resource_overlay.visible = visible
     if benchmark_scene != null:
         benchmark_scene.visible = visible
     if npc_layer != null:
@@ -1142,7 +1181,9 @@ func _refresh_world_state() -> void:
     if world_view != null:
         world_view.configure(world, grid, village, null, world_changes)
     if benchmark_scene != null:
-        benchmark_scene.configure(world, grid, world_changes, resource_states, village_memory.consequence_flags(resident_memory))
+        benchmark_scene.configure(world, grid, world_changes, resource_states, village_memory.consequence_flags(resident_memory), village)
+    if procedural_resource_overlay != null:
+        procedural_resource_overlay.configure(world, village, world_changes)
     if world_cache != null:
         world_cache.render_target_update_mode = SubViewport.UPDATE_ONCE
     if gameplay_hud != null:
@@ -1189,6 +1230,7 @@ func _build_hud() -> void:
     gameplay_hud = GameplayHud.new()
     add_child(gameplay_hud)
     gameplay_hud.recipe_requested.connect(_craft_recipe)
+    gameplay_hud.cooking_requested.connect(_cook_recipe)
     gameplay_hud.storage_requested.connect(_withdraw_home_stores)
     gameplay_hud.pause_requested.connect(_pause_journey)
     title_label = gameplay_hud.title_label
@@ -1241,6 +1283,8 @@ func _refresh_hud() -> void:
         "recipes": recipes,
         "near_workshop": _is_near_workshop(),
         "near_home": _is_near_home(),
+        "interior_mode": _in_interior(),
+        "cooking": _cooking_snapshot(),
         "location_name": interior_contract.definition_for(interior_location).get("short_name", "Interior") if _in_interior() else "Clovermere",
         "interaction": interaction_message,
         "hint": "Click to walk  ·  E interact  ·  B pack  ·  C craft  ·  T talk  ·  Esc pause" if _in_interior() else "Click ground  walk     Click a house  visit     Click a resource  work     B  pack     C  craft     E  interact     T  talk     Wheel  zoom     WASD  wander",
@@ -1248,6 +1292,12 @@ func _refresh_hud() -> void:
         "debug": "POS  %6.2f, %6.2f   TILE  %s   FPS  %3d       F  toggle metrics" % [player_position.x, player_position.y, tile_name, Engine.get_frames_per_second()]
     })
     gameplay_hud.set_player_position(player_position)
+
+func _cooking_snapshot() -> Dictionary:
+    var result: Dictionary = {}
+    for recipe_id in day_state.cooking_ids():
+        result[recipe_id] = day_state.cooking_preview(recipe_id)
+    return result
 
 func _load_save() -> bool:
     if active_work_action != null and active_work_action.is_active():
@@ -1285,7 +1335,7 @@ func _load_save() -> bool:
     for resident_id in village_memory.resident_ids():
         if bool(dialogue_flags.get(resident_id, false)) and int(resident_memory.get(resident_id, {}).get("stage", 0)) == 0:
             village_memory.mark_introduced(resident_memory, resident_id, day_state.day)
-    day_state.normalize_resource_states(world_changes, resource_states, world.resources(), day_state.day)
+    day_state.normalize_resource_states(world_changes, resource_states, world.resources(village), day_state.day)
     _refresh_world_state()
     var loaded_location := str(normalized.get("location", "village"))
     var loaded_interior = normalized.get("interior", {})

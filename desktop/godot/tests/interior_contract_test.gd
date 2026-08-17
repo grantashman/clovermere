@@ -15,11 +15,16 @@ func _init() -> void:
 
     require(interiors.location_ids().has("greenbriar-cottage"), "Cottage should expose an enterable interior")
     require(interiors.location_ids().has("tinker-workshop"), "Workshop should expose an enterable interior")
+    require(interiors.location_ids().has("clovermere-hall"), "Hall should expose an enterable interior")
+    require(interiors.location_ids().has("herbalists-garden"), "Garden should expose an enterable interior")
+    require(interiors.location_ids().has("old-barn"), "Barn should expose an enterable interior")
     require(interiors.transition_seconds() > 0.0, "interior entry should have a non-zero transition")
 
-    for building_id in ["greenbriar-cottage", "tinker-workshop"]:
+    for building_id in ["greenbriar-cottage", "tinker-workshop", "clovermere-hall", "herbalists-garden", "old-barn"]:
         var definition: Dictionary = interiors.definition_for(building_id)
         require(not definition.is_empty(), "%s should have an interior definition" % building_id)
+        if definition.is_empty():
+            continue
         require(int(definition.get("width", 0)) >= 16, "%s should have a readable interior width" % building_id)
         require(int(definition.get("height", 0)) >= 10, "%s should have a readable interior height" % building_id)
         var grid: Array = interiors.build_grid(building_id)

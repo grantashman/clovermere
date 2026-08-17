@@ -9,21 +9,26 @@ const WORK_PROFILES := {
     "tree": {"minutes": 30, "energy": 18, "amount": 3},
     "stone": {"minutes": 30, "energy": 16, "amount": 2},
     "ore": {"minutes": 45, "energy": 24, "amount": 1},
-    "herb": {"minutes": 15, "energy": 8, "amount": 2}
+    "herb": {"minutes": 15, "energy": 8, "amount": 2},
+    "fish": {"minutes": 30, "energy": 12, "amount": 2}
 }
 const REGROWTH_PROFILES := {
     "tree": {"days": 3, "initial_stage": "felled"},
     "stone": {"days": 2, "initial_stage": "depleted"},
     "ore": {"days": 2, "initial_stage": "depleted"},
-    "herb": {"days": 1, "initial_stage": "harvested"}
+    "herb": {"days": 1, "initial_stage": "harvested"},
+    "fish": {"days": 1, "initial_stage": "harvested"}
 }
-const RESOURCE_KEYS := ["timber", "stone", "ore", "herbs"]
+const RESOURCE_KEYS := ["timber", "stone", "ore", "herbs", "fish"]
 const RECIPE_CATALOG := {
     "tinkers-kit": {"name": "Tinker’s Kit", "cost": {"timber": 3, "stone": 2, "ore": 1}, "summary": "Reduce work energy costs by 20%.", "category": "tool"},
     "wayfarers-satchel": {"name": "Wayfarer’s Satchel", "cost": {"timber": 5, "herbs": 2}, "summary": "Finish field work in less time.", "category": "travel"},
     "hearthward-charm": {"name": "Hearthward Charm", "cost": {"stone": 2, "herbs": 2, "ore": 3}, "summary": "Raise the day’s energy reserve to 115.", "category": "ward"}
 }
 const UPGRADE_RECIPES := RECIPE_CATALOG
+const COOKING_RECIPES := {
+    "hearth-tea": {"name": "Hearth Tea", "cost": {"timber": 1, "herbs": 2}, "summary": "Steep a warm tonic and restore 25 energy.", "energy": 25, "minutes": 10}
+}
 
 var day := START_DAY
 var minute_of_day := START_MINUTE
@@ -32,14 +37,16 @@ var inventory: Dictionary = {
     "timber": 0,
     "stone": 0,
     "ore": 0,
-    "herbs": 0
+    "herbs": 0,
+    "fish": 0
 }
 var upgrades: Dictionary = {}
 var storage: Dictionary = {
     "timber": 0,
     "stone": 0,
     "ore": 0,
-    "herbs": 0
+    "herbs": 0,
+    "fish": 0
 }
 
 func max_energy() -> int:
@@ -50,6 +57,54 @@ func has_upgrade(upgrade_id: String) -> bool:
 
 func recipe_ids() -> Array[String]:
     return ["tinkers-kit", "wayfarers-satchel", "hearthward-charm"]
+
+func cooking_ids() -> Array[String]:
+    return ["hearth-tea"]
+
+func cooking_preview(recipe_id: String) -> Dictionary:
+    var recipe: Dictionary = COOKING_RECIPES.get(recipe_id, {})
+    if recipe.is_empty():
+        return {"ok": false, "craftable": false, "reason": "unknown-recipe"}
+    var cost: Dictionary = recipe.get("cost", {})
+    var missing: Dictionary = {}
+    for material_variant in cost.keys():
+        var material := str(material_variant)
+        var available := int(inventory.get(material, 0))
+        var required := int(cost[material_variant])
+        if available < required:
+            missing[material] = required - available
+    return {
+        "ok": true,
+        "craftable": missing.is_empty(),
+        "id": recipe_id,
+        "name": str(recipe.get("name", recipe_id)),
+        "summary": str(recipe.get("summary", "")),
+        "cost": cost.duplicate(true),
+        "missing": missing,
+        "energy": int(recipe.get("energy", 0)),
+        "minutes": int(recipe.get("minutes", 0))
+    }
+
+func cook_recipe(recipe_id: String) -> Dictionary:
+    var preview := cooking_preview(recipe_id)
+    if not bool(preview.get("ok", false)):
+        return {"ok": false, "reason": str(preview.get("reason", "unknown-recipe")), "recipe": recipe_id}
+    if not bool(preview.get("craftable", false)):
+        return {"ok": false, "reason": "missing-materials", "recipe": recipe_id, "missing": preview.get("missing", {})}
+    var recipe: Dictionary = COOKING_RECIPES[recipe_id]
+    _consume_materials(recipe.get("cost", {}))
+    var minutes := int(recipe.get("minutes", 0))
+    var energy_restored := int(recipe.get("energy", 0))
+    minute_of_day = mini(23 * 60 + 59, minute_of_day + minutes)
+    energy = mini(max_energy(), energy + energy_restored)
+    return {
+        "ok": true,
+        "recipe": recipe_id,
+        "name": str(recipe.get("name", recipe_id)),
+        "minutes": minutes,
+        "energy": energy_restored,
+        "cost": recipe.get("cost", {}).duplicate(true)
+    }
 
 func recipe_preview(recipe_id: String) -> Dictionary:
     var recipe: Dictionary = RECIPE_CATALOG.get(recipe_id, {})
@@ -309,7 +364,8 @@ func from_dict(source: Dictionary) -> void:
         "timber": 0,
         "stone": 0,
         "ore": 0,
-        "herbs": 0
+        "herbs": 0,
+        "fish": 0
     }
     var source_inventory = source.get("inventory", {})
     if source_inventory is Dictionary:

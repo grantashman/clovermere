@@ -19,6 +19,7 @@ const WOOD_LIGHT := Color("#c18a59")
 const HERB := Color("#cbd996")
 
 var world
+var village: Dictionary = {}
 var grid: Array = []
 var world_changes: Dictionary = {}
 var resource_states: Dictionary = {}
@@ -39,8 +40,9 @@ var active_resource_id := ""
 var active_work_progress := 0.0
 var regrowth_resource_ids: Dictionary = {}
 
-func configure(_world, _grid: Array, _changes: Dictionary, _resource_states: Dictionary = {}, _consequence_flags: Dictionary = {}) -> Dictionary:
+func configure(_world, _grid: Array, _changes: Dictionary, _resource_states: Dictionary = {}, _consequence_flags: Dictionary = {}, _village: Dictionary = {}) -> Dictionary:
     world = _world
+    village = _village.duplicate(true)
     grid = _grid
     world_changes = _changes.duplicate(true)
     resource_states = _resource_states.duplicate(true)
@@ -64,7 +66,7 @@ func configure(_world, _grid: Array, _changes: Dictionary, _resource_states: Dic
         var npc_id := str(npc.get("id", ""))
         if npc_id in ["alda-fen", "orin-reed"]:
             anchor_positions[npc_id] = Vector2(float(npc.get("x", 0)) + 0.5, float(npc.get("y", 0)) + 0.9)
-    for resource_variant in world.resources():
+    for resource_variant in world.resources(village):
         if not resource_variant is Dictionary:
             continue
         var resource: Dictionary = resource_variant
@@ -277,7 +279,7 @@ func _mount_authored_assets() -> void:
         if asset_id.is_empty() or not anchor_positions.has(building_id):
             continue
         art_sprites[asset_id] = ArtAssetPack.sprite(asset_id, self, _world_point(anchor_positions[building_id]), DEPTH_LAYERS["building"])
-    for resource_variant in world.resources():
+    for resource_variant in world.resources(village):
         if not resource_variant is Dictionary:
             continue
         var resource: Dictionary = resource_variant
@@ -350,7 +352,7 @@ func _draw_living_terrain() -> void:
         _draw_fireflies()
 
 func _draw_resource_state_terrain() -> void:
-    for resource_variant in world.resources():
+    for resource_variant in world.resources(village):
         if not resource_variant is Dictionary:
             continue
         var resource: Dictionary = resource_variant
@@ -392,7 +394,7 @@ func _draw_water_shimmer() -> void:
 
 func _draw_foliage_sway() -> void:
     var sway := sin(animation_phase * 1.7) * 1.2
-    for resource_variant in world.resources():
+    for resource_variant in world.resources(village):
         if not resource_variant is Dictionary:
             continue
         var resource: Dictionary = resource_variant

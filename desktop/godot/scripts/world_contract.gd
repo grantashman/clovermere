@@ -36,6 +36,20 @@ const RESOURCE_NODES := [
     {"id": "foxglove-patch", "name": "Foxglove Patch", "kind": "herb", "x": SETTLEMENT_ORIGIN.x + 10, "y": SETTLEMENT_ORIGIN.y + 28, "yield": "herbs"},
     {"id": "moonmint-patch", "name": "Moonmint Patch", "kind": "herb", "x": SETTLEMENT_ORIGIN.x + 55, "y": SETTLEMENT_ORIGIN.y + 22, "yield": "herbs"}
 ]
+const GENERATED_RESOURCE_TARGETS := {
+    "tree": 5,
+    "stone": 3,
+    "ore": 3,
+    "herb": 4,
+    "fish": 3
+}
+const TREE_NAMES := ["Silverbark Stand", "Hazelwood Grove", "Pinewatch Copse", "Alder Run"]
+const STONE_NAMES := ["Greycap Outcrop", "Mossback Stones", "Rillside Boulders", "Old Quarry Teeth"]
+const ORE_NAMES := ["Ironroot Seam", "Blueglass Vein", "Coppermoss Cut", "Deepbell Ore"]
+const HERB_NAMES := ["Foxglove Bank", "Moonmint Hollow", "Sagegrass Patch", "Brightfern Dell"]
+const FISH_NAMES := ["Willowmere Fishing Spot", "Reedwater Pool", "Southbank Fishing Spot", "Quietwater Bend"]
+
+var _resource_cache: Dictionary = {}
 
 const LANDMARKS := [
     {"id": "apple-orchard", "name": "Apple Orchard", "x": 70, "y": 103, "w": 12, "h": 10},
@@ -102,8 +116,101 @@ func buildings() -> Array:
 func npcs() -> Array:
     return NPCS.duplicate(true)
 
-func resources() -> Array:
-    return RESOURCE_NODES.duplicate(true)
+func resources(village: Dictionary = {}) -> Array:
+    var key := "%s:%s" % [str(village.get("name", "Clovermere")), str(village.get("landscape", "heath"))]
+    if _resource_cache.has(key):
+        return _resource_cache[key].duplicate(true)
+    var result: Array = RESOURCE_NODES.duplicate(true)
+    result.append_array(_generate_resources(village))
+    _resource_cache[key] = result.duplicate(true)
+    return result
+
+func _generate_resources(village: Dictionary) -> Array:
+    var seed := seed_from_text("resources:%s:%s" % [village.get("name", "Clovermere"), village.get("landscape", "heath")])
+    var scan_grid: Array = build_grid(village, {})
+    var regions := [
+        Rect2i(8, 8, 112, 72),
+        Rect2i(120, 8, 112, 72),
+        Rect2i(8, 80, 112, 72),
+        Rect2i(120, 80, 112, 72)
+    ]
+    var result: Array = []
+    var occupied: Array[Vector2i] = []
+    for base_resource in RESOURCE_NODES:
+        occupied.append(Vector2i(int(base_resource.x), int(base_resource.y)))
+    var sequence := 0
+    for region_index in regions.size():
+        var region: Rect2i = regions[region_index]
+        for kind_variant in GENERATED_RESOURCE_TARGETS.keys():
+            var kind := str(kind_variant)
+            var candidates: Array = []
+            for y in range(region.position.y + 4, region.end.y - 4, 3):
+                for x in range(region.position.x + 4, region.end.x - 4, 3):
+                    var tile := Vector2i(x, y)
+                    if not _resource_candidate(kind, tile, scan_grid, village, occupied):
+                        continue
+                    candidates.append({"tile": tile, "score": hash2d(x, y, seed + region_index * 97 + sequence * 31)})
+            candidates.sort_custom(func(a: Dictionary, b: Dictionary): return float(a.score) < float(b.score))
+            var selected := 0
+            for candidate_variant in candidates:
+                if selected >= int(GENERATED_RESOURCE_TARGETS[kind]):
+                    break
+                var tile: Vector2i = candidate_variant.tile
+                if not _resource_candidate(kind, tile, scan_grid, village, occupied):
+                    continue
+                occupied.append(tile)
+                var names: Array = _resource_names(kind)
+                var name_index := (sequence + selected + region_index) % names.size()
+                result.append({
+                    "id": "proc-%s-%02d" % [kind, sequence],
+                    "name": str(names[name_index]),
+                    "kind": kind,
+                    "x": tile.x,
+                    "y": tile.y,
+                    "yield": _resource_yield(kind),
+                    "variant": int(floori(float(candidate_variant.score) * 4.0))
+                })
+                selected += 1
+                sequence += 1
+    return result
+
+func _resource_candidate(kind: String, tile: Vector2i, scan_grid: Array, village: Dictionary, occupied: Array[Vector2i]) -> bool:
+    if tile.x < 3 or tile.y < 7 or tile.x >= WORLD_WIDTH - 3 or tile.y >= WORLD_HEIGHT - 3:
+        return false
+    if not building_at(tile).is_empty():
+        return false
+    if occupied.any(func(other: Vector2i): return other.distance_to(tile) < 4.0):
+        return false
+    var tile_kind := tile_at(scan_grid, tile)
+    if kind == "fish":
+        return tile_kind == "w"
+    if kind == "tree":
+        return tile_kind in ["m", "g"]
+    if kind in ["stone", "ore"]:
+        return tile_kind in ["r", "m"]
+    return tile_kind in ["g", "m", "p"]
+
+func _resource_names(kind: String) -> Array:
+    if kind == "tree":
+        return TREE_NAMES
+    if kind == "stone":
+        return STONE_NAMES
+    if kind == "ore":
+        return ORE_NAMES
+    if kind == "fish":
+        return FISH_NAMES
+    return HERB_NAMES
+
+func _resource_yield(kind: String) -> String:
+    if kind == "tree":
+        return "timber"
+    if kind == "stone":
+        return "stone"
+    if kind == "ore":
+        return "ore"
+    if kind == "fish":
+        return "fish"
+    return "herbs"
 
 func building_at(tile: Vector2i) -> Dictionary:
     for building in BUILDINGS:
@@ -112,8 +219,8 @@ func building_at(tile: Vector2i) -> Dictionary:
             return building
     return {}
 
-func resource_at(tile: Vector2i) -> Dictionary:
-    for resource in RESOURCE_NODES:
+func resource_at(tile: Vector2i, village: Dictionary = {}) -> Dictionary:
+    for resource in resources(village):
         if Vector2i(int(resource.x), int(resource.y)) == tile:
             return resource
     return {}

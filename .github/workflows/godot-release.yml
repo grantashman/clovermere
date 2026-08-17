@@ -55,10 +55,18 @@ jobs:
           Godot_v${GODOT_VERSION}-stable_linux.x86_64 --headless --path desktop/godot --script res://tests/interior_contract_test.gd
           Godot_v${GODOT_VERSION}-stable_linux.x86_64 --headless --path desktop/godot --script res://tests/interior_scene_test.gd
           Godot_v${GODOT_VERSION}-stable_linux.x86_64 --headless --path desktop/godot --script res://tests/interior_transition_smoke.gd
+          Godot_v${GODOT_VERSION}-stable_linux.x86_64 --headless --path desktop/godot --script res://tests/all_buildings_interior_smoke.gd
       - name: Run Village Memory contracts before export
         run: |
           Godot_v${GODOT_VERSION}-stable_linux.x86_64 --headless --path desktop/godot --script res://tests/village_memory_test.gd
           Godot_v${GODOT_VERSION}-stable_linux.x86_64 --headless --path desktop/godot --script res://tests/village_memory_smoke.gd
+      - name: Run Hearth Pantry contracts before export
+        run: |
+          Godot_v${GODOT_VERSION}-stable_linux.x86_64 --headless --path desktop/godot --script res://tests/pantry_test.gd
+          Godot_v${GODOT_VERSION}-stable_linux.x86_64 --headless --path desktop/godot --script res://tests/pantry_smoke.gd
+      - name: Run procedural resource coverage before export
+        run: |
+          Godot_v${GODOT_VERSION}-stable_linux.x86_64 --headless --path desktop/godot --script res://tests/procedural_resource_test.gd
       - name: Run work-action, workshop, and benchmark contracts before export
         run: |
           Godot_v${GODOT_VERSION}-stable_linux.x86_64 --headless --path desktop/godot --script res://tests/work_action_test.gd
