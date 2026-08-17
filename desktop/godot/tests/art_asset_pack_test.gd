@@ -16,6 +16,12 @@ func _initialize() -> void:
         require(FileAccess.file_exists(path), "%s should exist at %s" % [asset_id, path])
     require(ArtAssetPack.texture_for("cottage") != null, "cottage texture should import in Godot")
     require(ArtAssetPack.texture_for("workshop") != null, "workshop texture should import in Godot")
+    for asset_id in ArtAssetPack.resource_state_asset_ids() + ArtAssetPack.ambient_asset_ids():
+        require(FileAccess.file_exists(ArtAssetPack.path_for(asset_id)), "%s should exist in the living-terrain pack" % asset_id)
+        require(ArtAssetPack.texture_for(asset_id) != null, "%s should import in Godot" % asset_id)
+    require(ArtAssetPack.resource_asset_for("tree", false) == "tree", "intact trees should resolve to the authored tree")
+    require(ArtAssetPack.resource_asset_for("tree", true) == "tree_stump", "cleared trees should resolve to the authored stump")
+    require(ArtAssetPack.resource_asset_for("herb", true) == "herb_stems", "cleared herbs should resolve to authored stems")
 
     if failures.is_empty():
         print("Godot art asset-pack contract: PASS")

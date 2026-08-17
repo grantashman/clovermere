@@ -305,6 +305,65 @@ def herb() -> None:
     save(image, "herb.png")
 
 
+def ore() -> None:
+    image, draw = canvas((40, 32))
+    draw.polygon([(2, 24), (8, 13), (16, 7), (29, 8), (37, 16), (34, 28), (10, 30)], fill=P["shadow"])
+    draw.polygon([(5, 22), (10, 13), (18, 9), (29, 11), (34, 17), (31, 25), (23, 28), (10, 26)], fill=P["stone_dark"])
+    draw.polygon([(11, 20), (14, 13), (21, 11), (29, 14), (28, 21), (22, 25), (14, 24)], fill=P["stone"])
+    draw.polygon([(16, 14), (20, 11), (24, 13), (22, 18), (18, 19)], fill=P["ore"])
+    draw.rectangle((24, 16, 28, 20), fill=P["ore"])
+    draw.rectangle((8, 24, 18, 27), fill=P["stone_dark"])
+    save(image, "ore.png")
+
+
+def tree_state(name: str, debris: bool = False) -> None:
+    image, draw = canvas((48, 64))
+    draw.polygon([(4, 56), (39, 54), (46, 59), (38, 63), (7, 62), (1, 59)], fill=P["shadow"])
+    draw.rectangle((20, 45, 29, 57), fill=P["timber"])
+    draw.rectangle((23, 47, 28, 55), fill=P["wood"])
+    draw.ellipse((14, 50, 27, 59), outline=P["wood_light"], width=2)
+    if debris:
+        draw.polygon([(29, 47), (44, 45), (46, 50), (32, 54)], fill=P["timber"])
+        draw.rectangle((34, 46, 41, 48), fill=P["wood_light"])
+        draw.rectangle((9, 53, 16, 56), fill=P["wood"])
+    save(image, f"{name}.png")
+
+
+def stone_state(name: str, ore_state: bool = False) -> None:
+    image, draw = canvas((40, 32))
+    draw.polygon([(2, 25), (7, 21), (12, 23), (17, 19), (23, 22), (30, 19), (37, 25), (31, 30), (9, 30)], fill=P["shadow"])
+    draw.polygon([(5, 23), (10, 19), (15, 22), (18, 17), (23, 21), (29, 18), (34, 24), (28, 28), (11, 27)], fill=P["stone_dark"])
+    draw.rectangle((7, 24, 12, 26), fill=P["stone_light"])
+    draw.rectangle((18, 22, 23, 25), fill=P["ore"] if ore_state else P["stone_light"])
+    draw.rectangle((28, 24, 33, 27), fill=P["ore"] if ore_state else P["stone"])
+    save(image, f"{name}.png")
+
+
+def herb_state(name: str) -> None:
+    image, draw = canvas((32, 24))
+    draw.polygon([(2, 20), (10, 18), (22, 18), (29, 21), (23, 23), (7, 23)], fill=P["shadow"])
+    for x, top in ((7, 12), (15, 9), (23, 11)):
+        draw.line((x, 20, x - 1, top + 2), fill=P["leaf_dark"], width=1)
+        draw.rectangle((x - 2, top, x + 1, top + 2), fill=P["herb"])
+    draw.rectangle((13, 17, 18, 20), fill=P["grass_dark"])
+    save(image, f"{name}.png")
+
+
+def ambient_assets() -> None:
+    for name, shift in (("water_shimmer_a", 0), ("water_shimmer_b", 3)):
+        image, draw = terrain_base("water")
+        draw.rectangle((0, 14, 15, 15), fill=P["water_dark"])
+        draw.rectangle((2 + shift, 5, 7 + shift, 5), fill=P["water_light"])
+        draw.rectangle((10 - shift, 10, 14 - shift, 10), fill=P["water_light"])
+        save(image, f"{name}.png")
+    for name, shift in (("foliage_sway_a", 0), ("foliage_sway_b", 1)):
+        image, draw = canvas((16, 16))
+        draw.rectangle((7 + shift, 8, 8 + shift, 15), fill=P["leaf_dark"])
+        draw.rectangle((3 + shift, 5, 8 + shift, 8), fill=P["leaf"])
+        draw.rectangle((8 + shift, 3, 13 + shift, 6), fill=P["leaf_light"])
+        save(image, f"{name}.png")
+
+
 def person(name: str, coat: str, hair: str, accent: str) -> None:
     image, draw = canvas((32, 48))
     draw.polygon([(3, 40), (11, 37), (23, 37), (30, 41), (24, 45), (8, 45)], fill=P["shadow"])
@@ -332,11 +391,18 @@ def person(name: str, coat: str, hair: str, accent: str) -> None:
 
 def main() -> None:
     terrain_assets()
+    ambient_assets()
     cottage()
     workshop()
     tree()
     stone()
     herb()
+    ore()
+    tree_state("tree_stump")
+    tree_state("tree_debris", True)
+    stone_state("stone_fragments")
+    stone_state("ore_fragments", True)
+    herb_state("herb_stems")
     person("player", P["coat"], P["hair"], P["brass"])
     person("resident", P["coat_blue"], "#362f2b", "#c47c55")
     print(f"Generated {len(list(OUT.glob('*.png')))} Clovermere benchmark assets in {OUT}")

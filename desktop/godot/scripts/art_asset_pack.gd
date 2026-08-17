@@ -40,7 +40,13 @@ const ASSET_PATHS := {
     "workshop": "res://assets/benchmark/workshop.png",
     "tree": "res://assets/benchmark/tree.png",
     "stone": "res://assets/benchmark/stone.png",
+    "ore": "res://assets/benchmark/ore.png",
     "herb": "res://assets/benchmark/herb.png",
+    "tree_stump": "res://assets/benchmark/tree_stump.png",
+    "tree_debris": "res://assets/benchmark/tree_debris.png",
+    "stone_fragments": "res://assets/benchmark/stone_fragments.png",
+    "ore_fragments": "res://assets/benchmark/ore_fragments.png",
+    "herb_stems": "res://assets/benchmark/herb_stems.png",
     "player": "res://assets/benchmark/player.png",
     "resident": "res://assets/benchmark/resident.png",
     "grass_a": "res://assets/benchmark/grass_a.png",
@@ -64,7 +70,11 @@ const ASSET_PATHS := {
     "water_edge_s": "res://assets/benchmark/water_edge_s.png",
     "water_edge_e": "res://assets/benchmark/water_edge_e.png",
     "water_edge_w": "res://assets/benchmark/water_edge_w.png",
-    "water_corner": "res://assets/benchmark/water_corner.png"
+    "water_corner": "res://assets/benchmark/water_corner.png",
+    "water_shimmer_a": "res://assets/benchmark/water_shimmer_a.png",
+    "water_shimmer_b": "res://assets/benchmark/water_shimmer_b.png",
+    "foliage_sway_a": "res://assets/benchmark/foliage_sway_a.png",
+    "foliage_sway_b": "res://assets/benchmark/foliage_sway_b.png"
 }
 
 const TERRAIN_ASSET_IDS := [
@@ -74,6 +84,14 @@ const TERRAIN_ASSET_IDS := [
     "water", "water_edge_n", "water_edge_s", "water_edge_e", "water_edge_w", "water_corner"
 ]
 
+const RESOURCE_STATE_ASSET_IDS := [
+    "tree_stump", "tree_debris", "stone_fragments", "ore_fragments", "herb_stems"
+]
+
+const AMBIENT_ASSET_IDS := [
+    "water_shimmer_a", "water_shimmer_b", "foliage_sway_a", "foliage_sway_b"
+]
+
 static var _textures: Dictionary = {}
 
 static func path_for(asset_id: String) -> String:
@@ -81,6 +99,17 @@ static func path_for(asset_id: String) -> String:
 
 static func terrain_asset_ids() -> Array:
     return TERRAIN_ASSET_IDS.duplicate()
+
+static func resource_state_asset_ids() -> Array:
+    return RESOURCE_STATE_ASSET_IDS.duplicate()
+
+static func ambient_asset_ids() -> Array:
+    return AMBIENT_ASSET_IDS.duplicate()
+
+static func resource_asset_for(kind: String, cleared: bool) -> String:
+    if not cleared:
+        return {"tree": "tree", "stone": "stone", "ore": "ore", "herb": "herb"}.get(kind, "")
+    return {"tree": "tree_stump", "stone": "stone_fragments", "ore": "ore_fragments", "herb": "herb_stems"}.get(kind, "")
 
 static func texture_for(asset_id: String) -> Texture2D:
     if _textures.has(asset_id):

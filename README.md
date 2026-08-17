@@ -82,7 +82,7 @@ The former browser prototype has been **retired as a release target**. GitHub Pa
 
 The desktop roadmap is now:
 
-1. **Make the solo loop satisfying** — movement, daily rhythm, timed work, useful materials, gathering, gardening, cooking, and exploration.
+1. **Make the solo loop satisfying** — movement, daily rhythm, timed work, useful materials, gathering, gardening, cooking, and exploration. The current native client includes authored terrain transitions and living resource states with ambient motion.
 2. **Deepen the village** — NPC schedules, interiors, relationships, useful buildings, seasonal events, and persistent world changes.
 3. **Polish the desktop experience** — controller support, accessibility, audio, graphics settings, robust save slots, and platform packaging.
 4. **Add shared play later** — only after the single-player desktop loop is enjoyable and stable.

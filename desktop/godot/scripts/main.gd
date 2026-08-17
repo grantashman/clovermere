@@ -213,6 +213,8 @@ func _process(delta: float) -> void:
     if lighting_overlay != null:
         lighting_overlay.set_time(day_state.minute_of_day)
         lighting_overlay.set_player_position(player.position if player != null else Vector2.ZERO, game_started)
+    if benchmark_scene != null:
+        benchmark_scene.set_time(day_state.minute_of_day)
     if not game_started:
         _refresh_hud()
         return
@@ -464,6 +466,14 @@ func _sleep_at_home() -> bool:
         interaction_timeout = 2.0
         _show_interaction_feedback()
         return false
+    var regrowth_ids: Array[String] = []
+    for resource_variant in world.resources():
+        if not resource_variant is Dictionary:
+            continue
+        var resource: Dictionary = resource_variant
+        var resource_id := str(resource.get("id", ""))
+        if str(resource.get("kind", "")) == "herb" and bool(world_changes.get(resource_id, false)):
+            regrowth_ids.append(resource_id)
     day_state.sleep_next_day(world_changes, world.resources())
     movement_path.clear()
     pending_building = {}
@@ -472,6 +482,9 @@ func _sleep_at_home() -> bool:
     interaction_message = "A new day begins  ·  %s  ·  energy restored" % day_state.format_clock()
     interaction_timeout = 4.0
     _refresh_world_state()
+    for resource_id in regrowth_ids:
+        if benchmark_scene != null:
+            benchmark_scene.begin_regrowth(resource_id)
     _save_game()
     _refresh_hud()
     _show_interaction_feedback()
@@ -503,6 +516,8 @@ func _start_resource_work(resource: Dictionary) -> void:
     active_work_action = action
     pending_resource = resource.duplicate(true)
     player.begin_work(str(resource.get("kind", "resource")))
+    if benchmark_scene != null:
+        benchmark_scene.set_active_work(resource_id, 0.0)
     interaction_feedback.begin_action(action, player.position)
     target_marker.clear_target()
     interaction_timeout = 0.0
@@ -519,10 +534,14 @@ func _advance_work_action(delta: float) -> void:
         last_work_result = work_result
         player.clear_work()
         interaction_feedback.complete_action(resource, player.position)
+        if benchmark_scene != null:
+            benchmark_scene.clear_active_work()
         active_work_action = null
         _apply_completed_resource_work(resource, work_result)
     elif active_work_action.status == "working":
         player.update_work(active_work_action.progress)
+        if benchmark_scene != null:
+            benchmark_scene.set_active_work(str(active_work_action.resource.get("id", "")), active_work_action.progress)
         interaction_feedback.update_action(active_work_action, player.position)
         interaction_message = "%s  ·  %d%%" % [_work_label(active_work_action.resource), roundi(active_work_action.progress * 100.0)]
         interaction_timeout = 0.0
@@ -534,6 +553,8 @@ func _cancel_work_action(message: String = "") -> void:
     active_work_action.cancel()
     active_work_action = null
     player.clear_work()
+    if benchmark_scene != null:
+        benchmark_scene.clear_active_work()
     interaction_feedback.clear_action()
     if not message.is_empty():
         interaction_message = message
@@ -617,6 +638,8 @@ func _start_new_journey() -> void:
         player.clear_work()
     if interaction_feedback != null:
         interaction_feedback.clear_action()
+    if benchmark_scene != null:
+        benchmark_scene.clear_active_work()
     interaction_message = ""
     _refresh_world_state()
     game_started = true

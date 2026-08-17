@@ -16,7 +16,14 @@ var anchor_positions: Dictionary = {}
 var building_anchors: Dictionary = {}
 var art_sprites: Dictionary = {}
 var terrain_sprites: Dictionary = {}
+var resource_art_assets: Dictionary = {}
 var terrain_sprite: Sprite2D
+var animation_phase := 0.0
+var minute_of_day := 480
+var fireflies_visible := false
+var active_resource_id := ""
+var active_work_progress := 0.0
+var regrowth_resource_ids: Dictionary = {}
 
 func configure(_world, _grid: Array, _changes: Dictionary) -> Dictionary:
     world = _world
@@ -46,12 +53,41 @@ func configure(_world, _grid: Array, _changes: Dictionary) -> Dictionary:
             continue
         var resource: Dictionary = resource_variant
         var resource_id := str(resource.get("id", ""))
-        if resource_id in ["oak-at-the-crossing", "greycap-boulder", "foxglove-patch"]:
+        if is_authored_area(Vector2i(int(resource.get("x", 0)), int(resource.get("y", 0)))):
             anchor_positions[resource_id] = Vector2(float(resource.get("x", 0)) + 0.5, float(resource.get("y", 0)) + 0.5)
     _mount_authored_terrain()
     _mount_authored_assets()
     queue_redraw()
     return anchor_positions
+
+func _process(delta: float) -> void:
+    animation_phase = fmod(animation_phase + maxf(delta, 0.0), TAU)
+    for resource_id_variant in regrowth_resource_ids.keys():
+        var resource_id: String = str(resource_id_variant)
+        regrowth_resource_ids[resource_id] = float(regrowth_resource_ids[resource_id]) - maxf(delta, 0.0)
+        if float(regrowth_resource_ids[resource_id]) <= 0.0:
+            regrowth_resource_ids.erase(resource_id)
+    queue_redraw()
+
+func set_time(minutes: int) -> void:
+    minute_of_day = posmod(minutes, 1440)
+    fireflies_visible = minute_of_day >= 1110 or minute_of_day < 330
+    queue_redraw()
+
+func set_active_work(resource_id: String, progress: float) -> void:
+    active_resource_id = resource_id
+    active_work_progress = clampf(progress, 0.0, 1.0)
+    queue_redraw()
+
+func clear_active_work() -> void:
+    active_resource_id = ""
+    active_work_progress = 0.0
+    queue_redraw()
+
+func begin_regrowth(resource_id: String) -> void:
+    if anchor_positions.has(resource_id):
+        regrowth_resource_ids[resource_id] = 4.0
+        queue_redraw()
 
 func _mount_authored_terrain() -> void:
     if is_instance_valid(terrain_sprite):
@@ -149,21 +185,37 @@ func _mount_authored_assets() -> void:
         if is_instance_valid(node):
             node.queue_free()
     art_sprites.clear()
+    resource_art_assets.clear()
     var cottage: Vector2 = _world_point(anchor_positions.get("greenbriar-cottage", Vector2.ZERO))
     var workshop: Vector2 = _world_point(anchor_positions.get("tinker-workshop", Vector2.ZERO))
-    var tree: Vector2 = _world_point(anchor_positions.get("oak-at-the-crossing", Vector2.ZERO)) + Vector2(0, -8)
-    var stone: Vector2 = _world_point(anchor_positions.get("greycap-boulder", Vector2.ZERO)) + Vector2(0, 2)
-    var herb: Vector2 = _world_point(anchor_positions.get("foxglove-patch", Vector2.ZERO)) + Vector2(0, -2)
     if anchor_positions.has("greenbriar-cottage"):
         art_sprites["cottage"] = ArtAssetPack.sprite("cottage", self, cottage, 0)
     if anchor_positions.has("tinker-workshop"):
         art_sprites["workshop"] = ArtAssetPack.sprite("workshop", self, workshop, 0)
-    if anchor_positions.has("oak-at-the-crossing"):
-        art_sprites["tree"] = ArtAssetPack.sprite("tree", self, tree, 2)
-    if anchor_positions.has("greycap-boulder"):
-        art_sprites["stone"] = ArtAssetPack.sprite("stone", self, stone, 2)
-    if anchor_positions.has("foxglove-patch") and not bool(world_changes.get("foxglove-patch", false)):
-        art_sprites["herb"] = ArtAssetPack.sprite("herb", self, herb, 2)
+    for resource_variant in world.resources():
+        if not resource_variant is Dictionary:
+            continue
+        var resource: Dictionary = resource_variant
+        var resource_id := str(resource.get("id", ""))
+        var tile := Vector2i(int(resource.get("x", 0)), int(resource.get("y", 0)))
+        if not anchor_positions.has(resource_id) or not is_authored_area(tile):
+            continue
+        var kind := str(resource.get("kind", ""))
+        var asset_id := ArtAssetPack.resource_asset_for(kind, bool(world_changes.get(resource_id, false)))
+        if asset_id.is_empty():
+            continue
+        resource_art_assets[resource_id] = asset_id
+        var offset := Vector2(0, -8) if kind == "tree" else Vector2(0, -2) if kind == "herb" else Vector2(0, 2)
+        var sprite := ArtAssetPack.sprite(asset_id, self, _world_point(anchor_positions[resource_id]) + offset, 2)
+        art_sprites[resource_id] = sprite
+        if resource_id == "oak-at-the-crossing":
+            art_sprites["tree"] = sprite
+        elif resource_id == "greycap-boulder":
+            art_sprites["stone"] = sprite
+        elif resource_id == "foxglove-patch":
+            art_sprites["herb"] = sprite
+        elif resource_id == "ironroot-vein":
+            art_sprites["ore"] = sprite
 
 func benchmark_bounds() -> Rect2i:
     if world == null:
@@ -182,6 +234,77 @@ func _draw() -> void:
     _draw_cottage_props()
     _draw_workshop_props()
     _draw_resource_contacts()
+    _draw_living_terrain()
+
+func _draw_living_terrain() -> void:
+    _draw_water_shimmer()
+    _draw_foliage_sway()
+    _draw_active_work_feedback()
+    _draw_regrowth_feedback()
+    if fireflies_visible:
+        _draw_fireflies()
+
+func _draw_water_shimmer() -> void:
+    var frame_id := "water_shimmer_a" if int(floor(animation_phase * 3.0)) % 2 == 0 else "water_shimmer_b"
+    var frame := ArtAssetPack.texture_for(frame_id)
+    if frame == null:
+        return
+    for tile_variant in terrain_sprites.keys():
+        var tile: Vector2i = tile_variant
+        var asset_id := str(terrain_sprites[tile_variant])
+        if asset_id not in ["water", "water_edge_n", "water_edge_s", "water_edge_e", "water_edge_w", "water_corner"]:
+            continue
+        draw_texture_rect(frame, Rect2(Vector2(tile) * TILE_SIZE, Vector2(TILE_SIZE, TILE_SIZE)), false, Color(1, 1, 1, 0.28))
+
+func _draw_foliage_sway() -> void:
+    var sway := sin(animation_phase * 1.7) * 1.2
+    for resource_variant in world.resources():
+        if not resource_variant is Dictionary:
+            continue
+        var resource: Dictionary = resource_variant
+        if str(resource.get("kind", "")) != "tree":
+            continue
+        var resource_id := str(resource.get("id", ""))
+        if not anchor_positions.has(resource_id) or bool(world_changes.get(resource_id, false)):
+            continue
+        var point: Vector2 = _world_point(anchor_positions[resource_id]) + Vector2(0, -26)
+        draw_line(point + Vector2(-7, 8), point + Vector2(-8 + sway, 3), Color("#6f9b58", 0.72), 1.0, false)
+        draw_line(point + Vector2(5, 6), point + Vector2(6 + sway, 1), Color("#a7bd6a", 0.68), 1.0, false)
+
+func _draw_active_work_feedback() -> void:
+    if active_resource_id.is_empty() or not anchor_positions.has(active_resource_id):
+        return
+    var point: Vector2 = _world_point(anchor_positions[active_resource_id])
+    var pulse := 0.5 + 0.5 * sin(animation_phase * 8.0)
+    var radius := 7.0 + active_work_progress * 5.0
+    draw_arc(point + Vector2(0, -4), radius, -2.5, -0.65, 6, Color(BRASS, 0.45 + pulse * 0.3), 1.0, false)
+    draw_rect(Rect2(point + Vector2(-1, -18 - pulse * 2.0), Vector2(2, 2)), Color(BRASS, 0.65 + pulse * 0.3), true)
+    draw_rect(Rect2(point + Vector2(7 + pulse * 2.0, -11), Vector2(2, 2)), Color("#d49a6a", 0.6), true)
+
+func _draw_regrowth_feedback() -> void:
+    for resource_id_variant in regrowth_resource_ids.keys():
+        var resource_id: String = str(resource_id_variant)
+        if not anchor_positions.has(resource_id):
+            continue
+        var point: Vector2 = _world_point(anchor_positions[resource_id])
+        var remaining: float = clampf(float(regrowth_resource_ids[resource_id]) / 4.0, 0.0, 1.0)
+        var lift := (1.0 - remaining) * 3.0
+        draw_line(point + Vector2(-5, 5), point + Vector2(-6, -2 - lift), Color("#a9c987", 0.9), 1.0, false)
+        draw_line(point + Vector2(0, 5), point + Vector2(1, -5 - lift), Color("#91b961", 0.95), 1.0, false)
+        draw_line(point + Vector2(5, 5), point + Vector2(6, -1 - lift), Color("#6f9b58", 0.9), 1.0, false)
+
+func _draw_fireflies() -> void:
+    var anchors := ["oak-at-the-crossing", "foxglove-patch", "moonmint-patch"]
+    for index in anchors.size():
+        var resource_id: String = anchors[index]
+        if not anchor_positions.has(resource_id):
+            continue
+        var base: Vector2 = _world_point(anchor_positions[resource_id])
+        var angle := animation_phase * (1.0 + float(index) * 0.17) + float(index) * 2.1
+        var point := base + Vector2(cos(angle) * (10.0 + index * 2.0), -12.0 + sin(angle * 1.7) * 7.0)
+        var glow := 0.45 + 0.35 * sin(animation_phase * 5.0 + index)
+        draw_circle(point + Vector2(1.5, 1.5), 5.0, Color(BRASS, glow * 0.12))
+        draw_rect(Rect2(point, Vector2(4, 4)), Color(BRASS, glow), true)
 
 func _draw_crossing() -> void:
     var centre: Vector2 = _world_point(anchor_positions.get("central-crossing", Vector2.ZERO))

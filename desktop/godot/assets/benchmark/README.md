@@ -9,8 +9,12 @@ This directory is the first authored pixel-asset set for Clovermere. It is inten
 | `cottage.png` | Greenbriar Cottage benchmark facade | 128×96 |
 | `workshop.png` | Tinker Workshop benchmark facade | 144×112 |
 | `tree.png` | Oak at the Crossing | 48×64 |
+| `ore.png` | Ironroot Vein benchmark resource | 40×32 |
 | `stone.png` | Greycap Boulder | 40×32 |
 | `herb.png` | Foxglove Patch | 32×24 |
+| `tree_stump.png` / `tree_debris.png` | Cleared tree/stump and felled debris states | 48×64 |
+| `stone_fragments.png` / `ore_fragments.png` | Cleared stone and ore states | 40×32 |
+| `herb_stems.png` | Harvested herb/regrowth groundwork | 32×24 |
 | `player.png` | Player benchmark sprite | 32×48 |
 | `resident.png` | Hero resident benchmark sprite | 32×48 |
 | `grass_a.png` / `grass_b.png` / `grass_c.png` | Non-repeating benchmark grass variants | 16×16 |
@@ -18,6 +22,8 @@ This directory is the first authored pixel-asset set for Clovermere. It is inten
 | `soil.png` | Soil and garden transition | 16×16 |
 | `path_*.png` | Straight, corner, T-junction, and four-way path tiles | 16×16 |
 | `water*.png` | Water base, cardinal bank edges, and corner | 16×16 |
+| `water_shimmer_a.png` / `water_shimmer_b.png` | Alternating water shimmer frames | 16×16 |
+| `foliage_sway_a.png` / `foliage_sway_b.png` | Ambient foliage motion references | 16×16 |
 
 ## Palette
 
@@ -45,9 +51,12 @@ The central benchmark now mounts the terrain foundation over its existing cached
 - square path straights, corners, T-junctions, and crossings selected from neighbouring path connectivity;
 - woodland floor around the crossing oak;
 - soil around the Foxglove Patch;
-- water base and bank pieces registered for the next water benchmark;
+- water base and bank pieces, with lightweight shimmer compositing;
+- intact/cleared resource sprites for trees, stone, ore, and herbs;
+- short-lived herb regrowth sprouts after sleeping;
+- three restrained evening firefly points and deterministic tree foliage sway;
 - distant terrain remains procedural and cached.
 
-The next visual pass should add small animated foliage/water frames, cleared-state debris, and authored transitions for the remaining settlement structures.
+The next visual pass should author transitions for the remaining settlement structures and expand the living-state treatment to broader destruction/regrowth rules.
 
 The central benchmark remains the acceptance scene for every new asset family.
