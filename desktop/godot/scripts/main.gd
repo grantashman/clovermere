@@ -13,6 +13,8 @@ const WorkAction = preload("res://scripts/work_action.gd")
 const InteractionFeedback = preload("res://scripts/interaction_feedback.gd")
 const BenchmarkScene = preload("res://scripts/benchmark_scene.gd")
 const GameplayHud = preload("res://scripts/gameplay_hud.gd")
+const InteriorContract = preload("res://scripts/interior_contract.gd")
+const InteriorScene = preload("res://scripts/interior_scene.gd")
 
 
 const SAVE_PATH := "user://hobbit-moon-village-v2.json"
@@ -21,6 +23,7 @@ const DEFAULT_VILLAGE := {"name": "Clovermere", "landscape": "heath"}
 const ZOOM_MIN := 0.5
 const ZOOM_MAX := 2.0
 const ZOOM_STEP := 0.1
+const INTERIOR_ZOOM_MULTIPLIER := 1.65
 const WORK_MINUTES_PER_SECOND := 5.0
 
 var world = World.new()
@@ -53,8 +56,19 @@ var loading_overlay: ColorRect
 var interaction_panel: Control
 var interaction_label: Label
 var gameplay_hud
+var interior_contract = InteriorContract.new()
+var interior_scene: Node2D
+var interior_grid: Array = []
+var interior_location := ""
+var exterior_position := World.START_POSITION
+var interior_transitioning := false
+var interior_transition_remaining := 0.0
+var transition_layer: CanvasLayer
+var transition_rect: ColorRect
+var dialogue_flags: Dictionary = {}
 var movement_path: Array = []
 var pending_building: Dictionary = {}
+var pending_interior_interaction: Dictionary = {}
 var pending_resource: Dictionary = {}
 var world_changes: Dictionary = {}
 var resource_states: Dictionary = {}
@@ -103,6 +117,7 @@ func _ready() -> void:
     _build_npc_actors()
     _build_hud()
     _build_ui()
+    _build_transition_overlay()
     _refresh_hud()
     call_deferred("_finish_loading")
 
@@ -218,22 +233,36 @@ func _update_npc_actors(delta: float) -> void:
 func _process(delta: float) -> void:
     if lighting_overlay != null:
         lighting_overlay.set_time(day_state.minute_of_day)
-        lighting_overlay.set_player_position(player.position if player != null else Vector2.ZERO, game_started)
+        lighting_overlay.set_player_position(player.position if player != null else Vector2.ZERO, game_started and not _in_interior())
+        lighting_overlay.visible = not _in_interior()
     if benchmark_scene != null:
         benchmark_scene.set_time(day_state.minute_of_day)
-    if not game_started:
+        benchmark_scene.visible = not _in_interior()
+    if interior_scene != null and _in_interior():
+        interior_scene.set_time(day_state.minute_of_day)
+        interior_scene.set_player_position(player_position * World.TILE_SIZE)
+    if interior_transitioning:
+        interior_transition_remaining = maxf(0.0, interior_transition_remaining - delta)
+        if interior_transition_remaining <= 0.0:
+            interior_transitioning = false
+            if transition_rect != null:
+                transition_rect.visible = false
+    if not game_started or interior_transitioning:
         _refresh_hud()
         return
     _advance_work_action(delta)
-    _update_npc_actors(delta)
+    if not _in_interior():
+        _update_npc_actors(delta)
+    var active_grid := _active_grid()
     var direction := Input.get_vector("move_left", "move_right", "move_up", "move_down")
     var next_position := player_position
     if direction.length_squared() > 0.0001:
         _cancel_work_action("Work cancelled  ·  movement resumed")
         movement_path.clear()
         pending_building = {}
+        pending_interior_interaction = {}
         target_marker.clear_target()
-        next_position = world.move_player(player_position, direction, delta, grid)
+        next_position = world.move_player(player_position, direction, delta, active_grid)
     elif not movement_path.is_empty():
         var next_tile: Vector2i = movement_path[0]
         var destination := Vector2(next_tile) + Vector2(0.5, 0.5)
@@ -241,12 +270,14 @@ func _process(delta: float) -> void:
             player_position = destination
             next_position = player_position
             movement_path.pop_front()
-            if movement_path.is_empty() and not pending_resource.is_empty():
+            if movement_path.is_empty() and not pending_interior_interaction.is_empty():
+                _arrive_at_interior_interaction()
+            elif movement_path.is_empty() and not pending_resource.is_empty():
                 _arrive_at_resource()
             elif movement_path.is_empty() and not pending_building.is_empty():
                 _complete_building_interaction()
         else:
-            next_position = world.move_player(player_position, player_position.direction_to(destination), delta, grid, 5.0)
+            next_position = world.move_player(player_position, player_position.direction_to(destination), delta, active_grid, 5.0)
     if next_position != player_position:
         player_position = next_position
         player.position = player_position * World.TILE_SIZE
@@ -271,11 +302,16 @@ func _process(delta: float) -> void:
     _refresh_hud()
 
 func _unhandled_input(event: InputEvent) -> void:
+    if interior_transitioning:
+        get_viewport().set_input_as_handled()
+        return
     if event is InputEventKey and event.pressed and not event.echo:
         if event.keycode == KEY_F11:
             _on_fullscreen_changed(get_window().mode != Window.MODE_FULLSCREEN)
         elif event.keycode == KEY_ESCAPE:
-            if game_started:
+            if game_started and gameplay_hud != null and gameplay_hud.dialogue_panel.visible:
+                gameplay_hud.hide_dialogue()
+            elif game_started:
                 if gameplay_hud != null and gameplay_hud.management_panel.visible:
                     gameplay_hud.close_management()
                 else:
@@ -284,22 +320,37 @@ func _unhandled_input(event: InputEvent) -> void:
                 ui._back_from_options()
             elif ui != null and ui.current_page == "pause":
                 _resume_journey()
+        elif event.keycode == KEY_ENTER and game_started and gameplay_hud != null and gameplay_hud.dialogue_panel.visible:
+            gameplay_hud.hide_dialogue()
         elif event.keycode == KEY_ENTER and not game_started and ui != null and ui.current_page == "welcome":
             if _has_save():
                 _continue_journey()
         elif event.keycode == KEY_E and game_started:
-            _handle_resource_action()
+            if gameplay_hud != null and gameplay_hud.dialogue_panel.visible:
+                gameplay_hud.hide_dialogue()
+            elif _in_interior():
+                _handle_interior_action()
+            else:
+                _handle_resource_action()
         elif event.keycode == KEY_B and game_started:
             gameplay_hud.open_pack()
         elif event.keycode == KEY_C and game_started:
             gameplay_hud.open_crafting()
+        elif event.keycode == KEY_T and game_started and not _in_interior():
+            _talk_to_nearest_npc()
     elif event is InputEventMouseButton and event.pressed:
         if not game_started:
             return
         if event.button_index == MOUSE_BUTTON_LEFT:
-            _handle_world_click(get_global_mouse_position())
+            if _in_interior():
+                _handle_interior_click(get_global_mouse_position())
+            else:
+                _handle_world_click(get_global_mouse_position())
         elif event.button_index == MOUSE_BUTTON_RIGHT:
-            _handle_context_click(get_global_mouse_position())
+            if _in_interior():
+                _handle_interior_click(get_global_mouse_position())
+            else:
+                _handle_context_click(get_global_mouse_position())
         elif event.button_index == MOUSE_BUTTON_WHEEL_UP:
             _set_zoom(camera_zoom + ZOOM_STEP)
         elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
@@ -363,10 +414,99 @@ func _queue_resource_interaction(resource: Dictionary) -> void:
         return
     _queue_path_to(candidates[0], {}, resource)
 
+func _in_interior() -> bool:
+    return interior_contract.is_interior(interior_location)
+
+func _active_grid() -> Array:
+    return interior_grid if _in_interior() else grid
+
+func _handle_interior_click(world_position: Vector2) -> void:
+    var tile := Vector2i(floori(world_position.x / World.TILE_SIZE), floori(world_position.y / World.TILE_SIZE))
+    if tile == interior_contract.exit_tile(interior_location):
+        _queue_path_to(tile, {})
+        pending_interior_interaction = {"id": "interior-exit", "name": "Doorway", "action": "exit"}
+        return
+    var interaction := interior_contract.interaction_at(interior_location, tile)
+    if not interaction.is_empty():
+        _queue_interior_interaction(interaction)
+        return
+    if interior_contract.is_walkable(_active_grid(), tile):
+        pending_interior_interaction = {}
+        _queue_path_to(tile, {})
+        interaction_message = "Walking through %s" % str(interior_contract.definition_for(interior_location).get("short_name", "the room"))
+        interaction_timeout = 1.5
+        _show_interaction_feedback()
+
+func _queue_interior_interaction(interaction: Dictionary) -> void:
+    var target := Vector2i(int(interaction.get("x", 0)), int(interaction.get("y", 0)))
+    var candidates := [target + Vector2i(0, 1), target + Vector2i(0, -1), target + Vector2i(-1, 0), target + Vector2i(1, 0)]
+    candidates = candidates.filter(func(candidate: Vector2i): return interior_contract.is_walkable(_active_grid(), candidate))
+    if candidates.is_empty():
+        interaction_message = "There is no clear space by %s" % str(interaction.get("name", "that object"))
+        interaction_timeout = 2.0
+        _show_interaction_feedback()
+        return
+    candidates.sort_custom(func(a: Vector2i, b: Vector2i): return player_position.distance_squared_to(Vector2(a) + Vector2(0.5, 0.5)) < player_position.distance_squared_to(Vector2(b) + Vector2(0.5, 0.5)))
+    pending_interior_interaction = interaction.duplicate(true)
+    _queue_path_to(candidates[0], {})
+    interaction_message = "Walking to %s" % str(interaction.get("name", "that object"))
+    interaction_timeout = 0.0
+    _show_interaction_feedback()
+
+func _arrive_at_interior_interaction() -> void:
+    if pending_interior_interaction.is_empty():
+        return
+    interaction_message = "Arrived at %s  ·  press E to interact" % str(pending_interior_interaction.get("name", "that object"))
+    interaction_timeout = 4.0
+    target_marker.clear_target()
+    _show_interaction_feedback()
+
+func _handle_interior_action() -> void:
+    if _is_near_interior_exit():
+        _exit_interior()
+        return
+    var interaction := pending_interior_interaction
+    if interaction.is_empty():
+        interaction = interior_contract.nearest_interaction(interior_location, player_position)
+    if interaction.is_empty():
+        interaction_message = "The room is quiet. The doorway is behind you."
+        interaction_timeout = 2.0
+        _show_interaction_feedback()
+        return
+    var action := str(interaction.get("action", "inspect"))
+    if action == "sleep":
+        _sleep_at_home()
+    elif action == "storage":
+        _withdraw_home_stores()
+    elif action == "craft":
+        interaction_message = "The workbench is ready  ·  press C to view recipes"
+        interaction_timeout = 3.0
+        _show_interaction_feedback()
+        if gameplay_hud != null:
+            gameplay_hud.open_crafting()
+    elif action == "rest":
+        interaction_message = "The hearth is warm. It will be here when the day asks enough of you."
+        interaction_timeout = 3.0
+        _show_interaction_feedback()
+    elif action == "forge":
+        interaction_message = "The forge holds a patient ember. Bring materials to the workbench."
+        interaction_timeout = 3.0
+        _show_interaction_feedback()
+    else:
+        interaction_message = "%s is neatly kept." % str(interaction.get("name", "That object"))
+        interaction_timeout = 2.5
+        _show_interaction_feedback()
+    pending_interior_interaction = {}
+
+func _is_near_interior_exit() -> bool:
+    if not _in_interior():
+        return false
+    return player_position.distance_to(Vector2(interior_contract.exit_tile(interior_location)) + Vector2(0.5, 0.5)) <= 0.85
+
 func _queue_path_to(goal: Vector2i, building: Dictionary, resource: Dictionary = {}) -> void:
     _cancel_work_action("Work cancelled  ·  walking to a new target")
     var start := Vector2i(floori(player_position.x), floori(player_position.y))
-    var route: Array = world.find_path(grid, start, goal)
+    var route: Array = world.find_path(_active_grid(), start, goal)
     if route.is_empty() and start != goal:
         interaction_message = "That way is blocked"
         interaction_timeout = 2.0
@@ -383,17 +523,24 @@ func _queue_path_to(goal: Vector2i, building: Dictionary, resource: Dictionary =
         interaction_message = "Walking to %s" % str(building.get("name", "building"))
     interaction_timeout = 0.0
     _show_interaction_feedback()
-    if movement_path.is_empty() and not pending_resource.is_empty():
+    if movement_path.is_empty() and not pending_interior_interaction.is_empty():
+        _arrive_at_interior_interaction()
+    elif movement_path.is_empty() and not pending_resource.is_empty():
         _arrive_at_resource()
     elif movement_path.is_empty() and not pending_building.is_empty():
         _complete_building_interaction()
 
 func _complete_building_interaction() -> void:
     var name := str(pending_building.get("name", "that place"))
-    interaction_message = "Arrived at %s  ·  press E to sleep" % name if str(pending_building.get("id", "")) == "greenbriar-cottage" else "Arrived at %s  ·  right-click to revisit" % name
+    var building_id := str(pending_building.get("id", ""))
+    if interior_contract.is_interior(building_id):
+        interaction_message = "Arrived at %s  ·  press E to enter" % name
+    else:
+        interaction_message = "Arrived at %s  ·  press E to interact" % name
     interaction_timeout = 4.0
     _show_interaction_feedback()
     pending_resource = {}
+    pending_interior_interaction = {}
     target_marker.clear_target()
 
 func _handle_resource_action() -> void:
@@ -413,6 +560,10 @@ func _handle_resource_action() -> void:
                 resource = candidate
                 break
     if resource.is_empty():
+        var nearby_npc := _nearest_npc_id()
+        if not nearby_npc.is_empty():
+            _talk_to_nearest_npc()
+            return
         if _is_near_home():
             _sleep_at_home()
             return
@@ -424,8 +575,10 @@ func _handle_resource_action() -> void:
 
 func _handle_building_action() -> void:
     var building_id := str(pending_building.get("id", ""))
-    if building_id == "tinker-workshop":
+    if building_id == "tinker-workshop" and not day_state.has_upgrade("tinkers-kit"):
         _purchase_workshop_upgrade()
+    elif interior_contract.is_interior(building_id):
+        _enter_interior(building_id)
     elif building_id == "greenbriar-cottage":
         _sleep_at_home()
     else:
@@ -434,6 +587,8 @@ func _handle_building_action() -> void:
         _show_interaction_feedback()
 
 func _is_near_workshop() -> bool:
+    if _in_interior():
+        return interior_location == "tinker-workshop"
     for building in world.buildings():
         if str(building.get("id", "")) != "tinker-workshop":
             continue
@@ -509,6 +664,8 @@ func _purchase_workshop_upgrade() -> void:
     _show_interaction_feedback()
 
 func _is_near_home() -> bool:
+    if _in_interior():
+        return interior_location == "greenbriar-cottage"
     for building in world.buildings():
         if str(building.get("id", "")) != "greenbriar-cottage":
             continue
@@ -686,12 +843,143 @@ func command_interact_with_resource(resource_id: String) -> void:
             _queue_resource_interaction(resource)
             return
 
-func _start_new_journey() -> void:
-    village = DEFAULT_VILLAGE.duplicate(true)
-    player_position = World.START_POSITION
+func _build_transition_overlay() -> void:
+    transition_layer = CanvasLayer.new()
+    transition_layer.name = "InteriorTransition"
+    transition_layer.layer = 30
+    add_child(transition_layer)
+    transition_rect = ColorRect.new()
+    transition_rect.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+    transition_rect.color = Color("#091610", 0.0)
+    transition_rect.mouse_filter = Control.MOUSE_FILTER_STOP
+    transition_rect.visible = false
+    transition_layer.add_child(transition_rect)
+
+func _begin_interior_transition() -> void:
+    interior_transitioning = true
+    interior_transition_remaining = interior_contract.transition_seconds()
+    if transition_rect == null:
+        return
+    transition_rect.visible = true
+    transition_rect.color = Color("#091610", 0.0)
+    var tween := create_tween()
+    tween.set_parallel(false)
+    tween.tween_property(transition_rect, "color:a", 0.96, interior_contract.transition_seconds() * 0.5)
+    tween.tween_property(transition_rect, "color:a", 0.0, interior_contract.transition_seconds() * 0.5)
+
+func _set_world_visibility(visible: bool) -> void:
+    if world_sprite != null:
+        world_sprite.visible = visible
+    if benchmark_scene != null:
+        benchmark_scene.visible = visible
+    if npc_layer != null:
+        npc_layer.visible = visible
+    if lighting_overlay != null:
+        lighting_overlay.visible = visible
+    if interior_scene != null:
+        interior_scene.visible = not visible
+
+func _ensure_interior_scene() -> void:
+    if interior_scene != null:
+        return
+    interior_scene = InteriorScene.new()
+    interior_scene.name = "AuthoredInterior"
+    interior_scene.z_index = 6
+    add_child(interior_scene)
+    interior_scene.visible = false
+
+func _enter_interior(building_id: String, with_transition: bool = true, restored_position: Vector2 = Vector2(-1, -1)) -> void:
+    if not interior_contract.is_interior(building_id):
+        return
+    if _in_interior():
+        return
+    exterior_position = player_position
+    interior_location = building_id
+    interior_grid = interior_contract.build_grid(building_id)
+    _ensure_interior_scene()
+    interior_scene.configure(interior_contract.definition_for(building_id))
+    interior_scene.set_time(day_state.minute_of_day)
+    var requested_position := restored_position if restored_position.x >= 0.0 and restored_position.y >= 0.0 else interior_contract.spawn_position(building_id)
+    player_position = requested_position
     movement_path.clear()
     pending_building = {}
     pending_resource = {}
+    pending_interior_interaction = {}
+    target_marker.clear_target()
+    _set_world_visibility(false)
+    if gameplay_hud != null:
+        gameplay_hud.close_management()
+        gameplay_hud.set_interior_mode(true, str(interior_contract.definition_for(building_id).get("short_name", building_id)))
+    interaction_message = "Entering %s" % str(interior_contract.definition_for(building_id).get("short_name", building_id))
+    interaction_timeout = 2.0
+    _refresh_player_transform()
+    _refresh_hud()
+    if with_transition:
+        _begin_interior_transition()
+
+func _exit_interior(with_transition: bool = true) -> void:
+    if not _in_interior():
+        return
+    interior_location = ""
+    interior_grid = []
+    player_position = exterior_position
+    movement_path.clear()
+    pending_building = {}
+    pending_resource = {}
+    pending_interior_interaction = {}
+    target_marker.clear_target()
+    _set_world_visibility(true)
+    if gameplay_hud != null:
+        gameplay_hud.close_management()
+        gameplay_hud.set_interior_mode(false)
+    interaction_message = "Back in Clovermere"
+    interaction_timeout = 2.0
+    _refresh_player_transform()
+    _refresh_hud()
+    if with_transition:
+        _begin_interior_transition()
+
+func _nearest_npc_id(max_distance: float = 2.4) -> String:
+    if _in_interior():
+        return ""
+    var closest_id := ""
+    var closest_distance := max_distance
+    for npc_id in npc_actors.keys():
+        var actor = npc_actors.get(npc_id)
+        if actor == null:
+            continue
+        var distance := player_position.distance_to(actor.position / World.TILE_SIZE)
+        if distance <= closest_distance:
+            closest_distance = distance
+            closest_id = str(npc_id)
+    return closest_id
+
+func _talk_to_nearest_npc() -> void:
+    var npc_id := _nearest_npc_id()
+    if npc_id.is_empty():
+        interaction_message = "No one nearby has time for a word"
+        interaction_timeout = 1.8
+        _show_interaction_feedback()
+        return
+    var dialogue: Dictionary = interior_contract.dialogue_for(npc_id, "village", day_state.minute_of_day)
+    if dialogue.is_empty():
+        return
+    dialogue_flags[npc_id] = true
+    if gameplay_hud != null:
+        gameplay_hud.show_dialogue(str(dialogue.get("speaker", npc_id)), str(dialogue.get("text", "")))
+    _save_game()
+
+func _start_new_journey() -> void:
+    village = DEFAULT_VILLAGE.duplicate(true)
+    player_position = World.START_POSITION
+    exterior_position = World.START_POSITION
+    interior_location = ""
+    interior_grid = []
+    movement_path.clear()
+    pending_building = {}
+    pending_resource = {}
+    pending_interior_interaction = {}
+    dialogue_flags.clear()
     world_changes.clear()
     resource_states.clear()
     day_state = DayState.new()
@@ -704,6 +992,9 @@ func _start_new_journey() -> void:
         benchmark_scene.clear_active_work()
     interaction_message = ""
     _refresh_world_state()
+    _set_world_visibility(true)
+    if gameplay_hud != null:
+        gameplay_hud.set_interior_mode(false)
     game_started = true
     _set_gameplay_hud_visible(true)
     ui.hide_overlay()
@@ -795,6 +1086,8 @@ func _refresh_player_transform() -> void:
     player.position = player_position * World.TILE_SIZE
     player.z_index = 100 + floori(player_position.y)
     camera.position = player.position
+    var effective_zoom := camera_zoom * INTERIOR_ZOOM_MULTIPLIER if _in_interior() else camera_zoom
+    camera.zoom = Vector2(effective_zoom, effective_zoom)
     camera.reset_smoothing()
 
 func _refresh_world_state() -> void:
@@ -842,7 +1135,8 @@ func _apply_window_mode(fullscreen: bool) -> void:
 
 func _set_zoom(value: float) -> void:
     camera_zoom = clampf(snappedf(value, ZOOM_STEP), ZOOM_MIN, ZOOM_MAX)
-    camera.zoom = Vector2(camera_zoom, camera_zoom)
+    var effective_zoom := camera_zoom * INTERIOR_ZOOM_MULTIPLIER if _in_interior() else camera_zoom
+    camera.zoom = Vector2(effective_zoom, effective_zoom)
 
 func _build_hud() -> void:
     gameplay_hud = GameplayHud.new()
@@ -882,7 +1176,7 @@ func _refresh_hud() -> void:
     if gameplay_hud == null:
         return
     var tile := Vector2i(floori(player_position.x), floori(player_position.y))
-    var tile_name := world.tile_at(grid, tile)
+    var tile_name := "interior floor" if _in_interior() else world.tile_at(grid, tile)
     var recipes: Dictionary = {}
     for recipe_id in day_state.recipe_ids():
         recipes[recipe_id] = day_state.recipe_preview(recipe_id)
@@ -900,8 +1194,9 @@ func _refresh_hud() -> void:
         "recipes": recipes,
         "near_workshop": _is_near_workshop(),
         "near_home": _is_near_home(),
+        "location_name": interior_contract.definition_for(interior_location).get("short_name", "Interior") if _in_interior() else "Clovermere",
         "interaction": interaction_message,
-        "hint": "Click ground  walk     Click a house  visit     Click a resource  work     B  pack     C  craft     E  interact     Wheel  zoom     WASD  wander",
+        "hint": "Click to walk  ·  E interact  ·  B pack  ·  C craft  ·  T talk  ·  Esc pause" if _in_interior() else "Click ground  walk     Click a house  visit     Click a resource  work     B  pack     C  craft     E  interact     T  talk     Wheel  zoom     WASD  wander",
         "debug_visible": debug_visible,
         "debug": "POS  %6.2f, %6.2f   TILE  %s   FPS  %3d       F  toggle metrics" % [player_position.x, player_position.y, tile_name, Engine.get_frames_per_second()]
     })
@@ -926,6 +1221,8 @@ func _load_save() -> bool:
         player_position = raw_player
     elif raw_player is Dictionary:
         player_position = Vector2(float(raw_player.get("x", World.START_POSITION.x)), float(raw_player.get("y", World.START_POSITION.y)))
+    exterior_position = player_position
+    interior_location = ""
     var loaded_changes = normalized.get("world_changes", {})
     world_changes = loaded_changes.duplicate(true) if loaded_changes is Dictionary else {}
     var loaded_day_state = normalized.get("day_state", {})
@@ -934,16 +1231,31 @@ func _load_save() -> bool:
         day_state.from_dict(loaded_day_state)
     var loaded_resource_states = normalized.get("resource_states", {})
     resource_states = loaded_resource_states.duplicate(true) if loaded_resource_states is Dictionary else {}
+    var loaded_dialogue_flags = normalized.get("dialogue_flags", {})
+    dialogue_flags = loaded_dialogue_flags.duplicate(true) if loaded_dialogue_flags is Dictionary else {}
     day_state.normalize_resource_states(world_changes, resource_states, world.resources(), day_state.day)
     _refresh_world_state()
+    var loaded_location := str(normalized.get("location", "village"))
+    var loaded_interior = normalized.get("interior", {})
+    var local_position := Vector2(-1, -1)
+    if loaded_interior is Dictionary:
+        var raw_local = loaded_interior.get("player", {})
+        if raw_local is Dictionary:
+            local_position = Vector2(float(raw_local.get("x", -1.0)), float(raw_local.get("y", -1.0)))
+    if interior_contract.is_interior(loaded_location):
+        _enter_interior(loaded_location, false, local_position)
+    else:
+        _set_world_visibility(true)
     return true
 
 func _save_game() -> bool:
     var payload := {
         "version": World.SAVE_VERSION,
         "village": village,
-        "player": {"x": player_position.x, "y": player_position.y},
-        "location": "village",
+        "player": {"x": exterior_position.x, "y": exterior_position.y},
+        "location": interior_location if _in_interior() else "village",
+        "interior": {"building_id": interior_location, "player": {"x": player_position.x, "y": player_position.y}} if _in_interior() else {},
+        "dialogue_flags": dialogue_flags.duplicate(true),
         "world_changes": world_changes.duplicate(true),
         "resource_states": resource_states.duplicate(true),
         "day_state": day_state.to_dict()

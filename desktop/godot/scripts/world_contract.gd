@@ -8,7 +8,7 @@ const SAVE_VERSION := 7
 const SETTLEMENT_ORIGIN := Vector2i(108, 71)
 const START_TILE := Vector2i(SETTLEMENT_ORIGIN.x + 14, SETTLEMENT_ORIGIN.y + 11)
 const START_POSITION := Vector2(START_TILE.x + 0.5, START_TILE.y + 0.5)
-const BLOCKED_TILES := {"t": true, "w": true, "r": true, "f": true, "b": true, "s": true, "h": true}
+const BLOCKED_TILES := {"t": true, "w": true, "r": true, "f": true, "b": true, "s": true, "h": true, "#": true}
 
 const BUILDINGS := [
     {"id": "greenbriar-cottage", "name": "Greenbriar Cottage", "x": SETTLEMENT_ORIGIN.x + 4, "y": SETTLEMENT_ORIGIN.y + 5, "w": 8, "h": 6, "kind": "cottage", "wall": "#c89468", "roof": "#465647"},
@@ -315,7 +315,9 @@ func normalize_save(source: Dictionary = {}) -> Dictionary:
     var result := source.duplicate(true)
     result["version"] = SAVE_VERSION
     result["player"] = player
-    result["location"] = "village" if source.get("location", "village") not in ["home", "inn"] else source.get("location")
+    result["location"] = source.get("location", "village") if source.get("location", "village") in ["village", "home", "inn", "greenbriar-cottage", "tinker-workshop"] else "village"
+    var raw_interior = source.get("interior", {})
+    result["interior"] = raw_interior.duplicate(true) if raw_interior is Dictionary else {}
     var raw_changes = source.get("world_changes", {})
     result["world_changes"] = raw_changes.duplicate(true) if raw_changes is Dictionary else {}
     var raw_day_state = source.get("day_state", {})

@@ -18,7 +18,8 @@ This directory contains the canonical native desktop client. The former browser/
 - First-day loop with Day 1/08:00 start, persisted carried inventory, automatic home storage on sleep, work time/energy costs, Greenbriar Cottage sleep, herb regrowth, and a compact day/energy/material HUD
 - Timed resource actions with real progress, resource-specific work labels, player tool motion, impact feedback, cancellation, movement/right-click cancellation, and exact-once completion
 - Tinker Workshop recipes consume field-pack materials: Tinker’s Kit (3 timber + 2 stone + 1 ore) reduces work energy cost by 20%; Wayfarer’s Satchel (5 timber + 2 herbs) reduces work time by 20%; Hearthward Charm (2 stone + 2 herbs + 3 ore) raises maximum daily energy to 115. Sleeping at Greenbriar Cottage stores the field pack; `TAKE STORES` returns home materials at the cottage.
-- Traditional PC-game HUD redesign: compact status card, `B` field-pack view, `C` workshop-recipes view, keyboard-accessible action bar, and a full-world minimap; the UI uses original forest-green, timber-brown, parchment, brass, and moss tones rather than protected LOTR/Tolkien assets or branding
+- Traditional PC-game HUD redesign: compact status card, `B` field-pack view, `C` workshop-recipes view, keyboard-accessible action bar, `T` resident dialogue, and a full-world minimap; the UI uses original forest-green, timber-brown, parchment, brass, and moss tones rather than protected LOTR/Tolkien assets or branding
+- Enterable authored interiors: Greenbriar Cottage Hearth Room includes a hearth, bed, storage chest, sleep/storage actions, and warm evening light; Tinker Workshop Workroom includes a workbench, forge, tool rack, and recipe access. A short transition blocks input, hides the exterior/minimap, and saves the exterior position plus interior location without changing schema 7.
 - Deterministic resident schedules: morning opening, role-specific work, evening strolling, and night resting; live route movement, idle/walk bob, role props, work-tool animation, impact sparks, and offset directional shadows
 - Authored central-crossing benchmark layer with explicit terrain/contact/building/resource/foreground depth bands, stronger building contact shadows, cottage/workshop props, crossing accents, material cluster overlays, six role-specific resident sprites, and clock-driven cooler evening ambient lighting with warm facade window accents.
 - Authored benchmark asset pack: hand-built pixel PNGs for Greenbriar Cottage, Tinker Workshop, Clovermere Hall, Herbalist's Garden, Old Barn, the crossing tree, boulder, foxglove patch, player, six role-specific residents, and meadow/forest-floor/village-verge material clusters, all using a locked Clovermere palette.
@@ -41,10 +42,13 @@ godot --headless --path . --script res://tests/world_contract_test.gd
 # Day-state contract
 godot --headless --path . --script res://tests/day_state_test.gd
 
-# Storage, recipe, minimap, and traditional PC HUD contracts
+# Storage, recipe, minimap, traditional PC HUD, and interior contracts
 godot --headless --path . --script res://tests/storage_recipe_test.gd
 godot --headless --path . --script res://tests/minimap_test.gd
 godot --headless --path . --script res://tests/gameplay_hud_test.gd
+godot --headless --path . --script res://tests/interior_contract_test.gd
+godot --headless --path . --script res://tests/interior_scene_test.gd
+godot --headless --path . --script res://tests/interior_transition_smoke.gd
 
 # NPC actor, player-scale, and schedule contract tests
 godot --headless --path . --script res://tests/npc_schedule_test.gd

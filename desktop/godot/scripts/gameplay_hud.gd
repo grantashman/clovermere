@@ -23,7 +23,12 @@ const INK := Color("#18271f")
 var root: Control
 var status_panel: PanelContainer
 var minimap: Control
+var map_caption: Label
 var management_panel: PanelContainer
+var dialogue_panel: PanelContainer
+var dialogue_speaker: Label
+var dialogue_text: Label
+var interior_mode := false
 var management_content: VBoxContainer
 var management_title: Label
 var management_mode := "pack"
@@ -65,7 +70,7 @@ func _build_root() -> void:
     minimap.position = Vector2(1024, 24)
     minimap.size = Vector2(232, 148)
     root.add_child(minimap)
-    var map_caption := _label(root, Vector2(1034, 176), Vector2(212, 18), 10, PARCHMENT_DIM)
+    map_caption = _label(root, Vector2(1034, 176), Vector2(212, 18), 10, PARCHMENT_DIM)
     map_caption.text = "FIELD MAP  ·  CLOVERMERE"
     map_caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 
@@ -82,6 +87,27 @@ func _build_root() -> void:
     interaction_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
     interaction_margin.add_child(interaction_label)
     interaction_panel.visible = false
+
+    dialogue_panel = PanelContainer.new()
+    dialogue_panel.name = "DialoguePanel"
+    dialogue_panel.position = Vector2(260, 510)
+    dialogue_panel.size = Vector2(760, 104)
+    dialogue_panel.add_theme_stylebox_override("panel", _style(Color("#ead6a7", 0.97), WOOD_LIGHT, 2, 4))
+    root.add_child(dialogue_panel)
+    var dialogue_margin := _margin(dialogue_panel, 16, 10, 16, 10)
+    var dialogue_column := VBoxContainer.new()
+    dialogue_column.add_theme_constant_override("separation", 4)
+    dialogue_margin.add_child(dialogue_column)
+    dialogue_speaker = _body_label("", 12, INK)
+    dialogue_speaker.add_theme_color_override("font_shadow_color", Color("#f5e8bf"))
+    dialogue_speaker.add_theme_constant_override("shadow_offset_x", 1)
+    dialogue_speaker.add_theme_constant_override("shadow_offset_y", 1)
+    dialogue_column.add_child(dialogue_speaker)
+    dialogue_text = _body_label("", 14, INK)
+    dialogue_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+    dialogue_text.size_flags_vertical = Control.SIZE_EXPAND_FILL
+    dialogue_column.add_child(dialogue_text)
+    dialogue_panel.visible = false
 
     _build_action_bar()
     debug_label = _label(root, Vector2(30, 188), Vector2(420, 42), 11, PARCHMENT_DIM)
@@ -274,10 +300,29 @@ func open_crafting() -> void:
 func close_management() -> void:
     management_panel.visible = false
 
+func show_dialogue(speaker: String, text: String) -> void:
+    dialogue_speaker.text = speaker.to_upper()
+    dialogue_text.text = text
+    dialogue_panel.visible = true
+
+func hide_dialogue() -> void:
+    if dialogue_panel != null:
+        dialogue_panel.visible = false
+
+func set_interior_mode(enabled: bool, location_name: String = "") -> void:
+    interior_mode = enabled
+    if minimap != null:
+        minimap.visible = not enabled
+    if map_caption != null:
+        map_caption.visible = not enabled
+    if enabled and not location_name.is_empty():
+        subtitle_label.text = "HEARTH & HOME  ·  %s" % location_name.to_upper()
+    hide_dialogue()
+
 func refresh(snapshot: Dictionary) -> void:
     _snapshot = snapshot.duplicate(true)
     title_label.text = str(snapshot.get("village_name", "CLOVERMERE"))
-    subtitle_label.text = "THE GREEN COUNTRY  ·  %d FOLK  ·  %d%%" % [int(snapshot.get("folk", 6)), roundi(float(snapshot.get("zoom", 0.75)) * 100.0)]
+    subtitle_label.text = "HEARTH & HOME  ·  %s" % str(snapshot.get("location_name", "INTERIOR")).to_upper() if interior_mode else "THE GREEN COUNTRY  ·  %d FOLK  ·  %d%%" % [int(snapshot.get("folk", 6)), roundi(float(snapshot.get("zoom", 0.75)) * 100.0)]
     day_label.text = "DAY %02d  ·  %s" % [int(snapshot.get("day", 1)), str(snapshot.get("clock", "08:00 AM"))]
     var energy := int(snapshot.get("energy", 0))
     var max_energy := maxi(1, int(snapshot.get("max_energy", 100)))

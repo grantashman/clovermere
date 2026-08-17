@@ -16,6 +16,8 @@ func _initialize() -> void:
     require(scene.gameplay_hud.pack_button != null, "gameplay HUD should expose a pack shortcut")
     require(scene.gameplay_hud.craft_button != null, "gameplay HUD should expose a craft shortcut")
     require(scene.gameplay_hud.status_panel != null, "gameplay HUD should expose a status panel")
+    require(scene.gameplay_hud.dialogue_panel != null, "gameplay HUD should expose a dialogue panel")
+    require(scene.gameplay_hud.has_method("set_interior_mode"), "gameplay HUD should expose an interior mode")
     require(not scene.gameplay_hud.management_panel.visible, "management panel should be hidden until requested")
 
     scene._start_new_journey()

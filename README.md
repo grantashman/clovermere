@@ -15,6 +15,7 @@ The native client currently includes:
 - First-day loop: Day 1 at 08:00, timed work actions consume time and energy, materials enter a persisted carried pack, sleep at Greenbriar Cottage deposits the pack into home stores, and herbs regrow overnight.
 - Tinker Workshop material sink: three persisted recipes consume field-pack materials; sleeping at Greenbriar Cottage stores the pack, and the Field Pack can return home stores at the cottage. Tinker’s Kit (3 timber + 2 stone + 1 ore) reduces work energy costs by 20%; Wayfarer’s Satchel (5 timber + 2 herbs) reduces work time by 20%; Hearthward Charm (2 stone + 2 herbs + 3 ore) raises the daily energy reserve to 115.
 - Traditional PC-game HUD redesign: compact status card, carried/home-store ledger, toggleable pack and recipe panels, keyboard-accessible action bar, and a full-world minimap in an original forest/timber/parchment/brass pastoral high-fantasy visual language.
+- Enterable authored interiors: Greenbriar Cottage Hearth Room with hearth, bed, storage chest, warm evening light, and sleep/storage actions; Tinker Workshop Workroom with workbench, forge, tool rack, and recipe access. Scene transitions preserve the exterior position and interior location through save/load.
 - Live resident layer: six role-specific NPC actors follow deterministic morning/work/evening/night schedules with route movement, idle/walk motion, role props, work-tool swings, impact sparks, y-depth sorting, authored 32×48 sprites, and offset directional shadows.
 - Authored central-crossing presentation pass: deterministic material clusters, explicit depth bands for terrain/contact/buildings/resources/foreground accents, stronger building shadows, and warm facade windows against clock-driven cooler evening ambient lighting.
 - First authored benchmark asset pack: hand-built pixel PNGs for Greenbriar Cottage, Tinker Workshop, Clovermere Hall, Herbalist's Garden, Old Barn, the crossing tree, boulder, foxglove patch, player, six role-specific residents, and meadow/forest-floor/village-verge material clusters, all using a locked Clovermere palette.
@@ -22,8 +23,8 @@ The native client currently includes:
 - Persistent resource recovery: tree work moves through felled → sprout → young → restored over three sleeps; stone and ore recover over two sleeps; herbs retain next-day restoration. Recovery stage and timing are saved separately from the legacy `world_changes` flags.
 - Terrain foundation pack: sparse grass variants, a woodland pocket, a Foxglove soil pocket, connectivity-selected path straights/corners/T-junctions/crossings, and registered water/bank transition tiles. The central terrain pass is composited into one texture; distant terrain remains procedural and cached.
 - Collision-safe keyboard movement and mouse click-to-move pathfinding.
-- Contextual building interaction, target markers, camera tracking, and 50%–200% zoom.
-- Field-notes loading and welcome screens before gameplay.
+- Contextual building interaction, target markers, camera tracking, and 50%–200% zoom. Cottage and Workshop buildings open authored rooms with E-driven furniture actions and a short fade transition; `Esc` closes management/dialogue surfaces before pausing.
+- Resident dialogue: press `T` near a live resident for a time-aware parchment conversation. Initial conversations with Alda Fen, Tobin Wren, and Orin Reed set persistent introduction flags in the existing save payload.
 - Fullscreen-first desktop window behavior with `F11` toggle.
 - Pause menu with explicit Save Journey and Load Journey actions.
 - Persistent Options page for fullscreen, crisp pixel filtering, starting zoom, and launch metrics.
@@ -43,10 +44,13 @@ godot --headless --path desktop/godot --script res://tests/regrowth_smoke.gd
 # Day-state contract: clock, energy, inventory, sleep, and regrowth
 godot --headless --path desktop/godot --script res://tests/day_state_test.gd
 
-# Storage, recipes, minimap, and traditional PC HUD contracts
+# Storage, recipes, HUD, and enterable-interior contracts
 godot --headless --path desktop/godot --script res://tests/storage_recipe_test.gd
 godot --headless --path desktop/godot --script res://tests/minimap_test.gd
 godot --headless --path desktop/godot --script res://tests/gameplay_hud_test.gd
+godot --headless --path desktop/godot --script res://tests/interior_contract_test.gd
+godot --headless --path desktop/godot --script res://tests/interior_scene_test.gd
+godot --headless --path desktop/godot --script res://tests/interior_transition_smoke.gd
 
 # Run NPC schedule and actor contracts
 godot --headless --path desktop/godot --script res://tests/npc_schedule_test.gd
@@ -97,9 +101,9 @@ The former browser prototype has been **retired as a release target**. GitHub Pa
 
 The desktop roadmap is now:
 
-1. **Make the solo loop satisfying** — movement, daily rhythm, timed work, useful materials, gathering, gardening, cooking, and exploration. The current native client includes authored terrain transitions and living resource states with ambient motion.
-2. **Deepen the village** — NPC schedules, interiors, relationships, useful buildings, seasonal events, and persistent world changes.
-3. **Polish the desktop experience** — controller support, accessibility, audio, graphics settings, robust save slots, and platform packaging.
+1. **Make the solo loop satisfying** — movement, daily rhythm, timed work, useful materials, gathering, gardening, cooking, and exploration. The current native client includes authored terrain transitions, living resource states, and enterable Cottage/Workshop interiors with useful furniture actions.
+2. **Deepen the village** — richer resident relationships/dialogue, more useful buildings and interiors, seasonal events, and persistent world changes.
+3. **Polish the desktop experience** — Windows runtime evidence, controller support, accessibility, audio, graphics settings, robust save slots, and platform packaging.
 4. **Add shared play later** — only after the single-player desktop loop is enjoyable and stable.
 
 ## Naming and rights note
