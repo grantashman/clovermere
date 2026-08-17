@@ -10,6 +10,8 @@ const RESIDENT_DEFINITIONS := {
         "favor_name": "Foxglove Gathering",
         "cost": {"herbs": 2},
         "reward": {"energy": 10},
+        "gift_reward": {"energy": 3},
+        "gift": "The garden saved a little tonic for you. Take it before the road asks too much.",
         "intro": {
             "morning": "Alda Fen checks the foxglove beds. I am Alda. If you are staying, let the garden learn your footsteps.",
             "day": "Alda Fen looks up from the garden. I am Alda. The village has room for another pair of willing hands.",
@@ -33,6 +35,8 @@ const RESIDENT_DEFINITIONS := {
         "favor_name": "Forge Kindling",
         "cost": {"stone": 2, "ore": 1},
         "reward": {"inventory": {"timber": 2}},
+        "gift_reward": {"inventory": {"timber": 1}},
+        "gift": "Tobin has set aside one straight piece of timber. It will become something useful in your hands.",
         "intro": {
             "morning": "Tobin Wren opens the workshop shutters. I am Tobin. Good work starts with knowing what the day can carry.",
             "day": "Tobin Wren weighs a piece of ore in his palm. I am Tobin. Bring questions to the workbench, not just materials.",
@@ -56,6 +60,8 @@ const RESIDENT_DEFINITIONS := {
         "favor_name": "Lane Markers",
         "cost": {"timber": 3},
         "reward": {"inventory": {"stone": 1}},
+        "gift_reward": {"inventory": {"stone": 1}},
+        "gift": "Orin leaves one good marker-stone by the lane. The next path will be easier to trust.",
         "intro": {
             "morning": "Orin Reed marks the eastern lane. I am Orin. If you wander beyond the village, keep one landmark behind you.",
             "day": "Orin Reed studies the crossroads. I am Orin. A place becomes home when people know how to return to it.",
@@ -85,7 +91,8 @@ func default_state() -> Dictionary:
             "stage": 0,
             "favor_completed": false,
             "introduced_day": 0,
-            "completed_day": 0
+            "completed_day": 0,
+            "last_gift_day": 0
         }
     return result
 
@@ -130,6 +137,33 @@ func complete_favor(state: Dictionary, npc_id: String, day: int) -> Dictionary:
         "reward": definition.get("reward", {}).duplicate(true)
     }
 
+func claim_gift(state: Dictionary, npc_id: String, day: int) -> Dictionary:
+    if not RESIDENT_DEFINITIONS.has(npc_id):
+        return {"ok": false, "reason": "unknown-resident"}
+    var resident_state := state_for(state, npc_id)
+    var current_day := maxi(1, day)
+    if int(resident_state.get("stage", 0)) < 2:
+        return {"ok": false, "reason": "not-trusted"}
+    if current_day <= maxi(int(resident_state.get("completed_day", 0)), int(resident_state.get("last_gift_day", 0))):
+        return {"ok": false, "reason": "already-claimed"}
+    var definition := definition_for(npc_id)
+    resident_state["last_gift_day"] = current_day
+    state[npc_id] = resident_state
+    return {
+        "ok": true,
+        "resident_id": npc_id,
+        "reward": definition.get("gift_reward", {}).duplicate(true),
+        "text": str(definition.get("gift", "A small gift waits for you.")),
+        "day": current_day
+    }
+
+func consequence_flags(state: Dictionary) -> Dictionary:
+    return {
+        "garden_bloom": bool(state_for(state, "alda-fen").get("favor_completed", false)),
+        "forge_ember": bool(state_for(state, "tobin-wren").get("favor_completed", false)),
+        "lane_markers": bool(state_for(state, "orin-reed").get("favor_completed", false))
+    }
+
 func dialogue_for(npc_id: String, state: Dictionary, context: Dictionary = {}) -> Dictionary:
     var definition := definition_for(npc_id)
     if definition.is_empty():
@@ -139,13 +173,17 @@ func dialogue_for(npc_id: String, state: Dictionary, context: Dictionary = {}) -
     var minute := posmod(int(context.get("minute", 8 * 60)), 1440)
     var moment := _moment_for(minute)
     var inventory = context.get("inventory", {})
+    var current_day := maxi(1, int(context.get("day", 1)))
     var favor_ready := _has_cost(inventory, definition.get("cost", {}))
+    var completed_day := int(resident_state.get("completed_day", 0))
+    var last_gift_day := int(resident_state.get("last_gift_day", 0))
+    var gift_ready := stage == 2 and current_day > maxi(completed_day, last_gift_day)
     var lines: Dictionary = definition.get("intro", {})
     var text := str(lines.get(moment, ""))
     if stage == 1:
         text = str(definition.get("ready", "")) if favor_ready else str(definition.get("pending", {}).get(moment, ""))
     elif stage == 2:
-        text = str(definition.get("trusted", {}).get(moment, ""))
+        text = str(definition.get("gift", "")) if gift_ready else str(definition.get("trusted", {}).get(moment, ""))
     text = _contextualize(text, str(context.get("location", "village")), bool(context.get("work_active", false)), stage)
     return {
         "npc_id": npc_id,
@@ -157,6 +195,8 @@ func dialogue_for(npc_id: String, state: Dictionary, context: Dictionary = {}) -
         "favor_id": str(definition.get("favor_id", "")),
         "favor_name": str(definition.get("favor_name", "")),
         "favor_ready": favor_ready and stage == 1,
+        "gift_ready": gift_ready,
+        "gift_reward": definition.get("gift_reward", {}).duplicate(true),
         "favor_completed": bool(resident_state.get("favor_completed", false)),
         "cost": definition.get("cost", {}).duplicate(true),
         "reward": definition.get("reward", {}).duplicate(true)
@@ -177,6 +217,7 @@ func from_dict(source: Dictionary) -> Dictionary:
             result[resident_id]["stage"] = 2
         result[resident_id]["introduced_day"] = maxi(0, int(raw.get("introduced_day", 0)))
         result[resident_id]["completed_day"] = maxi(0, int(raw.get("completed_day", 0)))
+        result[resident_id]["last_gift_day"] = maxi(0, int(raw.get("last_gift_day", 0)))
     return result
 
 func _moment_for(minute: int) -> String:

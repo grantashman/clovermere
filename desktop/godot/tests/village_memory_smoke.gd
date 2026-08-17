@@ -30,6 +30,12 @@ func _initialize() -> void:
         require(scene.resident_memory.get("alda-fen", {}).get("favor_completed", false), "ready Alda favor should persist completion")
         require(scene.day_state.inventory.get("herbs", 0) == 0, "completed favor should spend the required herbs")
         require(scene.day_state.energy == 90, "completed Alda favor should apply the tonic reward")
+        scene.day_state.day = 3
+        scene.day_state.energy = 80
+        scene._talk_to_nearest_npc()
+        require(scene.resident_memory.get("alda-fen", {}).get("last_gift_day", 0) == 3, "trusted Alda should claim one later-day gift")
+        require(scene.day_state.energy == 83, "trusted Alda gift should restore a small amount of energy")
+        require(scene.benchmark_scene.active_consequence_flags().get("garden_bloom", false), "Alda favor should activate the live garden consequence")
 
     require(scene._save_game(), "Village Memory should save through the existing journey ledger")
     var file := FileAccess.open(scene.SAVE_PATH, FileAccess.READ)

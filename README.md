@@ -24,7 +24,7 @@ The native client currently includes:
 - Terrain foundation pack: sparse grass variants, a woodland pocket, a Foxglove soil pocket, connectivity-selected path straights/corners/T-junctions/crossings, and registered water/bank transition tiles. The central terrain pass is composited into one texture; distant terrain remains procedural and cached.
 - Collision-safe keyboard movement and mouse click-to-move pathfinding.
 - Contextual building interaction, target markers, camera tracking, and 50%–200% zoom. Cottage and Workshop buildings open authored rooms with E-driven furniture actions and a short fade transition; `Esc` closes management/dialogue surfaces before pausing.
-- Resident dialogue and Village Memory: press `T` near Alda Fen, Tobin Wren, or Orin Reed for time/location/work-aware conversations. Each resident progresses from introduction → acquainted → trusted through one material-backed favor, with completion and small gameplay rewards persisted in the save.
+- Resident dialogue and Village Memory: press `T` near Alda Fen, Tobin Wren, or Orin Reed for time/location/work-aware conversations. Each resident progresses from introduction → acquainted → trusted through one material-backed favor, with completion and small gameplay rewards persisted in the save. Trusted residents can offer one small gift on later days; completed favors visibly add Garden blooms, a Workshop brazier, or eastern lane markers.
 - Fullscreen-first desktop window behavior with `F11` toggle.
 - Pause menu with explicit Save Journey and Load Journey actions.
 - Persistent Options page for fullscreen, crisp pixel filtering, starting zoom, and launch metrics.

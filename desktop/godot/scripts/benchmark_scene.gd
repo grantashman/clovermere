@@ -22,6 +22,7 @@ var world
 var grid: Array = []
 var world_changes: Dictionary = {}
 var resource_states: Dictionary = {}
+var consequence_flags: Dictionary = {}
 var anchor_positions: Dictionary = {}
 var building_anchors: Dictionary = {}
 var art_sprites: Dictionary = {}
@@ -38,11 +39,12 @@ var active_resource_id := ""
 var active_work_progress := 0.0
 var regrowth_resource_ids: Dictionary = {}
 
-func configure(_world, _grid: Array, _changes: Dictionary, _resource_states: Dictionary = {}) -> Dictionary:
+func configure(_world, _grid: Array, _changes: Dictionary, _resource_states: Dictionary = {}, _consequence_flags: Dictionary = {}) -> Dictionary:
     world = _world
     grid = _grid
     world_changes = _changes.duplicate(true)
     resource_states = _resource_states.duplicate(true)
+    consequence_flags = _consequence_flags.duplicate(true)
     anchor_positions.clear()
     building_anchors.clear()
     if world == null:
@@ -80,6 +82,13 @@ func depth_layers() -> Dictionary:
 
 func terrain_cluster_asset_ids() -> Array:
     return ArtAssetPack.terrain_cluster_asset_ids()
+
+func active_consequence_flags() -> Dictionary:
+    return consequence_flags.duplicate(true)
+
+func set_consequence_flags(flags: Dictionary) -> void:
+    consequence_flags = flags.duplicate(true)
+    queue_redraw()
 
 func _configure_lighting_accents() -> void:
     if lighting_accents == null:
@@ -327,6 +336,7 @@ func _draw() -> void:
     _draw_workshop_props()
     _draw_garden_props()
     _draw_barn_props()
+    _draw_village_consequences()
     _draw_resource_contacts()
     _draw_living_terrain()
 
@@ -504,6 +514,29 @@ func _draw_barn_props() -> void:
     draw_rect(Rect2(base + Vector2(11, -2), Vector2(22, 4)), Color("#c48959"), true)
     draw_rect(Rect2(base + Vector2(89, 0), Vector2(16, 9)), Color("#704936"), true)
     draw_rect(Rect2(base + Vector2(92, 2), Vector2(10, 5)), Color("#a7a78d"), true)
+
+func _draw_village_consequences() -> void:
+    if bool(consequence_flags.get("garden_bloom", false)) and anchor_positions.has("herbalists-garden"):
+        var garden: Vector2 = _world_point(anchor_positions["herbalists-garden"])
+        for index in range(5):
+            var flower := garden + Vector2(-34 + index * 17, 28 + (index % 2) * 4)
+            draw_line(flower + Vector2(0, 5), flower + Vector2(0, -2), Color("#6e9554", 0.9), 1.0, false)
+            draw_circle(flower + Vector2(-2, -3), 2.0, Color("#d9b56e", 0.9))
+            draw_circle(flower + Vector2(2, -3), 2.0, Color("#b6c878", 0.9))
+    if bool(consequence_flags.get("forge_ember", false)) and anchor_positions.has("tinker-workshop"):
+        var workshop: Vector2 = _world_point(anchor_positions["tinker-workshop"])
+        var forge := workshop + Vector2(34, 68)
+        draw_circle(forge + Vector2(0, 1), 14.0, Color("#e4a25e", 0.16))
+        draw_circle(forge + Vector2(0, 1), 7.0, Color("#e5a25d", 0.58))
+        draw_rect(Rect2(forge + Vector2(-3, -7), Vector2(6, 7)), Color("#f0cf7a", 0.95), true)
+        draw_rect(Rect2(forge + Vector2(-7, 3), Vector2(14, 4)), Color("#704936", 0.9), true)
+    if bool(consequence_flags.get("lane_markers", false)):
+        var origin := _world_point(Vector2(float(world.SETTLEMENT_ORIGIN.x + 57), float(world.SETTLEMENT_ORIGIN.y + 16)))
+        for index in range(3):
+            var marker := origin + Vector2(index * 34, (index % 2) * 5)
+            draw_rect(Rect2(marker + Vector2(-2, -10), Vector2(4, 14)), Color("#6f4d3c", 0.95), true)
+            draw_rect(Rect2(marker + Vector2(-9, -12), Vector2(18, 5)), Color("#c69b61", 0.95), true)
+            draw_rect(Rect2(marker + Vector2(-4, -11), Vector2(2, 2)), Color(BRASS, 0.9), true)
 
 func _draw_resource_contacts() -> void:
     for resource_id in ["oak-at-the-crossing", "greycap-boulder", "foxglove-patch"]:

@@ -28,6 +28,11 @@ func _initialize() -> void:
     require(benchmark.art_sprites.has("garden"), "benchmark should mount the authored Garden sprite")
     require(benchmark.art_sprites.has("barn"), "benchmark should mount the authored Barn sprite")
     require(benchmark.art_sprites.has("tree") and benchmark.art_sprites.has("stone") and benchmark.art_sprites.has("herb"), "benchmark should mount authored resource sprites")
+    benchmark.set_consequence_flags({"garden_bloom": true, "forge_ember": true, "lane_markers": true})
+    require(benchmark.active_consequence_flags().get("garden_bloom", false), "benchmark should expose the active garden consequence")
+    require(benchmark.active_consequence_flags().get("forge_ember", false), "benchmark should expose the active forge consequence")
+    require(benchmark.active_consequence_flags().get("lane_markers", false), "benchmark should expose the active lane-marker consequence")
+    require(benchmark.has_method("set_consequence_flags"), "benchmark should accept persisted resident consequences")
     benchmark.free()
 
     if failures.is_empty():

@@ -97,7 +97,7 @@ func _ready() -> void:
     benchmark_scene.name = "CentralCrossingBenchmark"
     benchmark_scene.z_index = 4
     add_child(benchmark_scene)
-    benchmark_scene.configure(world, grid, world_changes, resource_states)
+    benchmark_scene.configure(world, grid, world_changes, resource_states, village_memory.consequence_flags(resident_memory))
     camera = Camera2D.new()
     camera.position_smoothing_enabled = false
     camera.zoom = Vector2(camera_zoom, camera_zoom)
@@ -967,6 +967,7 @@ func _talk_to_nearest_npc() -> void:
     var context := {
         "location": interior_location if _in_interior() else "village",
         "minute": day_state.minute_of_day,
+        "day": day_state.day,
         "inventory": day_state.inventory,
         "work_active": active_work_action != null and active_work_action.is_active()
     }
@@ -986,6 +987,8 @@ func _talk_to_nearest_npc() -> void:
             var completion: Dictionary = village_memory.complete_favor(resident_memory, npc_id, day_state.day)
             if bool(completion.get("ok", false)):
                 day_state.apply_reward(completion.get("reward", {}))
+                if benchmark_scene != null:
+                    benchmark_scene.set_consequence_flags(village_memory.consequence_flags(resident_memory))
                 dialogue = village_memory.dialogue_for(npc_id, resident_memory, context)
                 interaction_message = "%s complete  ·  trust grows in Clovermere" % str(completion.get("name", "Favor"))
                 interaction_timeout = 4.0
@@ -995,6 +998,16 @@ func _talk_to_nearest_npc() -> void:
         else:
             interaction_message = "Keep the requested materials in your field pack"
             interaction_timeout = 2.5
+    elif stage == 2 and bool(dialogue.get("gift_ready", false)):
+        var gift: Dictionary = village_memory.claim_gift(resident_memory, npc_id, day_state.day)
+        if bool(gift.get("ok", false)):
+            day_state.apply_reward(gift.get("reward", {}))
+            dialogue = village_memory.dialogue_for(npc_id, resident_memory, context)
+            interaction_message = "%s brought a small gift" % str(dialogue.get("speaker", npc_id))
+            interaction_timeout = 3.5
+        else:
+            interaction_message = "That gift will be ready another day"
+            interaction_timeout = 2.0
     if ui != null:
         ui.dismiss_toast()
     if gameplay_hud != null:
@@ -1129,7 +1142,7 @@ func _refresh_world_state() -> void:
     if world_view != null:
         world_view.configure(world, grid, village, null, world_changes)
     if benchmark_scene != null:
-        benchmark_scene.configure(world, grid, world_changes, resource_states)
+        benchmark_scene.configure(world, grid, world_changes, resource_states, village_memory.consequence_flags(resident_memory))
     if world_cache != null:
         world_cache.render_target_update_mode = SubViewport.UPDATE_ONCE
     if gameplay_hud != null:

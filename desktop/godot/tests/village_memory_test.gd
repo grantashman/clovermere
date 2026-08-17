@@ -48,10 +48,24 @@ func _initialize() -> void:
     require(state.get("alda-fen", {}).get("favor_completed", false), "completed favor should persist its completion flag")
     require(completion.get("reward", {}).get("energy", 0) == 10, "Alda favor should provide a useful immediate reward")
 
+    context["day"] = 1
+    var same_day: Dictionary = memory.dialogue_for("alda-fen", state, context)
+    require(not bool(same_day.get("gift_ready", false)), "trusted resident should not offer a second gift on the completion day")
+    context["day"] = 3
+    var next_day: Dictionary = memory.dialogue_for("alda-fen", state, context)
+    require(bool(next_day.get("gift_ready", false)), "trusted resident should offer one small gift on a later day")
+    var gift: Dictionary = memory.claim_gift(state, "alda-fen", 3)
+    require(bool(gift.get("ok", false)), "trusted resident gift should be claimable once per day")
+    require(gift.get("reward", {}).get("energy", 0) == 3, "Alda daily gift should provide a small tonic reward")
+    require(not bool(memory.claim_gift(state, "alda-fen", 3).get("ok", false)), "trusted resident gift should not be claimable twice on one day")
+    var consequences: Dictionary = memory.consequence_flags(state)
+    require(bool(consequences.get("garden_bloom", false)), "Alda favor should activate the garden consequence")
+
     var encoded: Dictionary = memory.to_dict(state)
     var restored: Dictionary = memory.from_dict(encoded)
     require(restored.get("alda-fen", {}).get("stage", -1) == 2, "relationship stage should survive normalization")
     require(restored.get("alda-fen", {}).get("favor_completed", false), "favor completion should survive normalization")
+    require(restored.get("alda-fen", {}).get("last_gift_day", 0) == 3, "daily gift claim day should survive normalization")
     require(restored.get("tobin-wren", {}).get("stage", -1) == 0, "unmet residents should remain unintroduced after save/load")
 
     var day_state = preload("res://scripts/day_state.gd").new()
