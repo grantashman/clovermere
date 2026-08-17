@@ -49,7 +49,9 @@ jobs:
       - name: Run NPC schedule contract
         run: godot --headless --path desktop/godot --script res://tests/npc_schedule_test.gd
       - name: Run NPC actor contract
-        run: godot --headless --path desktop/godot --script res://tests/npc_actor_test.gd
+        run: |
+          godot --headless --path desktop/godot --script res://tests/npc_actor_test.gd
+          godot --headless --path desktop/godot --script res://tests/player_scale_test.gd
       - name: Smoke run desktop scene
         run: godot --headless --path desktop/godot --quit-after 3
       - name: Verify mouse movement and building interaction

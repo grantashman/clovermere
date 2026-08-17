@@ -37,9 +37,10 @@ godot --headless --path . --script res://tests/world_contract_test.gd
 # Day-state contract test
 godot --headless --path . --script res://tests/day_state_test.gd
 
-# NPC schedule and actor contract tests
+# NPC actor, player-scale, and schedule contract tests
 godot --headless --path . --script res://tests/npc_schedule_test.gd
 godot --headless --path . --script res://tests/npc_actor_test.gd
+godot --headless --path . --script res://tests/player_scale_test.gd
 
 # Art asset, timed work, feedback, workshop, and benchmark contract tests
 godot --headless --path . --script res://tests/art_asset_pack_test.gd

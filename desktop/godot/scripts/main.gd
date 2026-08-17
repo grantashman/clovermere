@@ -84,7 +84,9 @@ func _ready() -> void:
     camera.zoom = Vector2(camera_zoom, camera_zoom)
     add_child(camera)
     player = PlayerAvatar.new()
-    player.scale = Vector2(1.55, 1.55)
+    # Keep the player on the same authored pixel scale as residents; the prior
+    # 1.55 multiplier made the hero dominate the village silhouettes.
+    player.scale = Vector2.ONE
     player.z_index = 20
     add_child(player)
     player.position = player_position * World.TILE_SIZE
