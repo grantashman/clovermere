@@ -37,6 +37,16 @@ P = {
     "ore": "#91b59e",
     "herb": "#a9c987",
     "petal": "#d7b46f",
+    "grass_dark": "#3d7047",
+    "path": "#b98958",
+    "path_light": "#d7b576",
+    "path_edge": "#765947",
+    "soil": "#875d4d",
+    "water": "#4f9491",
+    "water_light": "#86c1ac",
+    "water_dark": "#326b73",
+    "moss": "#78975a",
+    "moss_light": "#a7bd6a",
 }
 
 
@@ -47,6 +57,117 @@ def canvas(size: tuple[int, int]) -> tuple[Image.Image, ImageDraw.ImageDraw]:
 
 def save(image: Image.Image, name: str) -> None:
     image.save(OUT / name)
+
+
+def terrain_base(fill: str) -> tuple[Image.Image, ImageDraw.ImageDraw]:
+    image, draw = canvas((16, 16))
+    draw.rectangle((0, 0, 15, 15), fill=P[fill])
+    return image, draw
+
+
+def grass_tile(name: str, marks: list[tuple[int, int, int, int, str]]) -> None:
+    image, draw = terrain_base("grass")
+    for x1, y1, x2, y2, color in marks:
+        draw.line((x1, y1, x2, y2), fill=P[color], width=1)
+    if name == "grass_a":
+        draw.rectangle((12, 2, 14, 2), fill=P["grass_light"])
+    elif name == "grass_b":
+        draw.rectangle((1, 12, 3, 12), fill=P["grass_dark"])
+    else:
+        draw.rectangle((7, 6, 8, 6), fill=P["grass_light"])
+    save(image, f"{name}.png")
+
+
+def path_tile(name: str, connections: set[str]) -> None:
+    image, draw = terrain_base("grass")
+    edge = P["path_edge"]
+    road = P["path"]
+    light = P["path_light"]
+    if connections & {"w", "e"}:
+        draw.rectangle((0, 3, 15, 13), fill=edge)
+        draw.rectangle((0, 4, 15, 12), fill=road)
+    if connections & {"n", "s"}:
+        draw.rectangle((3, 0, 13, 15), fill=edge)
+        draw.rectangle((4, 0, 12, 15), fill=road)
+    # Keep the four-way centre coherent when a corner/T tile only has two arms.
+    draw.rectangle((3, 3, 12, 12), fill=road)
+
+    if "n" not in connections:
+        draw.rectangle((3, 0, 12, 2), fill=P["grass"])
+    if "s" not in connections:
+        draw.rectangle((3, 13, 12, 15), fill=P["grass"])
+    if "w" not in connections:
+        draw.rectangle((0, 3, 2, 12), fill=P["grass"])
+    if "e" not in connections:
+        draw.rectangle((13, 3, 15, 12), fill=P["grass"])
+    save(image, f"{name}.png")
+
+
+def woodland_tile() -> None:
+    image, draw = terrain_base("moss")
+    draw.rectangle((0, 12, 15, 15), fill=P["grass_dark"])
+    draw.rectangle((2, 3, 5, 5), fill=P["moss_light"])
+    draw.rectangle((10, 7, 14, 9), fill=P["leaf_dark"])
+    draw.rectangle((5, 10, 8, 12), fill=P["leaf_dark"])
+    draw.rectangle((12, 2, 14, 4), fill=P["grass_light"])
+    save(image, "woodland.png")
+
+
+def soil_tile() -> None:
+    image, draw = terrain_base("soil")
+    for y in (3, 8, 13):
+        draw.rectangle((1, y, 14, y + 1), fill=P["path_light"])
+    draw.rectangle((4, 1, 6, 2), fill=P["grass_light"])
+    draw.rectangle((10, 10, 12, 11), fill=P["grass_light"])
+    save(image, "soil.png")
+
+
+def water_tile(name: str, edge: str = "") -> None:
+    image, draw = terrain_base("water")
+    draw.rectangle((0, 14, 15, 15), fill=P["water_dark"])
+    draw.rectangle((2, 4, 8, 5), fill=P["water_light"])
+    draw.rectangle((10, 9, 14, 10), fill=P["water_light"])
+    if edge == "n":
+        draw.rectangle((0, 0, 15, 3), fill=P["grass"])
+        draw.rectangle((0, 3, 15, 4), fill=P["grass_dark"])
+    elif edge == "s":
+        draw.rectangle((0, 12, 15, 15), fill=P["grass"])
+        draw.rectangle((0, 11, 15, 12), fill=P["grass_dark"])
+    elif edge == "e":
+        draw.rectangle((12, 0, 15, 15), fill=P["grass"])
+        draw.rectangle((11, 0, 12, 15), fill=P["grass_dark"])
+    elif edge == "w":
+        draw.rectangle((0, 0, 3, 15), fill=P["grass"])
+        draw.rectangle((3, 0, 4, 15), fill=P["grass_dark"])
+    elif edge == "corner":
+        draw.rectangle((0, 0, 4, 4), fill=P["grass"])
+        draw.rectangle((4, 3, 6, 4), fill=P["grass_dark"])
+    save(image, f"{name}.png")
+
+
+def terrain_assets() -> None:
+    grass_tile("grass_a", [(3, 13, 4, 9, "grass_light"), (11, 11, 14, 11, "grass_dark")])
+    grass_tile("grass_b", [(2, 5, 5, 5, "grass_dark"), (8, 14, 9, 10, "grass_light")])
+    grass_tile("grass_c", [(12, 4, 14, 4, "grass_light"), (5, 12, 8, 12, "grass_dark")])
+    woodland_tile()
+    soil_tile()
+    path_tile("path_h", {"w", "e"})
+    path_tile("path_v", {"n", "s"})
+    path_tile("path_corner_ne", {"n", "e"})
+    path_tile("path_corner_nw", {"n", "w"})
+    path_tile("path_corner_se", {"s", "e"})
+    path_tile("path_corner_sw", {"s", "w"})
+    path_tile("path_t_n", {"n", "e", "w"})
+    path_tile("path_t_s", {"s", "e", "w"})
+    path_tile("path_t_e", {"n", "s", "e"})
+    path_tile("path_t_w", {"n", "s", "w"})
+    path_tile("path_cross", {"n", "s", "e", "w"})
+    water_tile("water")
+    water_tile("water_edge_n", "n")
+    water_tile("water_edge_s", "s")
+    water_tile("water_edge_e", "e")
+    water_tile("water_edge_w", "w")
+    water_tile("water_corner", "corner")
 
 
 def cottage() -> None:
@@ -210,6 +331,7 @@ def person(name: str, coat: str, hair: str, accent: str) -> None:
 
 
 def main() -> None:
+    terrain_assets()
     cottage()
     workshop()
     tree()

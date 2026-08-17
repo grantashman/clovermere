@@ -22,7 +22,17 @@ const PALETTE := {
     "stone_light": Color("#a7a78d"),
     "ore": Color("#91b59e"),
     "herb": Color("#a9c987"),
-    "petal": Color("#d7b46f")
+    "petal": Color("#d7b46f"),
+    "grass_dark": Color("#3d7047"),
+    "path": Color("#b98958"),
+    "path_light": Color("#d7b576"),
+    "path_edge": Color("#765947"),
+    "soil": Color("#875d4d"),
+    "water": Color("#4f9491"),
+    "water_light": Color("#86c1ac"),
+    "water_dark": Color("#326b73"),
+    "moss": Color("#78975a"),
+    "moss_light": Color("#a7bd6a")
 }
 
 const ASSET_PATHS := {
@@ -32,13 +42,45 @@ const ASSET_PATHS := {
     "stone": "res://assets/benchmark/stone.png",
     "herb": "res://assets/benchmark/herb.png",
     "player": "res://assets/benchmark/player.png",
-    "resident": "res://assets/benchmark/resident.png"
+    "resident": "res://assets/benchmark/resident.png",
+    "grass_a": "res://assets/benchmark/grass_a.png",
+    "grass_b": "res://assets/benchmark/grass_b.png",
+    "grass_c": "res://assets/benchmark/grass_c.png",
+    "woodland": "res://assets/benchmark/woodland.png",
+    "soil": "res://assets/benchmark/soil.png",
+    "path_h": "res://assets/benchmark/path_h.png",
+    "path_v": "res://assets/benchmark/path_v.png",
+    "path_corner_ne": "res://assets/benchmark/path_corner_ne.png",
+    "path_corner_nw": "res://assets/benchmark/path_corner_nw.png",
+    "path_corner_se": "res://assets/benchmark/path_corner_se.png",
+    "path_corner_sw": "res://assets/benchmark/path_corner_sw.png",
+    "path_t_n": "res://assets/benchmark/path_t_n.png",
+    "path_t_s": "res://assets/benchmark/path_t_s.png",
+    "path_t_e": "res://assets/benchmark/path_t_e.png",
+    "path_t_w": "res://assets/benchmark/path_t_w.png",
+    "path_cross": "res://assets/benchmark/path_cross.png",
+    "water": "res://assets/benchmark/water.png",
+    "water_edge_n": "res://assets/benchmark/water_edge_n.png",
+    "water_edge_s": "res://assets/benchmark/water_edge_s.png",
+    "water_edge_e": "res://assets/benchmark/water_edge_e.png",
+    "water_edge_w": "res://assets/benchmark/water_edge_w.png",
+    "water_corner": "res://assets/benchmark/water_corner.png"
 }
+
+const TERRAIN_ASSET_IDS := [
+    "grass_a", "grass_b", "grass_c", "woodland", "soil",
+    "path_h", "path_v", "path_corner_ne", "path_corner_nw", "path_corner_se", "path_corner_sw",
+    "path_t_n", "path_t_s", "path_t_e", "path_t_w", "path_cross",
+    "water", "water_edge_n", "water_edge_s", "water_edge_e", "water_edge_w", "water_corner"
+]
 
 static var _textures: Dictionary = {}
 
 static func path_for(asset_id: String) -> String:
     return str(ASSET_PATHS.get(asset_id, ""))
+
+static func terrain_asset_ids() -> Array:
+    return TERRAIN_ASSET_IDS.duplicate()
 
 static func texture_for(asset_id: String) -> Texture2D:
     if _textures.has(asset_id):

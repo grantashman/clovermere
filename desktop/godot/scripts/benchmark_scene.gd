@@ -15,6 +15,8 @@ var world_changes: Dictionary = {}
 var anchor_positions: Dictionary = {}
 var building_anchors: Dictionary = {}
 var art_sprites: Dictionary = {}
+var terrain_sprites: Dictionary = {}
+var terrain_sprite: Sprite2D
 
 func configure(_world, _grid: Array, _changes: Dictionary) -> Dictionary:
     world = _world
@@ -46,9 +48,101 @@ func configure(_world, _grid: Array, _changes: Dictionary) -> Dictionary:
         var resource_id := str(resource.get("id", ""))
         if resource_id in ["oak-at-the-crossing", "greycap-boulder", "foxglove-patch"]:
             anchor_positions[resource_id] = Vector2(float(resource.get("x", 0)) + 0.5, float(resource.get("y", 0)) + 0.5)
+    _mount_authored_terrain()
     _mount_authored_assets()
     queue_redraw()
     return anchor_positions
+
+func _mount_authored_terrain() -> void:
+    if is_instance_valid(terrain_sprite):
+        terrain_sprite.queue_free()
+    terrain_sprite = null
+    terrain_sprites.clear()
+    var bounds := benchmark_bounds()
+    var terrain_image := Image.create(bounds.size.x * int(TILE_SIZE), bounds.size.y * int(TILE_SIZE), false, Image.FORMAT_RGBA8)
+    terrain_image.fill(Color(0, 0, 0, 0))
+    for y in range(bounds.position.y, bounds.end.y):
+        for x in range(bounds.position.x, bounds.end.x):
+            var tile := Vector2i(x, y)
+            var asset_id := _terrain_asset_for(tile)
+            if asset_id.is_empty():
+                continue
+            terrain_sprites[tile] = asset_id
+            var source_texture := ArtAssetPack.texture_for(asset_id)
+            if source_texture == null:
+                continue
+            terrain_image.blit_rect(source_texture.get_image(), Rect2i(Vector2i.ZERO, Vector2i(source_texture.get_size())), Vector2i((x - bounds.position.x) * int(TILE_SIZE), (y - bounds.position.y) * int(TILE_SIZE)))
+    terrain_sprite = Sprite2D.new()
+    terrain_sprite.name = "AuthoredTerrainField"
+    terrain_sprite.texture = ImageTexture.create_from_image(terrain_image)
+    terrain_sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+    terrain_sprite.position = (Vector2(bounds.position) + Vector2(bounds.size) * 0.5) * TILE_SIZE
+    terrain_sprite.z_index = -1
+    add_child(terrain_sprite)
+
+func _terrain_asset_for(tile: Vector2i) -> String:
+    if tile.y < 0 or tile.y >= grid.size() or tile.x < 0 or tile.x >= grid[tile.y].size():
+        return ""
+    var tile_kind := str(grid[tile.y][tile.x])
+    if tile_kind in ["b", "f", "s", "h"]:
+        return ""
+    if tile_kind in ["p", "d"]:
+        return _path_asset(tile)
+    if tile_kind == "w":
+        return "water"
+    var oak_tile := Vector2i(roundi(float(anchor_positions.get("oak-at-the-crossing", Vector2(-999, -999)).x)), roundi(float(anchor_positions.get("oak-at-the-crossing", Vector2(-999, -999)).y)))
+    if anchor_positions.has("oak-at-the-crossing") and tile.distance_squared_to(oak_tile) <= 10:
+        return "woodland"
+    var herb_tile := Vector2i(roundi(float(anchor_positions.get("foxglove-patch", Vector2(-999, -999)).x)), roundi(float(anchor_positions.get("foxglove-patch", Vector2(-999, -999)).y)))
+    if anchor_positions.has("foxglove-patch") and tile.distance_squared_to(herb_tile) <= 5:
+        return "soil"
+    if tile_kind in ["t", "m"]:
+        return "woodland"
+    if tile_kind == "r":
+        return "grass_b"
+    var variant: int = abs(tile.x * 17 + tile.y * 31) % 3
+    return ["grass_a", "grass_b", "grass_c"][variant]
+
+func _path_asset(tile: Vector2i) -> String:
+    var mask := 0
+    if _is_path_tile(tile + Vector2i(0, -1)):
+        mask |= 1
+    if _is_path_tile(tile + Vector2i(1, 0)):
+        mask |= 2
+    if _is_path_tile(tile + Vector2i(0, 1)):
+        mask |= 4
+    if _is_path_tile(tile + Vector2i(-1, 0)):
+        mask |= 8
+    match mask:
+        15:
+            return "path_cross"
+        11:
+            return "path_t_n"
+        14:
+            return "path_t_s"
+        13:
+            return "path_t_w"
+        7:
+            return "path_t_e"
+        3:
+            return "path_corner_ne"
+        9:
+            return "path_corner_nw"
+        6:
+            return "path_corner_se"
+        12:
+            return "path_corner_sw"
+        1, 4:
+            return "path_v"
+        2, 8:
+            return "path_h"
+        _:
+            return "path_cross"
+
+func _is_path_tile(tile: Vector2i) -> bool:
+    if tile.y < 0 or tile.y >= grid.size() or tile.x < 0 or tile.x >= grid[tile.y].size():
+        return false
+    return str(grid[tile.y][tile.x]) in ["p", "d"]
 
 func _mount_authored_assets() -> void:
     for node in art_sprites.values():

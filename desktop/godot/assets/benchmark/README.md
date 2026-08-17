@@ -13,6 +13,11 @@ This directory is the first authored pixel-asset set for Clovermere. It is inten
 | `herb.png` | Foxglove Patch | 32×24 |
 | `player.png` | Player benchmark sprite | 32×48 |
 | `resident.png` | Hero resident benchmark sprite | 32×48 |
+| `grass_a.png` / `grass_b.png` / `grass_c.png` | Non-repeating benchmark grass variants | 16×16 |
+| `woodland.png` | Woodland floor/shadow pocket | 16×16 |
+| `soil.png` | Soil and garden transition | 16×16 |
+| `path_*.png` | Straight, corner, T-junction, and four-way path tiles | 16×16 |
+| `water*.png` | Water base, cardinal bank edges, and corner | 16×16 |
 
 ## Palette
 
@@ -32,15 +37,17 @@ godot --headless --path desktop/godot --script res://tests/art_asset_pack_test.g
 
 The generator uses only original hand-authored primitives and produces transparent RGBA PNGs. No third-party art, protected names, or external asset packs are used.
 
-## Next art pass
+## Terrain foundation placement
 
-The next pack should add terrain transition tiles before broadening the building set:
+The central benchmark now mounts the terrain foundation over its existing cached world:
 
-- grass variants with fewer repeated marks;
-- square path straights, corners, T-junctions, and crossings;
-- water edges and shallow-bank tiles;
-- woodland floor and shadow pockets;
-- soil, stone, and moss transition pieces;
-- a small animated foliage/water frame set.
+- three grass variants with sparse marks;
+- square path straights, corners, T-junctions, and crossings selected from neighbouring path connectivity;
+- woodland floor around the crossing oak;
+- soil around the Foxglove Patch;
+- water base and bank pieces registered for the next water benchmark;
+- distant terrain remains procedural and cached.
+
+The next visual pass should add small animated foliage/water frames, cleared-state debris, and authored transitions for the remaining settlement structures.
 
 The central benchmark remains the acceptance scene for every new asset family.
