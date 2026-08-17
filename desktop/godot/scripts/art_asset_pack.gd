@@ -56,6 +56,15 @@ const ASSET_PATHS := {
     "herb_stems": "res://assets/benchmark/herb_stems.png",
     "player": "res://assets/benchmark/player.png",
     "resident": "res://assets/benchmark/resident.png",
+    "resident_alda": "res://assets/benchmark/resident_alda.png",
+    "resident_orin": "res://assets/benchmark/resident_orin.png",
+    "resident_maeve": "res://assets/benchmark/resident_maeve.png",
+    "resident_tobin": "res://assets/benchmark/resident_tobin.png",
+    "resident_pella": "res://assets/benchmark/resident_pella.png",
+    "resident_bram": "res://assets/benchmark/resident_bram.png",
+    "meadow_cluster": "res://assets/benchmark/meadow_cluster.png",
+    "forest_floor_cluster": "res://assets/benchmark/forest_floor_cluster.png",
+    "village_verge_cluster": "res://assets/benchmark/village_verge_cluster.png",
     "grass_a": "res://assets/benchmark/grass_a.png",
     "grass_b": "res://assets/benchmark/grass_b.png",
     "grass_c": "res://assets/benchmark/grass_c.png",
@@ -96,6 +105,14 @@ const RESOURCE_STATE_ASSET_IDS := [
     "stone_fragments", "stone_fractures", "ore_fragments", "ore_crystals", "herb_stems"
 ]
 
+const RESIDENT_ASSET_IDS := [
+    "resident_alda", "resident_orin", "resident_maeve", "resident_tobin", "resident_pella", "resident_bram"
+]
+
+const TERRAIN_CLUSTER_ASSET_IDS := [
+    "meadow_cluster", "forest_floor_cluster", "village_verge_cluster"
+]
+
 const AMBIENT_ASSET_IDS := [
     "water_shimmer_a", "water_shimmer_b", "foliage_sway_a", "foliage_sway_b"
 ]
@@ -113,6 +130,22 @@ static func resource_state_asset_ids() -> Array:
 
 static func ambient_asset_ids() -> Array:
     return AMBIENT_ASSET_IDS.duplicate()
+
+static func resident_asset_ids() -> Array:
+    return RESIDENT_ASSET_IDS.duplicate()
+
+static func terrain_cluster_asset_ids() -> Array:
+    return TERRAIN_CLUSTER_ASSET_IDS.duplicate()
+
+static func resident_asset_for(npc_id: String) -> String:
+    return {
+        "alda-fen": "resident_alda",
+        "orin-reed": "resident_orin",
+        "maeve-thorn": "resident_maeve",
+        "tobin-wren": "resident_tobin",
+        "pella-moor": "resident_pella",
+        "bram-ash": "resident_bram"
+    }.get(npc_id, "resident")
 
 static func resource_asset_for(kind: String, cleared: bool, variant: String = "") -> String:
     if not cleared:

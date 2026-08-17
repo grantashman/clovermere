@@ -538,8 +538,31 @@ def ambient_assets() -> None:
         save(image, f"{name}.png")
 
 
-def person(name: str, coat: str, hair: str, accent: str) -> None:
+def terrain_cluster_assets() -> None:
+    clusters = {
+        "meadow_cluster": (P["grass"], P["grass_light"], P["grass_dark"], P["petal"]),
+        "forest_floor_cluster": (P["moss"], P["moss_light"], P["leaf_dark"], P["grass_light"]),
+        "village_verge_cluster": (P["grass"], P["path_light"], P["path_edge"], P["soil"]),
+    }
+    for name, (base, light, dark, accent) in clusters.items():
+        image, draw = canvas((32, 32))
+        draw.rectangle((0, 0, 31, 31), fill=base)
+        for x, y in ((3, 5), (13, 11), (25, 4), (8, 24), (22, 20), (28, 28)):
+            draw.line((x, y + 6, x + 2, y), fill=light, width=1)
+            draw.rectangle((x + 3, y + 4, x + 5, y + 5), fill=dark)
+        for x, y in ((6, 15), (19, 7), (25, 24)):
+            draw.rectangle((x, y, x + 2, y + 2), fill=accent)
+        # Transparent corners keep clusters composable over the authored tile field.
+        for box in ((0, 0, 5, 5), (26, 0, 31, 5), (0, 26, 5, 31), (26, 26, 31, 31)):
+            draw.rectangle(box, fill=(0, 0, 0, 0))
+        save(image, f"{name}.png")
+
+
+
+
+def person(name: str, coat: str, hair: str, accent: str, skin: str | None = None, role: str = "resident") -> None:
     image, draw = canvas((32, 48))
+    skin_color = skin or P["skin"]
     draw.polygon([(3, 40), (11, 37), (23, 37), (30, 41), (24, 45), (8, 45)], fill=P["shadow"])
     draw.rectangle((9, 25, 23, 40), fill=P["ink"])
     draw.rectangle((10, 20, 22, 35), fill=coat)
@@ -547,24 +570,57 @@ def person(name: str, coat: str, hair: str, accent: str) -> None:
     draw.rectangle((7, 24, 10, 34), fill=coat)
     draw.rectangle((10, 35, 14, 41), fill=P["timber"])
     draw.rectangle((18, 35, 22, 41), fill=P["timber"])
-    draw.rectangle((11, 7, 21, 20), fill=P["skin"])
+    draw.rectangle((11, 7, 21, 20), fill=skin_color)
     draw.rectangle((9, 5, 23, 10), fill=hair)
     draw.rectangle((10, 8, 12, 17), fill=hair)
     draw.rectangle((20, 8, 22, 16), fill=hair)
     draw.rectangle((12, 12, 14, 14), fill=P["ink"])
     draw.rectangle((18, 12, 20, 14), fill=P["ink"])
     draw.rectangle((13, 24, 19, 27), fill=accent)
-    if name == "resident":
+    if role == "waykeeper":
+        draw.line((24, 25, 28, 8), fill=P["timber"], width=2)
+        draw.rectangle((26, 7, 31, 10), fill=P["brass"])
+    elif role == "herbalist":
+        draw.rectangle((5, 17, 9, 22), fill=P["brass"])
+        draw.rectangle((4, 18, 8, 22), fill=P["leaf_light"])
+        draw.rectangle((5, 17, 7, 19), fill=P["petal"])
+    elif role == "gardener":
+        draw.rectangle((4, 27, 9, 32), fill=P["wood"])
+        draw.rectangle((5, 28, 8, 30), fill=P["petal"])
+        draw.line((25, 26, 29, 17), fill=P["timber"], width=2)
+    elif role == "maker":
+        draw.line((24, 23, 30, 16), fill=P["timber"], width=2)
+        draw.rectangle((28, 14, 31, 18), fill=P["stone_light"])
+    elif role == "courier":
+        draw.rectangle((4, 22, 9, 30), fill=P["wood"])
+        draw.rectangle((5, 23, 8, 27), fill=P["brass"])
+        draw.rectangle((23, 12, 26, 18), fill=P["petal"])
+    elif role == "keeper":
+        draw.rectangle((24, 23, 30, 31), fill=P["wood"])
+        draw.rectangle((25, 24, 29, 28), fill=P["stone_light"])
+        draw.rectangle((27, 29, 31, 31), fill=P["brass"])
+    else:
         draw.line((24, 22, 29, 12), fill=P["timber"], width=2)
         draw.rectangle((27, 10, 31, 12), fill=P["brass"])
-    else:
-        draw.rectangle((5, 17, 9, 21), fill=P["brass"])
-        draw.rectangle((4, 18, 7, 22), fill=P["leaf_light"])
     save(image, f"{name}.png")
+
+
+def resident_assets() -> None:
+    variants = [
+        ("resident_alda", P["coat"], P["hair"], P["brass"], "#d6a27a", "herbalist"),
+        ("resident_orin", P["coat_blue"], "#362f2b", "#c47c55", "#bd875e", "waykeeper"),
+        ("resident_maeve", "#9b6b5a", "#8a5b39", "#d6c477", "#e0b084", "gardener"),
+        ("resident_tobin", "#6b8159", "#4a3630", "#c78256", "#c99168", "maker"),
+        ("resident_pella", "#7d607d", "#6c493b", "#e0be77", "#d7a47d", "courier"),
+        ("resident_bram", "#80664c", "#302e2c", "#b9a267", "#bb805b", "keeper"),
+    ]
+    for name, coat, hair, accent, skin, role in variants:
+        person(name, coat, hair, accent, skin, role)
 
 
 def main() -> None:
     terrain_assets()
+    terrain_cluster_assets()
     ambient_assets()
     cottage()
     workshop()
@@ -586,6 +642,7 @@ def main() -> None:
     herb_state("herb_stems")
     person("player", P["coat"], P["hair"], P["brass"])
     person("resident", P["coat_blue"], "#362f2b", "#c47c55")
+    resident_assets()
     print(f"Generated {len(list(OUT.glob('*.png')))} Clovermere benchmark assets in {OUT}")
 
 

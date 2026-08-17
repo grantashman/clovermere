@@ -49,6 +49,7 @@ jobs:
           godot --headless --path desktop/godot --script res://tests/facade_asset_test.gd
           godot --headless --path desktop/godot --script res://tests/terrain_asset_test.gd
           godot --headless --path desktop/godot --script res://tests/benchmark_scene_test.gd
+          godot --headless --path desktop/godot --script res://tests/visual_presentation_test.gd
           godot --headless --path desktop/godot --script res://tests/terrain_benchmark_test.gd
           godot --headless --path desktop/godot --script res://tests/living_terrain_test.gd
           godot --headless --path desktop/godot --script res://tests/living_terrain_smoke.gd

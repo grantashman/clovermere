@@ -33,8 +33,16 @@ func _process(delta: float) -> void:
     elapsed += delta
     queue_redraw()
 
+func _draw_shadow(bob: float) -> void:
+    var points := PackedVector2Array([
+        Vector2(-10, 7 + bob), Vector2(-6, 4 + bob), Vector2(5, 4 + bob),
+        Vector2(11, 7 + bob), Vector2(5, 10 + bob), Vector2(-6, 10 + bob)
+    ])
+    draw_colored_polygon(points, Color("#1b2c26", 0.78))
+
 func _draw() -> void:
     var bob := sin(elapsed * 8.0) * 0.8
+    _draw_shadow(bob)
     if uses_authored_art and authored_texture != null:
         draw_texture_rect(authored_texture, Rect2(-16, -24 + bob, 32, 48), false)
         if work_active:

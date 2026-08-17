@@ -89,12 +89,12 @@ func _ready() -> void:
     # Keep the player on the same authored pixel scale as residents; the prior
     # 1.55 multiplier made the hero dominate the village silhouettes.
     player.scale = Vector2.ONE
-    player.z_index = 20
+    player.z_index = 100 + floori(player_position.y)
     add_child(player)
     player.position = player_position * World.TILE_SIZE
     interaction_feedback = InteractionFeedback.new()
     interaction_feedback.name = "WorkFeedback"
-    interaction_feedback.z_index = 22
+    interaction_feedback.z_index = 320
     interaction_feedback.visible = false
     add_child(interaction_feedback)
     camera.position = player.position
@@ -164,14 +164,14 @@ func _build_world_cache() -> void:
     lighting_overlay.configure(world)
 
     target_marker = TargetMarker.new()
-    target_marker.z_index = 8
+    target_marker.z_index = 300
     target_marker.visible = false
     add_child(target_marker)
 
 func _build_npc_actors() -> void:
     npc_layer = Node2D.new()
     npc_layer.name = "LiveResidents"
-    npc_layer.z_index = 18
+    npc_layer.z_index = 0
     add_child(npc_layer)
     npc_actors.clear()
     npc_schedule_phases.clear()
@@ -183,6 +183,7 @@ func _build_npc_actors() -> void:
         actor.name = "Resident_%s" % str(npc.get("id", "unknown"))
         actor.set_npc(npc)
         actor.position = (Vector2(float(npc.get("x", World.START_TILE.x)) + 0.5, float(npc.get("y", World.START_TILE.y)) + 0.9) * World.TILE_SIZE)
+        actor.update_depth()
         npc_layer.add_child(actor)
         npc_actors[str(npc.get("id", ""))] = actor
     _refresh_npc_schedules(true)
@@ -212,6 +213,7 @@ func _update_npc_actors(delta: float) -> void:
     for actor_variant in npc_actors.values():
         var actor = actor_variant
         actor.advance_navigation(delta, World.TILE_SIZE, 1.8)
+        actor.update_depth()
 
 func _process(delta: float) -> void:
     if lighting_overlay != null:
@@ -248,6 +250,7 @@ func _process(delta: float) -> void:
     if next_position != player_position:
         player_position = next_position
         player.position = player_position * World.TILE_SIZE
+        player.z_index = 100 + floori(player_position.y)
     camera.position = player.position
     save_elapsed += delta
     if save_elapsed >= 2.0:
@@ -790,6 +793,7 @@ func _refresh_player_transform() -> void:
     if player == null or camera == null:
         return
     player.position = player_position * World.TILE_SIZE
+    player.z_index = 100 + floori(player_position.y)
     camera.position = player.position
     camera.reset_smoothing()
 

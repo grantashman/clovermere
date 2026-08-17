@@ -16,6 +16,7 @@ var hair := Color("#563d32")
 var coat := Color("#7d8f5b")
 var accent := Color("#d6b36d")
 var uses_authored_art := false
+var resident_asset_id := "resident"
 var authored_texture: Texture2D
 
 func set_npc(data: Dictionary) -> void:
@@ -24,10 +25,14 @@ func set_npc(data: Dictionary) -> void:
     hair = Color(str(npc.get("hair", "#563d32")))
     coat = Color(str(npc.get("coat", "#6b8159")))
     accent = Color(str(npc.get("accent", "#d6b36d")))
-    uses_authored_art = str(npc.get("id", "")) in ["alda-fen", "orin-reed"]
-    authored_texture = ArtAssetPack.texture_for("resident") if uses_authored_art else null
+    resident_asset_id = ArtAssetPack.resident_asset_for(str(npc.get("id", "")))
+    uses_authored_art = not resident_asset_id.is_empty()
+    authored_texture = ArtAssetPack.texture_for(resident_asset_id) if uses_authored_art else null
     texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
     queue_redraw()
+
+func update_depth(base_z: int = 100) -> void:
+    z_index = base_z + floori(position.y / 16.0)
 
 func set_activity(next_activity: String) -> void:
     activity = next_activity
@@ -67,16 +72,13 @@ func _process(delta: float) -> void:
 
 func _draw() -> void:
     var bob := sin(step_phase) * (0.8 if walking else 0.25)
+    if cast_shadow:
+        _draw_shadow(bob)
     if uses_authored_art and authored_texture != null:
         draw_texture_rect(authored_texture, Rect2(-16, -24 + bob, 32, 48), false)
         _draw_role_prop(bob)
         _draw_work_effect(bob)
         return
-    var shadow_points := PackedVector2Array([
-        Vector2(-10, 7) + shadow_offset, Vector2(-6, 4) + shadow_offset, Vector2(5, 4) + shadow_offset,
-        Vector2(11, 7) + shadow_offset, Vector2(5, 10) + shadow_offset, Vector2(-6, 10) + shadow_offset
-    ])
-    draw_colored_polygon(shadow_points, Color("#1b2c26"))
     draw_rect(Rect2(-6, -3 + bob, 12, 14), Color("#26362d"), true)
     draw_rect(Rect2(-5, -13 + bob, 10, 16), coat, true)
     draw_rect(Rect2(2, -12 + bob, 3, 13), coat.darkened(0.28), true)
@@ -92,6 +94,13 @@ func _draw() -> void:
     draw_rect(Rect2(-3, -3 + bob, 6, 2), accent, true)
     _draw_role_prop(bob)
     _draw_work_effect(bob)
+
+func _draw_shadow(bob: float) -> void:
+    var shadow_points := PackedVector2Array([
+        Vector2(-10, 7 + bob) + shadow_offset, Vector2(-6, 4 + bob) + shadow_offset, Vector2(5, 4 + bob) + shadow_offset,
+        Vector2(11, 7 + bob) + shadow_offset, Vector2(5, 10 + bob) + shadow_offset, Vector2(-6, 10 + bob) + shadow_offset
+    ])
+    draw_colored_polygon(shadow_points, Color("#1b2c26", 0.78))
 
 func _draw_role_prop(bob: float) -> void:
     var role := str(npc.get("role", ""))

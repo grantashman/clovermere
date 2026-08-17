@@ -20,8 +20,8 @@ This directory contains the canonical native desktop client. The former browser/
 - Tinker Workshop recipes consume field-pack materials: Tinker’s Kit (3 timber + 2 stone + 1 ore) reduces work energy cost by 20%; Wayfarer’s Satchel (5 timber + 2 herbs) reduces work time by 20%; Hearthward Charm (2 stone + 2 herbs + 3 ore) raises maximum daily energy to 115. Sleeping at Greenbriar Cottage stores the field pack; `TAKE STORES` returns home materials at the cottage.
 - Traditional PC-game HUD redesign: compact status card, `B` field-pack view, `C` workshop-recipes view, keyboard-accessible action bar, and a full-world minimap; the UI uses original forest-green, timber-brown, parchment, brass, and moss tones rather than protected LOTR/Tolkien assets or branding
 - Deterministic resident schedules: morning opening, role-specific work, evening strolling, and night resting; live route movement, idle/walk bob, role props, work-tool animation, impact sparks, and offset directional shadows
-- Central-crossing benchmark overlay with building contact shadows, cottage/workshop props, crossing accents, resource contacts, and clock-driven cooler evening ambient lighting
-- First authored benchmark asset pack at `assets/benchmark/`: hand-built pixel PNGs for Greenbriar Cottage, Clovermere Hall, Tinker Workshop, Herbalist's Garden, Old Barn, benchmark resources, the player, and residents, generated from `tools/generate_benchmark_assets.py` and registered through `scripts/art_asset_pack.gd`
+- Authored central-crossing benchmark layer with explicit terrain/contact/building/resource/foreground depth bands, stronger building contact shadows, cottage/workshop props, crossing accents, material cluster overlays, six role-specific resident sprites, and clock-driven cooler evening ambient lighting with warm facade window accents.
+- Authored benchmark asset pack: hand-built pixel PNGs for Greenbriar Cottage, Tinker Workshop, Clovermere Hall, Herbalist's Garden, Old Barn, the crossing tree, boulder, foxglove patch, player, six role-specific residents, and meadow/forest-floor/village-verge material clusters, all using a locked Clovermere palette.
 - Living resource states and ambient benchmark motion: tree stump/debris, tree sprout/young recovery stages, stone fragments/fractures, ore fragments/crystals, harvested herb stems, active-work pulses, herb regrowth sprouts, water shimmer, foliage sway, and restrained evening fireflies
 - Resource recovery is deterministic and persistent: trees recover through felled → sprout → young → restored over three sleeps, stone/ore recover over two sleeps, and herbs retain their established next-day restoration. Cleared terrain receives resource-specific scars, fractures, or crystal cues.
 
@@ -59,6 +59,7 @@ godot --headless --path . --script res://tests/work_action_test.gd
 godot --headless --path . --script res://tests/work_feedback_smoke.gd
 godot --headless --path . --script res://tests/workshop_upgrade_test.gd
 godot --headless --path . --script res://tests/benchmark_scene_test.gd
+godot --headless --path . --script res://tests/visual_presentation_test.gd
 godot --headless --path . --script res://tests/terrain_benchmark_test.gd
 # Living resource states, active work visuals, evening ambience, and herb regrowth
 godot --headless --path . --script res://tests/living_terrain_test.gd

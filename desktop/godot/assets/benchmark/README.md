@@ -21,7 +21,9 @@ This directory is the first authored pixel-asset set for Clovermere. It is inten
 | `ore_fragments.png` / `ore_crystals.png` | Cleared ore and crystal recovery states | 40×32 |
 | `herb_stems.png` | Harvested herb/regrowth groundwork | 32×24 |
 | `player.png` | Player benchmark sprite | 32×48 |
-| `resident.png` | Hero resident benchmark sprite | 32×48 |
+| `resident.png` | Fallback resident benchmark sprite | 32×48 |
+| `resident_alda.png` … `resident_bram.png` | Six role-specific authored resident sprites | 32×48 |
+| `meadow_cluster.png` / `forest_floor_cluster.png` / `village_verge_cluster.png` | Composable 2×2 tile material clusters | 32×32 |
 | `grass_a.png` / `grass_b.png` / `grass_c.png` | Non-repeating benchmark grass variants | 16×16 |
 | `woodland.png` | Woodland floor/shadow pocket | 16×16 |
 | `soil.png` | Soil and garden transition | 16×16 |
@@ -62,8 +64,9 @@ The central benchmark now mounts the terrain foundation over its existing cached
 - short-lived herb regrowth sprouts and multi-day tree/stone/ore recovery stages after sleeping;
 - three restrained evening firefly points and deterministic tree foliage sway;
 - five authored settlement facades now cover Cottage, Hall, Workshop, Herbalist's Garden, and Barn;
+- six role-specific resident sprites share the same 32×48 authored canvas and are y-depth sorted with the player;
+- meadow, forest-floor, and village-verge clusters break up repeated tile fields without adding large live-node counts;
+- a separate foreground accent layer provides warm evening facade windows; depth bands keep the cached terrain, structures, resources, actors, and feedback readable;
 - distant terrain remains procedural and cached.
 
-The central benchmark remains the acceptance scene for every new asset family. The current recovery pass is intentionally benchmark-scoped; distant terrain remains procedural and cached.
-
-The next product pass should begin the storage/recipes material loop after Windows runtime evidence is collected.
+The central benchmark remains the acceptance scene for every new asset family. This presentation pass is intentionally benchmark-scoped; distant terrain remains procedural and cached.

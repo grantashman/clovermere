@@ -2,7 +2,16 @@ extends Node2D
 class_name ClovermereBenchmarkScene
 
 const ArtAssetPack = preload("res://scripts/art_asset_pack.gd")
+const LightingAccents = preload("res://scripts/lighting_accents.gd")
 const TILE_SIZE := 16.0
+const DEPTH_LAYERS := {
+    "terrain": -4,
+    "contact": -2,
+    "building": 0,
+    "props": 2,
+    "resource": 6,
+    "foreground": 8
+}
 const BRASS := Color("#e1bf70")
 const SHADOW := Color("#152820")
 const WOOD := Color("#80563f")
@@ -18,7 +27,9 @@ var building_anchors: Dictionary = {}
 var art_sprites: Dictionary = {}
 var terrain_sprites: Dictionary = {}
 var resource_art_assets: Dictionary = {}
+var terrain_cluster_sprites: Dictionary = {}
 var terrain_sprite: Sprite2D
+var lighting_accents: Node2D
 var animation_phase := 0.0
 var redraw_accumulator := 0.0
 var minute_of_day := 480
@@ -60,8 +71,32 @@ func configure(_world, _grid: Array, _changes: Dictionary, _resource_states: Dic
             anchor_positions[resource_id] = Vector2(float(resource.get("x", 0)) + 0.5, float(resource.get("y", 0)) + 0.5)
     _mount_authored_terrain()
     _mount_authored_assets()
+    _configure_lighting_accents()
     queue_redraw()
     return anchor_positions
+
+func depth_layers() -> Dictionary:
+    return DEPTH_LAYERS.duplicate(true)
+
+func terrain_cluster_asset_ids() -> Array:
+    return ArtAssetPack.terrain_cluster_asset_ids()
+
+func _configure_lighting_accents() -> void:
+    if lighting_accents == null:
+        lighting_accents = LightingAccents.new()
+        lighting_accents.name = "WindowLightAccents"
+        lighting_accents.z_index = DEPTH_LAYERS["foreground"] + 1
+        add_child(lighting_accents)
+    var points: Array[Vector2] = []
+    for building_id in ["greenbriar-cottage", "clovermere-hall", "tinker-workshop", "herbalists-garden", "old-barn"]:
+        if not anchor_positions.has(building_id):
+            continue
+        var centre: Vector2 = _world_point(anchor_positions[building_id])
+        points.append(centre + Vector2(-20, 13))
+        points.append(centre + Vector2(2, 13))
+        points.append(centre + Vector2(22, 13))
+    lighting_accents.configure(points)
+    lighting_accents.set_time(minute_of_day)
 
 func _process(delta: float) -> void:
     var step := maxf(delta, 0.0)
@@ -86,6 +121,8 @@ func set_time(minutes: int) -> void:
         return
     minute_of_day = next_minute
     fireflies_visible = next_fireflies
+    if lighting_accents != null:
+        lighting_accents.set_time(minute_of_day)
     queue_redraw()
 
 func set_active_work(resource_id: String, progress: float) -> void:
@@ -107,6 +144,10 @@ func _mount_authored_terrain() -> void:
         terrain_sprite.queue_free()
     terrain_sprite = null
     terrain_sprites.clear()
+    for node in terrain_cluster_sprites.values():
+        if is_instance_valid(node):
+            node.queue_free()
+    terrain_cluster_sprites.clear()
     var bounds := benchmark_bounds()
     var terrain_image := Image.create(bounds.size.x * int(TILE_SIZE), bounds.size.y * int(TILE_SIZE), false, Image.FORMAT_RGBA8)
     terrain_image.fill(Color(0, 0, 0, 0))
@@ -126,8 +167,25 @@ func _mount_authored_terrain() -> void:
     terrain_sprite.texture = ImageTexture.create_from_image(terrain_image)
     terrain_sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
     terrain_sprite.position = (Vector2(bounds.position) + Vector2(bounds.size) * 0.5) * TILE_SIZE
-    terrain_sprite.z_index = -1
+    terrain_sprite.z_index = DEPTH_LAYERS["terrain"]
     add_child(terrain_sprite)
+    _mount_terrain_clusters()
+
+func _mount_terrain_clusters() -> void:
+    var placements := {
+        "meadow": Vector2(float(world.SETTLEMENT_ORIGIN.x + 31), float(world.SETTLEMENT_ORIGIN.y + 13)),
+        "forest_floor": Vector2(float(world.SETTLEMENT_ORIGIN.x + 1), float(world.SETTLEMENT_ORIGIN.y + 14)),
+        "village_verge": Vector2(float(world.SETTLEMENT_ORIGIN.x + 28), float(world.SETTLEMENT_ORIGIN.y + 21))
+    }
+    var assets := {
+        "meadow": "meadow_cluster",
+        "forest_floor": "forest_floor_cluster",
+        "village_verge": "village_verge_cluster"
+    }
+    for cluster_id in placements.keys():
+        var asset_id: String = assets[cluster_id]
+        var node := ArtAssetPack.sprite(asset_id, self, _world_point(placements[cluster_id]), DEPTH_LAYERS["terrain"] + 1)
+        terrain_cluster_sprites[cluster_id] = node
 
 func _terrain_asset_for(tile: Vector2i) -> String:
     if tile.y < 0 or tile.y >= grid.size() or tile.x < 0 or tile.x >= grid[tile.y].size():
@@ -202,14 +260,14 @@ func _mount_authored_assets() -> void:
     var cottage: Vector2 = _world_point(anchor_positions.get("greenbriar-cottage", Vector2.ZERO))
     var workshop: Vector2 = _world_point(anchor_positions.get("tinker-workshop", Vector2.ZERO))
     if anchor_positions.has("greenbriar-cottage"):
-        art_sprites["cottage"] = ArtAssetPack.sprite("cottage", self, cottage, 0)
+        art_sprites["cottage"] = ArtAssetPack.sprite("cottage", self, cottage, DEPTH_LAYERS["building"])
     if anchor_positions.has("tinker-workshop"):
-        art_sprites["workshop"] = ArtAssetPack.sprite("workshop", self, workshop, 0)
+        art_sprites["workshop"] = ArtAssetPack.sprite("workshop", self, workshop, DEPTH_LAYERS["building"])
     for building_id in ["clovermere-hall", "herbalists-garden", "old-barn"]:
         var asset_id := ArtAssetPack.facade_asset_for(building_id)
         if asset_id.is_empty() or not anchor_positions.has(building_id):
             continue
-        art_sprites[asset_id] = ArtAssetPack.sprite(asset_id, self, _world_point(anchor_positions[building_id]), 0)
+        art_sprites[asset_id] = ArtAssetPack.sprite(asset_id, self, _world_point(anchor_positions[building_id]), DEPTH_LAYERS["building"])
     for resource_variant in world.resources():
         if not resource_variant is Dictionary:
             continue
@@ -226,7 +284,7 @@ func _mount_authored_assets() -> void:
             continue
         resource_art_assets[resource_id] = asset_id
         var offset := Vector2(0, -8) if kind == "tree" else Vector2(0, -2) if kind == "herb" else Vector2(0, 2)
-        var sprite := ArtAssetPack.sprite(asset_id, self, _world_point(anchor_positions[resource_id]) + offset, 2)
+        var sprite := ArtAssetPack.sprite(asset_id, self, _world_point(anchor_positions[resource_id]) + offset, DEPTH_LAYERS["resource"])
         art_sprites[resource_id] = sprite
         if resource_id == "oak-at-the-crossing":
             art_sprites["tree"] = sprite
