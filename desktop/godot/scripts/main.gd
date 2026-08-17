@@ -15,6 +15,7 @@ const BenchmarkScene = preload("res://scripts/benchmark_scene.gd")
 const GameplayHud = preload("res://scripts/gameplay_hud.gd")
 const InteriorContract = preload("res://scripts/interior_contract.gd")
 const InteriorScene = preload("res://scripts/interior_scene.gd")
+const VillageMemory = preload("res://scripts/village_memory.gd")
 
 
 const SAVE_PATH := "user://hobbit-moon-village-v2.json"
@@ -42,6 +43,8 @@ var camera: Camera2D
 var grid: Array = []
 var village: Dictionary = DEFAULT_VILLAGE.duplicate(true)
 var day_state = DayState.new()
+var village_memory = VillageMemory.new()
+var resident_memory: Dictionary = village_memory.default_state()
 var player_position := World.START_POSITION
 var camera_zoom := 0.75
 var debug_visible := false
@@ -961,13 +964,43 @@ func _talk_to_nearest_npc() -> void:
         interaction_timeout = 1.8
         _show_interaction_feedback()
         return
-    var dialogue: Dictionary = interior_contract.dialogue_for(npc_id, "village", day_state.minute_of_day)
+    var context := {
+        "location": interior_location if _in_interior() else "village",
+        "minute": day_state.minute_of_day,
+        "inventory": day_state.inventory,
+        "work_active": active_work_action != null and active_work_action.is_active()
+    }
+    var dialogue: Dictionary = village_memory.dialogue_for(npc_id, resident_memory, context)
     if dialogue.is_empty():
         return
+    var resident_state := village_memory.state_for(resident_memory, npc_id)
+    var stage := int(resident_state.get("stage", 0))
     dialogue_flags[npc_id] = true
+    if stage == 0:
+        village_memory.mark_introduced(resident_memory, npc_id, day_state.day)
+        interaction_message = "You met %s" % str(dialogue.get("speaker", npc_id))
+        interaction_timeout = 2.5
+    elif stage == 1 and bool(dialogue.get("favor_ready", false)):
+        var cost: Dictionary = dialogue.get("cost", {})
+        if day_state.spend_materials(cost):
+            var completion: Dictionary = village_memory.complete_favor(resident_memory, npc_id, day_state.day)
+            if bool(completion.get("ok", false)):
+                day_state.apply_reward(completion.get("reward", {}))
+                dialogue = village_memory.dialogue_for(npc_id, resident_memory, context)
+                interaction_message = "%s complete  ·  trust grows in Clovermere" % str(completion.get("name", "Favor"))
+                interaction_timeout = 4.0
+            else:
+                interaction_message = "The favor could not be recorded"
+                interaction_timeout = 2.0
+        else:
+            interaction_message = "Keep the requested materials in your field pack"
+            interaction_timeout = 2.5
+    if ui != null:
+        ui.dismiss_toast()
     if gameplay_hud != null:
         gameplay_hud.show_dialogue(str(dialogue.get("speaker", npc_id)), str(dialogue.get("text", "")))
     _save_game()
+    _refresh_hud()
 
 func _start_new_journey() -> void:
     village = DEFAULT_VILLAGE.duplicate(true)
@@ -980,6 +1013,7 @@ func _start_new_journey() -> void:
     pending_resource = {}
     pending_interior_interaction = {}
     dialogue_flags.clear()
+    resident_memory = village_memory.default_state()
     world_changes.clear()
     resource_states.clear()
     day_state = DayState.new()
@@ -1233,6 +1267,11 @@ func _load_save() -> bool:
     resource_states = loaded_resource_states.duplicate(true) if loaded_resource_states is Dictionary else {}
     var loaded_dialogue_flags = normalized.get("dialogue_flags", {})
     dialogue_flags = loaded_dialogue_flags.duplicate(true) if loaded_dialogue_flags is Dictionary else {}
+    var loaded_resident_memory = normalized.get("resident_memory", {})
+    resident_memory = village_memory.from_dict(loaded_resident_memory if loaded_resident_memory is Dictionary else {})
+    for resident_id in village_memory.resident_ids():
+        if bool(dialogue_flags.get(resident_id, false)) and int(resident_memory.get(resident_id, {}).get("stage", 0)) == 0:
+            village_memory.mark_introduced(resident_memory, resident_id, day_state.day)
     day_state.normalize_resource_states(world_changes, resource_states, world.resources(), day_state.day)
     _refresh_world_state()
     var loaded_location := str(normalized.get("location", "village"))
@@ -1256,6 +1295,7 @@ func _save_game() -> bool:
         "location": interior_location if _in_interior() else "village",
         "interior": {"building_id": interior_location, "player": {"x": player_position.x, "y": player_position.y}} if _in_interior() else {},
         "dialogue_flags": dialogue_flags.duplicate(true),
+        "resident_memory": village_memory.to_dict(resident_memory),
         "world_changes": world_changes.duplicate(true),
         "resource_states": resource_states.duplicate(true),
         "day_state": day_state.to_dict()

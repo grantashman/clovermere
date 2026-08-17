@@ -334,6 +334,11 @@ func hide_overlay() -> void:
 func is_menu_open() -> bool:
     return current_page != "game"
 
+func dismiss_toast() -> void:
+    toast_time = 0.0
+    if toast_panel != null:
+        toast_panel.visible = false
+
 func notify(message: String, seconds: float = 2.5) -> void:
     if toast_label == null or toast_panel == null:
         return

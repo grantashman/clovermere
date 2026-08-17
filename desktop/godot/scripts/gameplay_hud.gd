@@ -51,7 +51,7 @@ var _world = null
 var _grid: Array = []
 
 func _ready() -> void:
-    layer = 10
+    layer = 40
     _build_root()
 
 func _build_root() -> void:

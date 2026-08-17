@@ -44,6 +44,10 @@ jobs:
           godot --headless --path desktop/godot --script res://tests/interior_contract_test.gd
           godot --headless --path desktop/godot --script res://tests/interior_scene_test.gd
           godot --headless --path desktop/godot --script res://tests/interior_transition_smoke.gd
+      - name: Run Village Memory contracts
+        run: |
+          godot --headless --path desktop/godot --script res://tests/village_memory_test.gd
+          godot --headless --path desktop/godot --script res://tests/village_memory_smoke.gd
       - name: Run work-action and workshop contracts
         run: |
           godot --headless --path desktop/godot --script res://tests/work_action_test.gd

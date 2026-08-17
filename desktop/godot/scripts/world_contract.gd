@@ -324,4 +324,6 @@ func normalize_save(source: Dictionary = {}) -> Dictionary:
     result["day_state"] = raw_day_state.duplicate(true) if raw_day_state is Dictionary else {}
     var raw_resource_states = source.get("resource_states", {})
     result["resource_states"] = raw_resource_states.duplicate(true) if raw_resource_states is Dictionary else {}
+    var raw_resident_memory = source.get("resident_memory", {})
+    result["resident_memory"] = raw_resident_memory.duplicate(true) if raw_resident_memory is Dictionary else {}
     return result

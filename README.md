@@ -24,7 +24,7 @@ The native client currently includes:
 - Terrain foundation pack: sparse grass variants, a woodland pocket, a Foxglove soil pocket, connectivity-selected path straights/corners/T-junctions/crossings, and registered water/bank transition tiles. The central terrain pass is composited into one texture; distant terrain remains procedural and cached.
 - Collision-safe keyboard movement and mouse click-to-move pathfinding.
 - Contextual building interaction, target markers, camera tracking, and 50%–200% zoom. Cottage and Workshop buildings open authored rooms with E-driven furniture actions and a short fade transition; `Esc` closes management/dialogue surfaces before pausing.
-- Resident dialogue: press `T` near a live resident for a time-aware parchment conversation. Initial conversations with Alda Fen, Tobin Wren, and Orin Reed set persistent introduction flags in the existing save payload.
+- Resident dialogue and Village Memory: press `T` near Alda Fen, Tobin Wren, or Orin Reed for time/location/work-aware conversations. Each resident progresses from introduction → acquainted → trusted through one material-backed favor, with completion and small gameplay rewards persisted in the save.
 - Fullscreen-first desktop window behavior with `F11` toggle.
 - Pause menu with explicit Save Journey and Load Journey actions.
 - Persistent Options page for fullscreen, crisp pixel filtering, starting zoom, and launch metrics.
@@ -44,13 +44,15 @@ godot --headless --path desktop/godot --script res://tests/regrowth_smoke.gd
 # Day-state contract: clock, energy, inventory, sleep, and regrowth
 godot --headless --path desktop/godot --script res://tests/day_state_test.gd
 
-# Storage, recipes, HUD, and enterable-interior contracts
+# Storage, recipes, HUD, enterable interiors, and Village Memory contracts
 godot --headless --path desktop/godot --script res://tests/storage_recipe_test.gd
 godot --headless --path desktop/godot --script res://tests/minimap_test.gd
 godot --headless --path desktop/godot --script res://tests/gameplay_hud_test.gd
 godot --headless --path desktop/godot --script res://tests/interior_contract_test.gd
 godot --headless --path desktop/godot --script res://tests/interior_scene_test.gd
 godot --headless --path desktop/godot --script res://tests/interior_transition_smoke.gd
+godot --headless --path desktop/godot --script res://tests/village_memory_test.gd
+godot --headless --path desktop/godot --script res://tests/village_memory_smoke.gd
 
 # Run NPC schedule and actor contracts
 godot --headless --path desktop/godot --script res://tests/npc_schedule_test.gd

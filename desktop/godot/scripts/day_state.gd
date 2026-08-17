@@ -94,6 +94,37 @@ func craft_recipe(recipe_id: String) -> Dictionary:
 func purchase_upgrade(upgrade_id: String) -> Dictionary:
     return craft_recipe(upgrade_id)
 
+func can_afford(cost: Dictionary) -> bool:
+    for material_variant in cost.keys():
+        var material := str(material_variant)
+        if not RESOURCE_KEYS.has(material):
+            return false
+        if int(inventory.get(material, 0)) < int(cost[material_variant]):
+            return false
+    return true
+
+func spend_materials(cost: Dictionary) -> bool:
+    if not can_afford(cost):
+        return false
+    _consume_materials(cost)
+    return true
+
+func apply_reward(reward: Dictionary) -> void:
+    if reward.has("energy"):
+        energy = clampi(energy + int(reward.get("energy", 0)), 0, max_energy())
+    var reward_inventory = reward.get("inventory", {})
+    if reward_inventory is Dictionary:
+        for material_variant in reward_inventory.keys():
+            var material := str(material_variant)
+            if RESOURCE_KEYS.has(material):
+                inventory[material] = int(inventory.get(material, 0)) + maxi(0, int(reward_inventory[material_variant]))
+    var reward_storage = reward.get("storage", {})
+    if reward_storage is Dictionary:
+        for material_variant in reward_storage.keys():
+            var material := str(material_variant)
+            if RESOURCE_KEYS.has(material):
+                storage[material] = int(storage.get(material, 0)) + maxi(0, int(reward_storage[material_variant]))
+
 func deposit_inventory() -> Dictionary:
     var deposited: Dictionary = {}
     for material in RESOURCE_KEYS:
