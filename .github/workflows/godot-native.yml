@@ -27,6 +27,8 @@ jobs:
           chmod +x "$RUNNER_TEMP/godot/Godot_v4.7.1-stable_linux.x86_64"
           ln -s "$RUNNER_TEMP/godot/Godot_v4.7.1-stable_linux.x86_64" "$RUNNER_TEMP/godot/godot"
           echo "$RUNNER_TEMP/godot" >> "$GITHUB_PATH"
+      - name: Import and validate Godot project
+        run: godot --headless --editor --quit --path desktop/godot
       - name: Run world and save contract
         run: godot --headless --path desktop/godot --script res://tests/world_contract_test.gd
       - name: Run day-state contract
@@ -46,8 +48,6 @@ jobs:
         run: godot --headless --path desktop/godot --script res://tests/npc_schedule_test.gd
       - name: Run NPC actor contract
         run: godot --headless --path desktop/godot --script res://tests/npc_actor_test.gd
-      - name: Validate Godot project
-        run: godot --headless --editor --quit --path desktop/godot
       - name: Smoke run desktop scene
         run: godot --headless --path desktop/godot --quit-after 3
       - name: Verify mouse movement and building interaction
