@@ -2,11 +2,11 @@
 
 > A quiet life, shared.
 
-Clovermere is an **original desktop-first Godot game**. The native client under [`desktop/godot`](./desktop/godot) is the sole supported release path and the canonical product target. The repository slug remains `hobbit-moon` for history and continuity; the product identity is Clovermere.
+Clovermere is an **original desktop-first Godot game**. The native client under [`desktop/godot`](./desktop/godot) is the sole supported release path and the canonical product target. The GitHub repository is now [`grantashman/clovermere`](https://github.com/grantashman/clovermere); the former `hobbit-moon` slug is retained only in historical save keys and legacy reference material.
 
 ## Desktop release
 
-The current Windows test build is published on [GitHub Releases](https://github.com/grantashman/hobbit-moon/releases). Download the latest `windows-x86_64.zip`, extract it, and run `Clovermere.exe`. Windows SmartScreen may show an unsigned-app warning while this remains an early test build.
+The current Windows test build is published on [GitHub Releases](https://github.com/grantashman/clovermere/releases). Download the latest `windows-x86_64.zip`, extract it, and run `Clovermere.exe`. Windows SmartScreen may show an unsigned-app warning while this remains an early test build.
 
 The native client currently includes:
 
