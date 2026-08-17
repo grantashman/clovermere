@@ -12,6 +12,7 @@ const NpcActor = preload("res://scripts/npc_actor.gd")
 const WorkAction = preload("res://scripts/work_action.gd")
 const InteractionFeedback = preload("res://scripts/interaction_feedback.gd")
 const BenchmarkScene = preload("res://scripts/benchmark_scene.gd")
+const GameplayHud = preload("res://scripts/gameplay_hud.gd")
 
 
 const SAVE_PATH := "user://hobbit-moon-village-v2.json"
@@ -49,9 +50,9 @@ var stores_label: Label
 var debug_label: Label
 var hint_label: Label
 var loading_overlay: ColorRect
-var interaction_panel: ColorRect
+var interaction_panel: Control
 var interaction_label: Label
-var gameplay_hud: CanvasLayer
+var gameplay_hud
 var movement_path: Array = []
 var pending_building: Dictionary = {}
 var pending_resource: Dictionary = {}
@@ -272,7 +273,10 @@ func _unhandled_input(event: InputEvent) -> void:
             _on_fullscreen_changed(get_window().mode != Window.MODE_FULLSCREEN)
         elif event.keycode == KEY_ESCAPE:
             if game_started:
-                _pause_journey()
+                if gameplay_hud != null and gameplay_hud.management_panel.visible:
+                    gameplay_hud.close_management()
+                else:
+                    _pause_journey()
             elif ui != null and ui.current_page == "options":
                 ui._back_from_options()
             elif ui != null and ui.current_page == "pause":
@@ -282,6 +286,10 @@ func _unhandled_input(event: InputEvent) -> void:
                 _continue_journey()
         elif event.keycode == KEY_E and game_started:
             _handle_resource_action()
+        elif event.keycode == KEY_B and game_started:
+            gameplay_hud.open_pack()
+        elif event.keycode == KEY_C and game_started:
+            gameplay_hud.open_crafting()
     elif event is InputEventMouseButton and event.pressed:
         if not game_started:
             return
@@ -422,6 +430,60 @@ func _handle_building_action() -> void:
         interaction_timeout = 2.0
         _show_interaction_feedback()
 
+func _is_near_workshop() -> bool:
+    for building in world.buildings():
+        if str(building.get("id", "")) != "tinker-workshop":
+            continue
+        var candidates := [
+            Vector2(int(building.x) + int(building.w) / 2, int(building.y) + int(building.h) + 1),
+            Vector2(int(building.x) + int(building.w) / 2, int(building.y) - 1),
+            Vector2(int(building.x) - 1, int(building.y) + int(building.h) / 2),
+            Vector2(int(building.x) + int(building.w), int(building.y) + int(building.h) / 2)
+        ]
+        for candidate in candidates:
+            if player_position.distance_to(candidate + Vector2(0.5, 0.5)) <= 2.0:
+                return true
+    return false
+
+func _craft_recipe(recipe_id: String) -> void:
+    if not _is_near_workshop():
+        interaction_message = "Stand at Tinker Workshop to craft that recipe"
+        interaction_timeout = 2.5
+        _show_interaction_feedback()
+        return
+    var result: Dictionary = day_state.craft_recipe(recipe_id)
+    if bool(result.get("ok", false)):
+        interaction_message = "%s fitted  ·  the village road grows kinder" % str(result.get("name", recipe_id))
+        interaction_timeout = 4.0
+        _save_game()
+        _refresh_hud()
+        _show_interaction_feedback()
+        if gameplay_hud != null:
+            gameplay_hud.open_crafting()
+        return
+    var reason := str(result.get("reason", ""))
+    interaction_message = "Already fitted" if reason == "already-owned" else "Not enough materials for that recipe"
+    interaction_timeout = 2.5
+    _show_interaction_feedback()
+
+func _withdraw_home_stores() -> void:
+    if not _is_near_home():
+        interaction_message = "Stand at Greenbriar Cottage to take your home stores"
+        interaction_timeout = 2.5
+        _show_interaction_feedback()
+        return
+    var moved := day_state.withdraw_storage(day_state.storage.duplicate(true))
+    if moved.is_empty():
+        interaction_message = "Greenbriar Cottage stores are empty"
+    else:
+        interaction_message = "Home stores returned to the field pack"
+        _save_game()
+        _refresh_hud()
+    interaction_timeout = 2.5
+    _show_interaction_feedback()
+    if gameplay_hud != null:
+        gameplay_hud.open_pack()
+
 func _purchase_workshop_upgrade() -> void:
     var purchase: Dictionary = day_state.purchase_upgrade("tinkers-kit")
     if bool(purchase.get("ok", false)):
@@ -469,12 +531,13 @@ func _sleep_at_home() -> bool:
         interaction_timeout = 2.0
         _show_interaction_feedback()
         return false
+    var deposited := day_state.deposit_inventory()
     var restored_ids: Array[String] = day_state.sleep_next_day(world_changes, world.resources(), resource_states)
     movement_path.clear()
     pending_building = {}
     pending_resource = {}
     target_marker.clear_target()
-    interaction_message = "A new day begins  ·  %s  ·  energy restored" % day_state.format_clock()
+    interaction_message = "A new day begins  ·  %s  ·  energy restored%s" % [day_state.format_clock(), "  ·  materials stored" if not deposited.is_empty() else ""]
     interaction_timeout = 4.0
     _refresh_world_state()
     for resource_id in restored_ids:
@@ -738,6 +801,8 @@ func _refresh_world_state() -> void:
         benchmark_scene.configure(world, grid, world_changes, resource_states)
     if world_cache != null:
         world_cache.render_target_update_mode = SubViewport.UPDATE_ONCE
+    if gameplay_hud != null:
+        gameplay_hud.configure_map(world, grid, player_position, _building_map())
     _refresh_player_transform()
     _refresh_npc_schedules(true)
 
@@ -776,49 +841,28 @@ func _set_zoom(value: float) -> void:
     camera.zoom = Vector2(camera_zoom, camera_zoom)
 
 func _build_hud() -> void:
-    var layer := CanvasLayer.new()
-    layer.layer = 10
-    gameplay_hud = layer
-    add_child(layer)
-    var panel := ColorRect.new()
-    panel.position = Vector2(20, 20)
-    panel.size = Vector2(520, 132)
-    panel.color = Color(0.035, 0.08, 0.07, 0.94)
-    panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-    layer.add_child(panel)
-    var logo := Sprite2D.new()
-    logo.texture = load("res://assets/clovermere-mark.svg")
-    logo.position = Vector2(53, 51)
-    logo.scale = Vector2(0.33, 0.33)
-    layer.add_child(logo)
-    title_label = _label(layer, Vector2(82, 30), Vector2(420, 28), 22, Color("#f0d487"))
-    subtitle_label = _label(layer, Vector2(83, 61), Vector2(420, 18), 12, Color("#b8c785"))
-    day_label = _label(layer, Vector2(83, 82), Vector2(420, 20), 14, Color("#e7d6a7"))
-    stores_label = _label(layer, Vector2(83, 104), Vector2(420, 18), 12, Color("#b8c785"))
-    debug_label = _label(layer, Vector2(39, 140), Vector2(450, 45), 11, Color("#d9e1c1"))
-    debug_label.visible = debug_visible
-    interaction_panel = ColorRect.new()
-    interaction_panel.position = Vector2(20, 610)
-    interaction_panel.size = Vector2(1240, 44)
-    interaction_panel.color = Color(0.035, 0.08, 0.07, 0.84)
-    interaction_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-    interaction_panel.visible = false
-    layer.add_child(interaction_panel)
-    interaction_label = _label(layer, Vector2(30, 619), Vector2(1220, 26), 15, Color("#f0d487"))
-    interaction_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-    interaction_label.visible = false
-    hint_label = _label(layer, Vector2(30, 672), Vector2(1220, 24), 13, Color("#f0d487"))
-    hint_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    gameplay_hud = GameplayHud.new()
+    add_child(gameplay_hud)
+    gameplay_hud.recipe_requested.connect(_craft_recipe)
+    gameplay_hud.storage_requested.connect(_withdraw_home_stores)
+    gameplay_hud.pause_requested.connect(_pause_journey)
+    title_label = gameplay_hud.title_label
+    subtitle_label = gameplay_hud.subtitle_label
+    day_label = gameplay_hud.day_label
+    stores_label = gameplay_hud.stores_label
+    debug_label = gameplay_hud.debug_label
+    hint_label = gameplay_hud.hint_label
+    interaction_panel = gameplay_hud.interaction_panel
+    interaction_label = gameplay_hud.interaction_label
+    gameplay_hud.configure_map(world, grid, player_position, _building_map())
 
-    loading_overlay = ColorRect.new()
-    loading_overlay.position = Vector2.ZERO
-    loading_overlay.size = Vector2(1280, 720)
-    loading_overlay.color = Color("#132620")
-    loading_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
-    layer.add_child(loading_overlay)
-    var loading_label := _label(loading_overlay, Vector2(0, 326), Vector2(1280, 40), 22, Color("#f0d487"))
-    loading_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-    loading_label.text = "Composing Clovermere…"
+func _building_map() -> Dictionary:
+    var result: Dictionary = {}
+    for building_variant in world.buildings():
+        if building_variant is Dictionary:
+            var building: Dictionary = building_variant
+            result[str(building.get("id", ""))] = building.duplicate(true)
+    return result
 
 func _label(parent: Node, position: Vector2, size: Vector2, font_size: int, color: Color) -> Label:
     var label := Label.new()
@@ -831,19 +875,33 @@ func _label(parent: Node, position: Vector2, size: Vector2, font_size: int, colo
     return label
 
 func _refresh_hud() -> void:
-    if title_label == null:
+    if gameplay_hud == null:
         return
-    title_label.text = str(village.get("name", "Clovermere"))
-    subtitle_label.text = "CLOVERMERE  ·  %d%%  ·  %d FOLK" % [roundi(camera_zoom * 100.0), world.npcs().size()]
     var tile := Vector2i(floori(player_position.x), floori(player_position.y))
     var tile_name := world.tile_at(grid, tile)
-    debug_label.text = "POS  %6.2f, %6.2f   TILE  %s\nFPS  %3d       F  toggle metrics" % [player_position.x, player_position.y, tile_name, Engine.get_frames_per_second()]
-    day_label.text = "DAY %02d  ·  %s  ·  ENERGY %d/%d" % [day_state.day, day_state.format_clock(), day_state.energy, DayState.MAX_ENERGY]
-    stores_label.text = "TIMBER %02d   STONE %02d   ORE %02d   HERBS %02d%s" % [int(day_state.inventory.get("timber", 0)), int(day_state.inventory.get("stone", 0)), int(day_state.inventory.get("ore", 0)), int(day_state.inventory.get("herbs", 0)), "   KIT READY" if day_state.has_upgrade("tinkers-kit") else ""]
-    hint_label.text = "Click ground  walk     Click a house  visit     Click a tree/stone/herb  work     E  work nearby / sleep at home     Right-click  cancel/visit     Wheel  zoom     WASD  wander"
-    interaction_label.text = interaction_message
-    interaction_label.visible = not interaction_message.is_empty()
-    interaction_panel.visible = not interaction_message.is_empty()
+    var recipes: Dictionary = {}
+    for recipe_id in day_state.recipe_ids():
+        recipes[recipe_id] = day_state.recipe_preview(recipe_id)
+    gameplay_hud.refresh({
+        "village_name": str(village.get("name", "CLOVERMERE")),
+        "folk": world.npcs().size(),
+        "zoom": camera_zoom,
+        "day": day_state.day,
+        "clock": day_state.format_clock(),
+        "energy": day_state.energy,
+        "max_energy": day_state.max_energy(),
+        "inventory": day_state.inventory,
+        "storage": day_state.storage,
+        "kit_ready": day_state.has_upgrade("tinkers-kit"),
+        "recipes": recipes,
+        "near_workshop": _is_near_workshop(),
+        "near_home": _is_near_home(),
+        "interaction": interaction_message,
+        "hint": "Click ground  walk     Click a house  visit     Click a resource  work     B  pack     C  craft     E  interact     Wheel  zoom     WASD  wander",
+        "debug_visible": debug_visible,
+        "debug": "POS  %6.2f, %6.2f   TILE  %s   FPS  %3d       F  toggle metrics" % [player_position.x, player_position.y, tile_name, Engine.get_frames_per_second()]
+    })
+    gameplay_hud.set_player_position(player_position)
 
 func _load_save() -> bool:
     if active_work_action != null and active_work_action.is_active():

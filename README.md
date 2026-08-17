@@ -12,9 +12,9 @@ The native client currently includes:
 
 - Deterministic 240×160 explorable world with varied terrain, material-edge shading, organic life, landmarks, pixel-grid roads, six live residents, and authored settlement buildings.
 - Interactive timber, stone, ore, and herb nodes with persistent cut/mined/gathered world states and warm world-space lantern/player lighting.
-- First-day loop: Day 1 at 08:00, work actions consume time and energy, materials enter a persisted inventory, Greenbriar Cottage advances the day, and herbs regrow overnight.
-- Timed work loop: resource actions now show real progress, resource-specific labels, tool motion, impact feedback, cancellation, and exact-once inventory/time/energy completion.
-- Tinker Workshop material sink: 3 timber + 2 stone + 1 ore creates a persisted Tinker’s Kit that reduces future work energy costs by 20%; the HUD shows `KIT READY` after purchase.
+- First-day loop: Day 1 at 08:00, timed work actions consume time and energy, materials enter a persisted carried pack, sleep at Greenbriar Cottage deposits the pack into home stores, and herbs regrow overnight.
+- Tinker Workshop material sink: three persisted recipes consume field-pack materials; sleeping at Greenbriar Cottage stores the pack, and the Field Pack can return home stores at the cottage. Tinker’s Kit (3 timber + 2 stone + 1 ore) reduces work energy costs by 20%; Wayfarer’s Satchel (5 timber + 2 herbs) reduces work time by 20%; Hearthward Charm (2 stone + 2 herbs + 3 ore) raises the daily energy reserve to 115.
+- Traditional PC-game HUD redesign: compact status card, carried/home-store ledger, toggleable pack and recipe panels, keyboard-accessible action bar, and a full-world minimap in an original forest/timber/parchment/brass pastoral high-fantasy visual language.
 - Live resident layer: six role-specific NPC actors follow deterministic morning/work/evening/night schedules with route movement, idle/walk motion, role props, work-tool swings, impact sparks, and offset directional shadows.
 - Authored central-crossing benchmark layer with stronger building contact shadows, cottage/workshop props, crossing accents, and clock-driven cooler evening ambient lighting.
 - First authored benchmark asset pack: hand-built pixel PNGs for Greenbriar Cottage, Tinker Workshop, Clovermere Hall, Herbalist's Garden, Old Barn, the crossing tree, boulder, foxglove patch, player, and two central residents, all using a locked Clovermere palette.
@@ -42,6 +42,11 @@ godot --headless --path desktop/godot --script res://tests/regrowth_smoke.gd
 
 # Day-state contract: clock, energy, inventory, sleep, and regrowth
 godot --headless --path desktop/godot --script res://tests/day_state_test.gd
+
+# Storage, recipes, minimap, and traditional PC HUD contracts
+godot --headless --path desktop/godot --script res://tests/storage_recipe_test.gd
+godot --headless --path desktop/godot --script res://tests/minimap_test.gd
+godot --headless --path desktop/godot --script res://tests/gameplay_hud_test.gd
 
 # Run NPC schedule and actor contracts
 godot --headless --path desktop/godot --script res://tests/npc_schedule_test.gd

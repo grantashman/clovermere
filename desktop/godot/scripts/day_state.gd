@@ -17,9 +17,13 @@ const REGROWTH_PROFILES := {
     "ore": {"days": 2, "initial_stage": "depleted"},
     "herb": {"days": 1, "initial_stage": "harvested"}
 }
-const UPGRADE_RECIPES := {
-    "tinkers-kit": {"name": "Tinker’s Kit", "cost": {"timber": 3, "stone": 2, "ore": 1}}
+const RESOURCE_KEYS := ["timber", "stone", "ore", "herbs"]
+const RECIPE_CATALOG := {
+    "tinkers-kit": {"name": "Tinker’s Kit", "cost": {"timber": 3, "stone": 2, "ore": 1}, "summary": "Reduce work energy costs by 20%.", "category": "tool"},
+    "wayfarers-satchel": {"name": "Wayfarer’s Satchel", "cost": {"timber": 5, "herbs": 2}, "summary": "Finish field work in less time.", "category": "travel"},
+    "hearthward-charm": {"name": "Hearthward Charm", "cost": {"stone": 2, "herbs": 2, "ore": 3}, "summary": "Raise the day’s energy reserve to 115.", "category": "ward"}
 }
+const UPGRADE_RECIPES := RECIPE_CATALOG
 
 var day := START_DAY
 var minute_of_day := START_MINUTE
@@ -31,26 +35,89 @@ var inventory: Dictionary = {
     "herbs": 0
 }
 var upgrades: Dictionary = {}
+var storage: Dictionary = {
+    "timber": 0,
+    "stone": 0,
+    "ore": 0,
+    "herbs": 0
+}
+
+func max_energy() -> int:
+    return 115 if has_upgrade("hearthward-charm") else MAX_ENERGY
 
 func has_upgrade(upgrade_id: String) -> bool:
     return bool(upgrades.get(upgrade_id, false))
 
-func purchase_upgrade(upgrade_id: String) -> Dictionary:
-    var recipe: Dictionary = UPGRADE_RECIPES.get(upgrade_id, {})
+func recipe_ids() -> Array[String]:
+    return ["tinkers-kit", "wayfarers-satchel", "hearthward-charm"]
+
+func recipe_preview(recipe_id: String) -> Dictionary:
+    var recipe: Dictionary = RECIPE_CATALOG.get(recipe_id, {})
     if recipe.is_empty():
-        return {"ok": false, "reason": "unknown-upgrade"}
-    if has_upgrade(upgrade_id):
-        return {"ok": false, "reason": "already-owned"}
+        return {"ok": false, "craftable": false, "reason": "unknown-recipe"}
     var cost: Dictionary = recipe.get("cost", {})
+    var missing: Dictionary = {}
     for material_variant in cost.keys():
         var material := str(material_variant)
-        if int(inventory.get(material, 0)) < int(cost[material_variant]):
-            return {"ok": false, "reason": "missing-materials", "material": material}
+        var available := int(inventory.get(material, 0))
+        var required := int(cost[material_variant])
+        if available < required:
+            missing[material] = required - available
+    return {
+        "ok": true,
+        "craftable": not has_upgrade(recipe_id) and missing.is_empty(),
+        "owned": has_upgrade(recipe_id),
+        "id": recipe_id,
+        "name": str(recipe.get("name", recipe_id)),
+        "summary": str(recipe.get("summary", "")),
+        "category": str(recipe.get("category", "tool")),
+        "cost": cost.duplicate(true),
+        "missing": missing
+    }
+
+func _consume_materials(cost: Dictionary) -> void:
     for material_variant in cost.keys():
         var material := str(material_variant)
         inventory[material] = int(inventory.get(material, 0)) - int(cost[material_variant])
-    upgrades[upgrade_id] = true
-    return {"ok": true, "upgrade": upgrade_id, "name": str(recipe.get("name", upgrade_id)), "cost": cost.duplicate(true)}
+
+func craft_recipe(recipe_id: String) -> Dictionary:
+    var preview := recipe_preview(recipe_id)
+    if not bool(preview.get("ok", false)) or bool(preview.get("owned", false)):
+        return {"ok": false, "reason": str(preview.get("reason", "already-owned")), "recipe": recipe_id}
+    if not bool(preview.get("craftable", false)):
+        return {"ok": false, "reason": "missing-materials", "recipe": recipe_id, "missing": preview.get("missing", {})}
+    var recipe: Dictionary = RECIPE_CATALOG[recipe_id]
+    _consume_materials(recipe.get("cost", {}))
+    upgrades[recipe_id] = true
+    return {"ok": true, "recipe": recipe_id, "name": str(recipe.get("name", recipe_id)), "cost": recipe.get("cost", {}).duplicate(true)}
+
+func purchase_upgrade(upgrade_id: String) -> Dictionary:
+    return craft_recipe(upgrade_id)
+
+func deposit_inventory() -> Dictionary:
+    var deposited: Dictionary = {}
+    for material in RESOURCE_KEYS:
+        var amount := int(inventory.get(material, 0))
+        if amount <= 0:
+            continue
+        deposited[material] = amount
+        storage[material] = int(storage.get(material, 0)) + amount
+        inventory[material] = 0
+    return deposited
+
+func withdraw_storage(requested: Dictionary = {}) -> Dictionary:
+    var moved: Dictionary = {}
+    for material_variant in requested.keys():
+        var material := str(material_variant)
+        if not RESOURCE_KEYS.has(material):
+            continue
+        var amount := mini(int(requested[material_variant]), int(storage.get(material, 0)))
+        if amount <= 0:
+            continue
+        storage[material] = int(storage.get(material, 0)) - amount
+        inventory[material] = int(inventory.get(material, 0)) + amount
+        moved[material] = amount
+    return moved
 
 func preview_work(resource: Dictionary) -> Dictionary:
     var kind := str(resource.get("kind", ""))
@@ -59,13 +126,16 @@ func preview_work(resource: Dictionary) -> Dictionary:
         return {"ok": false, "reason": "unknown-resource"}
     var energy_cost := int(profile.get("energy", 0))
     var adjusted_energy := energy_cost
+    var adjusted_minutes := int(profile.get("minutes", 0))
     if has_upgrade("tinkers-kit"):
         adjusted_energy = maxi(1, roundi(float(energy_cost) * 0.8))
+    if has_upgrade("wayfarers-satchel"):
+        adjusted_minutes = maxi(5, roundi(float(adjusted_minutes) * 0.8))
     if energy < adjusted_energy:
         return {"ok": false, "reason": "too-tired", "required_energy": adjusted_energy}
     return {
         "ok": true,
-        "minutes": int(profile.get("minutes", 0)),
+        "minutes": adjusted_minutes,
         "energy": adjusted_energy,
         "amount": int(profile.get("amount", 0)),
         "yield": str(resource.get("yield", "materials"))
@@ -179,7 +249,7 @@ func sleep_next_day(changes: Dictionary, resources: Array, states: Dictionary = 
             if str(resource.get("kind", "")) == "herb":
                 changes[str(resource.get("id", ""))] = false
     minute_of_day = START_MINUTE
-    energy = MAX_ENERGY
+    energy = max_energy()
     return restored
 
 func format_clock() -> String:
@@ -197,13 +267,13 @@ func to_dict() -> Dictionary:
         "minute_of_day": minute_of_day,
         "energy": energy,
         "inventory": inventory.duplicate(true),
+        "storage": storage.duplicate(true),
         "upgrades": upgrades.duplicate(true)
     }
 
 func from_dict(source: Dictionary) -> void:
     day = maxi(START_DAY, int(source.get("day", START_DAY)))
     minute_of_day = clampi(int(source.get("minute_of_day", START_MINUTE)), 0, 23 * 60 + 59)
-    energy = clampi(int(source.get("energy", MAX_ENERGY)), 0, MAX_ENERGY)
     inventory = {
         "timber": 0,
         "stone": 0,
@@ -214,9 +284,17 @@ func from_dict(source: Dictionary) -> void:
     if source_inventory is Dictionary:
         for key in inventory.keys():
             inventory[key] = maxi(0, int(source_inventory.get(key, 0)))
+    storage = {}
+    for key in RESOURCE_KEYS:
+        storage[key] = 0
+    var source_storage = source.get("storage", {})
+    if source_storage is Dictionary:
+        for key in RESOURCE_KEYS:
+            storage[key] = maxi(0, int(source_storage.get(key, 0)))
     upgrades = {}
     var source_upgrades = source.get("upgrades", {})
     if source_upgrades is Dictionary:
-        for upgrade_id in UPGRADE_RECIPES.keys():
+        for upgrade_id in RECIPE_CATALOG.keys():
             if bool(source_upgrades.get(upgrade_id, false)):
                 upgrades[upgrade_id] = true
+    energy = clampi(int(source.get("energy", max_energy())), 0, max_energy())
