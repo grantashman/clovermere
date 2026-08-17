@@ -56,6 +56,7 @@ var movement_path: Array = []
 var pending_building: Dictionary = {}
 var pending_resource: Dictionary = {}
 var world_changes: Dictionary = {}
+var resource_states: Dictionary = {}
 var active_work_action = null
 var last_work_result: Dictionary = {}
 var interaction_message := ""
@@ -78,7 +79,7 @@ func _ready() -> void:
     benchmark_scene.name = "CentralCrossingBenchmark"
     benchmark_scene.z_index = 4
     add_child(benchmark_scene)
-    benchmark_scene.configure(world, grid, world_changes)
+    benchmark_scene.configure(world, grid, world_changes, resource_states)
     camera = Camera2D.new()
     camera.position_smoothing_enabled = false
     camera.zoom = Vector2(camera_zoom, camera_zoom)
@@ -468,15 +469,7 @@ func _sleep_at_home() -> bool:
         interaction_timeout = 2.0
         _show_interaction_feedback()
         return false
-    var regrowth_ids: Array[String] = []
-    for resource_variant in world.resources():
-        if not resource_variant is Dictionary:
-            continue
-        var resource: Dictionary = resource_variant
-        var resource_id := str(resource.get("id", ""))
-        if str(resource.get("kind", "")) == "herb" and bool(world_changes.get(resource_id, false)):
-            regrowth_ids.append(resource_id)
-    day_state.sleep_next_day(world_changes, world.resources())
+    var restored_ids: Array[String] = day_state.sleep_next_day(world_changes, world.resources(), resource_states)
     movement_path.clear()
     pending_building = {}
     pending_resource = {}
@@ -484,7 +477,7 @@ func _sleep_at_home() -> bool:
     interaction_message = "A new day begins  ·  %s  ·  energy restored" % day_state.format_clock()
     interaction_timeout = 4.0
     _refresh_world_state()
-    for resource_id in regrowth_ids:
+    for resource_id in restored_ids:
         if benchmark_scene != null:
             benchmark_scene.begin_regrowth(resource_id)
     _save_game()
@@ -589,8 +582,8 @@ func _apply_completed_resource_work(resource: Dictionary, work_result: Dictionar
     var resource_id := str(resource.get("id", ""))
     if resource_id.is_empty() or bool(world_changes.get(resource_id, false)):
         return
-    world_changes[resource_id] = true
     var kind := str(resource.get("kind", "resource"))
+    day_state.mark_resource_cleared(resource, world_changes, resource_states, day_state.day)
     var verb := "Gathered" if kind == "herb" else "Mined" if kind in ["stone", "ore"] else "Chopped"
     interaction_message = "%s %s  ·  %s ×%d  ·  %s" % [verb, str(resource.get("name", "resource")), str(resource.get("yield", "materials")), int(work_result.get("amount", 0)), day_state.format_clock()]
     interaction_timeout = 4.0
@@ -634,6 +627,7 @@ func _start_new_journey() -> void:
     pending_building = {}
     pending_resource = {}
     world_changes.clear()
+    resource_states.clear()
     day_state = DayState.new()
     active_work_action = null
     if player != null:
@@ -741,7 +735,7 @@ func _refresh_world_state() -> void:
     if world_view != null:
         world_view.configure(world, grid, village, null, world_changes)
     if benchmark_scene != null:
-        benchmark_scene.configure(world, grid, world_changes)
+        benchmark_scene.configure(world, grid, world_changes, resource_states)
     if world_cache != null:
         world_cache.render_target_update_mode = SubViewport.UPDATE_ONCE
     _refresh_player_transform()
@@ -876,6 +870,9 @@ func _load_save() -> bool:
     day_state = DayState.new()
     if loaded_day_state is Dictionary:
         day_state.from_dict(loaded_day_state)
+    var loaded_resource_states = normalized.get("resource_states", {})
+    resource_states = loaded_resource_states.duplicate(true) if loaded_resource_states is Dictionary else {}
+    day_state.normalize_resource_states(world_changes, resource_states, world.resources(), day_state.day)
     _refresh_world_state()
     return true
 
@@ -886,6 +883,7 @@ func _save_game() -> bool:
         "player": {"x": player_position.x, "y": player_position.y},
         "location": "village",
         "world_changes": world_changes.duplicate(true),
+        "resource_states": resource_states.duplicate(true),
         "day_state": day_state.to_dict()
     }
     var file := FileAccess.open(SAVE_PATH, FileAccess.WRITE)

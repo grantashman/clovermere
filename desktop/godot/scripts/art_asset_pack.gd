@@ -47,8 +47,12 @@ const ASSET_PATHS := {
     "herb": "res://assets/benchmark/herb.png",
     "tree_stump": "res://assets/benchmark/tree_stump.png",
     "tree_debris": "res://assets/benchmark/tree_debris.png",
+    "tree_sprout": "res://assets/benchmark/tree_sprout.png",
+    "tree_young": "res://assets/benchmark/tree_young.png",
     "stone_fragments": "res://assets/benchmark/stone_fragments.png",
+    "stone_fractures": "res://assets/benchmark/stone_fractures.png",
     "ore_fragments": "res://assets/benchmark/ore_fragments.png",
+    "ore_crystals": "res://assets/benchmark/ore_crystals.png",
     "herb_stems": "res://assets/benchmark/herb_stems.png",
     "player": "res://assets/benchmark/player.png",
     "resident": "res://assets/benchmark/resident.png",
@@ -88,7 +92,8 @@ const TERRAIN_ASSET_IDS := [
 ]
 
 const RESOURCE_STATE_ASSET_IDS := [
-    "tree_stump", "tree_debris", "stone_fragments", "ore_fragments", "herb_stems"
+    "tree_stump", "tree_debris", "tree_sprout", "tree_young",
+    "stone_fragments", "stone_fractures", "ore_fragments", "ore_crystals", "herb_stems"
 ]
 
 const AMBIENT_ASSET_IDS := [
@@ -112,9 +117,13 @@ static func ambient_asset_ids() -> Array:
 static func resource_asset_for(kind: String, cleared: bool, variant: String = "") -> String:
     if not cleared:
         return {"tree": "tree", "stone": "stone", "ore": "ore", "herb": "herb"}.get(kind, "")
-    if kind == "tree" and variant == "debris":
-        return "tree_debris"
-    return {"tree": "tree_stump", "stone": "stone_fragments", "ore": "ore_fragments", "herb": "herb_stems"}.get(kind, "")
+    if kind == "tree":
+        return {"debris": "tree_debris", "sprout": "tree_sprout", "young": "tree_young"}.get(variant, "tree_stump")
+    if kind == "stone":
+        return "stone_fractures" if variant == "fractures" else "stone_fragments"
+    if kind == "ore":
+        return "ore_crystals" if variant == "crystals" else "ore_fragments"
+    return "herb_stems"
 
 static func facade_asset_for(building_id: String) -> String:
     return {

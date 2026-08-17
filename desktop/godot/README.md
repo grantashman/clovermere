@@ -6,7 +6,7 @@ This directory contains the canonical native desktop client. The former browser/
 
 - Godot 4.7.1
 - Deterministic 240×160 world seeded by village identity
-- Save schema v6 with legacy v5 coordinate migration
+- Save schema v7 with legacy v5/v6 migration; resource recovery timing is persisted in `resource_states` alongside compatibility-preserved `world_changes` flags
 - Continuous collision-safe movement
 - 50%–200% camera zoom
 - Layered terrain, authored pixel-grid path overlays, settlement, and six live resident actors with optional debug metrics
@@ -21,7 +21,8 @@ This directory contains the canonical native desktop client. The former browser/
 - Deterministic resident schedules: morning opening, role-specific work, evening strolling, and night resting; live route movement, idle/walk bob, role props, work-tool animation, impact sparks, and offset directional shadows
 - Central-crossing benchmark overlay with building contact shadows, cottage/workshop props, crossing accents, resource contacts, and clock-driven cooler evening ambient lighting
 - First authored benchmark asset pack at `assets/benchmark/`: hand-built pixel PNGs for Greenbriar Cottage, Clovermere Hall, Tinker Workshop, Herbalist's Garden, Old Barn, benchmark resources, the player, and residents, generated from `tools/generate_benchmark_assets.py` and registered through `scripts/art_asset_pack.gd`
-- Living resource states and ambient benchmark motion: tree stump/debris, stone/ore fragments, harvested herb stems, active-work pulses, herb regrowth sprouts, water shimmer, foliage sway, and restrained evening fireflies
+- Living resource states and ambient benchmark motion: tree stump/debris, tree sprout/young recovery stages, stone fragments/fractures, ore fragments/crystals, harvested herb stems, active-work pulses, herb regrowth sprouts, water shimmer, foliage sway, and restrained evening fireflies
+- Resource recovery is deterministic and persistent: trees recover through felled → sprout → young → restored over three sleeps, stone/ore recover over two sleeps, and herbs retain their established next-day restoration. Cleared terrain receives resource-specific scars, fractures, or crystal cues.
 
 - Terrain foundation pack at `assets/benchmark/`: three sparse grass variants, woodland and soil pockets, connectivity-selected path straights/corners/T-junctions/crossings, and registered water/bank tiles. The benchmark terrain is composited into one texture so it does not add thousands of live scene nodes; distant terrain remains procedural and cached
 - Material contact-edge shading and a separate world-space lighting compositor for window glows, player lantern radius, and future shadow/dusk expansion
@@ -56,6 +57,11 @@ godot --headless --path . --script res://tests/terrain_benchmark_test.gd
 # Living resource states, active work visuals, evening ambience, and herb regrowth
 godot --headless --path . --script res://tests/living_terrain_test.gd
 godot --headless --path . --script res://tests/living_terrain_smoke.gd
+# Deterministic destruction/regrowth and save-state smoke
+godot --headless --path . --script res://tests/regrowth_state_test.gd
+godot --headless --path . --script res://tests/regrowth_smoke.gd
+# Day-state contract: clock, energy, inventory, sleep, and regrowth
+godot --headless --path . --script res://tests/day_state_test.gd
 
 # Mouse click-to-move and building interaction smoke test
 godot --headless --path . --script res://tests/mouse_input_smoke.gd

@@ -41,7 +41,9 @@ jobs:
       - name: Import and validate Godot project
         run: Godot_v${GODOT_VERSION}-stable_linux.x86_64 --headless --editor --quit --path desktop/godot
       - name: Run world and save contract before export
-        run: Godot_v${GODOT_VERSION}-stable_linux.x86_64 --headless --path desktop/godot --script res://tests/world_contract_test.gd
+        run: |
+          Godot_v${GODOT_VERSION}-stable_linux.x86_64 --headless --path desktop/godot --script res://tests/world_contract_test.gd
+          Godot_v${GODOT_VERSION}-stable_linux.x86_64 --headless --path desktop/godot --script res://tests/regrowth_state_test.gd
       - name: Run day-state contract before export
         run: Godot_v${GODOT_VERSION}-stable_linux.x86_64 --headless --path desktop/godot --script res://tests/day_state_test.gd
       - name: Run work-action, workshop, and benchmark contracts before export
@@ -53,6 +55,7 @@ jobs:
           Godot_v${GODOT_VERSION}-stable_linux.x86_64 --headless --path desktop/godot --script res://tests/benchmark_scene_test.gd
           Godot_v${GODOT_VERSION}-stable_linux.x86_64 --headless --path desktop/godot --script res://tests/living_terrain_test.gd
           Godot_v${GODOT_VERSION}-stable_linux.x86_64 --headless --path desktop/godot --script res://tests/living_terrain_smoke.gd
+          Godot_v${GODOT_VERSION}-stable_linux.x86_64 --headless --path desktop/godot --script res://tests/regrowth_smoke.gd
           Godot_v${GODOT_VERSION}-stable_linux.x86_64 --headless --path desktop/godot --script res://tests/work_feedback_smoke.gd
       - name: Run NPC schedule and actor contracts before export
         run: |

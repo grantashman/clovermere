@@ -4,7 +4,7 @@ class_name ClovermereWorld
 const WORLD_WIDTH := 240
 const WORLD_HEIGHT := 160
 const TILE_SIZE := 16.0
-const SAVE_VERSION := 6
+const SAVE_VERSION := 7
 const SETTLEMENT_ORIGIN := Vector2i(108, 71)
 const START_TILE := Vector2i(SETTLEMENT_ORIGIN.x + 14, SETTLEMENT_ORIGIN.y + 11)
 const START_POSITION := Vector2(START_TILE.x + 0.5, START_TILE.y + 0.5)
@@ -310,7 +310,7 @@ func normalize_save(source: Dictionary = {}) -> Dictionary:
     var raw_x := float(raw_player.get("x", 14.5))
     var raw_y := float(raw_player.get("y", 11.5))
     var player := Vector2(raw_x, raw_y)
-    if version < SAVE_VERSION:
+    if version < 6:
         player += Vector2(SETTLEMENT_ORIGIN) + Vector2(0.5, 0.5)
     var result := source.duplicate(true)
     result["version"] = SAVE_VERSION
@@ -320,4 +320,6 @@ func normalize_save(source: Dictionary = {}) -> Dictionary:
     result["world_changes"] = raw_changes.duplicate(true) if raw_changes is Dictionary else {}
     var raw_day_state = source.get("day_state", {})
     result["day_state"] = raw_day_state.duplicate(true) if raw_day_state is Dictionary else {}
+    var raw_resource_states = source.get("resource_states", {})
+    result["resource_states"] = raw_resource_states.duplicate(true) if raw_resource_states is Dictionary else {}
     return result

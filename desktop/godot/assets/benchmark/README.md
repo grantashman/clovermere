@@ -15,8 +15,10 @@ This directory is the first authored pixel-asset set for Clovermere. It is inten
 | `ore.png` | Ironroot Vein benchmark resource | 40×32 |
 | `stone.png` | Greycap Boulder | 40×32 |
 | `herb.png` | Foxglove Patch | 32×24 |
-| `tree_stump.png` / `tree_debris.png` | Cleared tree/stump and felled debris states | 48×64 |
-| `stone_fragments.png` / `ore_fragments.png` | Cleared stone and ore states | 40×32 |
+| `tree_stump.png` / `tree_debris.png` | Cleared oak stump and secondary-tree felled debris states | 48×64 |
+| `tree_sprout.png` / `tree_young.png` | Tree recovery stages after sleep | 48×64 |
+| `stone_fragments.png` / `stone_fractures.png` | Cleared stone and fracture recovery states | 40×32 |
+| `ore_fragments.png` / `ore_crystals.png` | Cleared ore and crystal recovery states | 40×32 |
 | `herb_stems.png` | Harvested herb/regrowth groundwork | 32×24 |
 | `player.png` | Player benchmark sprite | 32×48 |
 | `resident.png` | Hero resident benchmark sprite | 32×48 |
@@ -55,12 +57,13 @@ The central benchmark now mounts the terrain foundation over its existing cached
 - woodland floor around the crossing oak;
 - soil around the Foxglove Patch;
 - water base and bank pieces, with lightweight shimmer compositing;
-- intact/cleared resource sprites for trees, stone, ore, and herbs;
-- short-lived herb regrowth sprouts after sleeping;
+- intact/cleared/recovery resource sprites for trees, stone, ore, and herbs;
+- resource-specific terrain scars, stone fractures, and returning ore crystals after clearing;
+- short-lived herb regrowth sprouts and multi-day tree/stone/ore recovery stages after sleeping;
 - three restrained evening firefly points and deterministic tree foliage sway;
 - five authored settlement facades now cover Cottage, Hall, Workshop, Herbalist's Garden, and Barn;
 - distant terrain remains procedural and cached.
 
-The next visual pass should expand destruction/regrowth stages beyond the current benchmark resource states and begin the storage/recipes material loop.
+The central benchmark remains the acceptance scene for every new asset family. The current recovery pass is intentionally benchmark-scoped; distant terrain remains procedural and cached.
 
-The central benchmark remains the acceptance scene for every new asset family.
+The next product pass should begin the storage/recipes material loop after Windows runtime evidence is collected.

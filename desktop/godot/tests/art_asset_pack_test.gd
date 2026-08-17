@@ -23,7 +23,10 @@ func _initialize() -> void:
         require(ArtAssetPack.texture_for(asset_id) != null, "%s should import in Godot" % asset_id)
     require(ArtAssetPack.resource_asset_for("tree", false) == "tree", "intact trees should resolve to the authored tree")
     require(ArtAssetPack.resource_asset_for("tree", true) == "tree_stump", "cleared trees should resolve to the authored stump")
-    require(ArtAssetPack.resource_asset_for("tree", true, "debris") == "tree_debris", "debris variant should resolve to the authored felled-tree state")
+    require(ArtAssetPack.resource_asset_for("tree", true, "sprout") == "tree_sprout", "sprout trees should resolve to authored regrowth art")
+    require(ArtAssetPack.resource_asset_for("tree", true, "young") == "tree_young", "young trees should resolve to authored regrowth art")
+    require(ArtAssetPack.resource_asset_for("stone", true, "fractures") == "stone_fractures", "fractured stone should resolve to authored recovery art")
+    require(ArtAssetPack.resource_asset_for("ore", true, "crystals") == "ore_crystals", "recovering ore should resolve to authored crystal art")
     require(ArtAssetPack.resource_asset_for("herb", true) == "herb_stems", "cleared herbs should resolve to authored stems")
 
     if failures.is_empty():

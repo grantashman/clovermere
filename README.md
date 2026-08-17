@@ -18,7 +18,8 @@ The native client currently includes:
 - Live resident layer: six role-specific NPC actors follow deterministic morning/work/evening/night schedules with route movement, idle/walk motion, role props, work-tool swings, impact sparks, and offset directional shadows.
 - Authored central-crossing benchmark layer with stronger building contact shadows, cottage/workshop props, crossing accents, and clock-driven cooler evening ambient lighting.
 - First authored benchmark asset pack: hand-built pixel PNGs for Greenbriar Cottage, Tinker Workshop, Clovermere Hall, Herbalist's Garden, Old Barn, the crossing tree, boulder, foxglove patch, player, and two central residents, all using a locked Clovermere palette.
-- Living resource states: authored tree stumps/debris, stone fragments, ore fragments, harvested herb stems, active-work pulses, herb regrowth sprouts, water shimmer, foliage sway, and restrained evening fireflies.
+- Living resource states: authored tree stumps/debris, tree sprout/young stages, stone fractures, ore crystals, harvested herb stems, active-work pulses, herb regrowth sprouts, water shimmer, foliage sway, and restrained evening fireflies.
+- Persistent resource recovery: tree work moves through felled → sprout → young → restored over three sleeps; stone and ore recover over two sleeps; herbs retain next-day restoration. Recovery stage and timing are saved separately from the legacy `world_changes` flags.
 - Terrain foundation pack: sparse grass variants, a woodland pocket, a Foxglove soil pocket, connectivity-selected path straights/corners/T-junctions/crossings, and registered water/bank transition tiles. The central terrain pass is composited into one texture; distant terrain remains procedural and cached.
 - Collision-safe keyboard movement and mouse click-to-move pathfinding.
 - Contextual building interaction, target markers, camera tracking, and 50%–200% zoom.
@@ -26,8 +27,8 @@ The native client currently includes:
 - Fullscreen-first desktop window behavior with `F11` toggle.
 - Pause menu with explicit Save Journey and Load Journey actions.
 - Persistent Options page for fullscreen, crisp pixel filtering, starting zoom, and launch metrics.
-- Save schema 6 with migration from schema 5.
-- Cached world rendering with verified steady-state performance above the 45 FPS acceptance threshold on the development host; the current terrain-foundation smoke measured 54 FPS under Xvfb.
+- Save schema 7 with migration from schemas 5 and 6; resource recovery timing is persisted in `resource_states` while legacy `world_changes` flags remain compatible.
+- Cached world rendering with verified steady-state performance above the 45 FPS acceptance threshold on the development host; the native-v0.10.0 recovery slice measured 52 FPS under Xvfb.
 
 ## Local Godot commands
 
@@ -35,7 +36,11 @@ The native client currently includes:
 # Run the deterministic world/save contract
 godot --headless --path desktop/godot --script res://tests/world_contract_test.gd
 
-# Run the day-state contract: clock, energy, inventory, sleep, and regrowth
+# Run the deterministic resource destruction/regrowth contract
+godot --headless --path desktop/godot --script res://tests/regrowth_state_test.gd
+godot --headless --path desktop/godot --script res://tests/regrowth_smoke.gd
+
+# Day-state contract: clock, energy, inventory, sleep, and regrowth
 godot --headless --path desktop/godot --script res://tests/day_state_test.gd
 
 # Run NPC schedule and actor contracts

@@ -26,8 +26,11 @@ func _init() -> void:
     require(first[World.START_TILE.y][World.START_TILE.x] == "p", "spawn should sit on a path")
 
     var migrated: Dictionary = world.normalize_save({"version": 5, "player": {"x": 14, "y": 11}})
-    require(migrated.version == 6, "legacy save should migrate to version 6")
+    require(migrated.version == 7, "legacy save should migrate to version 7")
     require(migrated.player == World.START_POSITION, "legacy local coordinates should migrate to centred world coordinates")
+    require(migrated.resource_states is Dictionary, "legacy saves should gain an empty resource-state map")
+    var schema_six: Dictionary = world.normalize_save({"version": 6, "player": {"x": World.START_POSITION.x, "y": World.START_POSITION.y}})
+    require(schema_six.player == World.START_POSITION, "schema-6 world coordinates should not be offset during schema-7 migration")
 
     var walkable := world.move_player(World.START_POSITION, Vector2.RIGHT, 0.25, first)
     require(walkable.x > World.START_POSITION.x, "continuous movement should advance by elapsed time")

@@ -11,6 +11,12 @@ const WORK_PROFILES := {
     "ore": {"minutes": 45, "energy": 24, "amount": 1},
     "herb": {"minutes": 15, "energy": 8, "amount": 2}
 }
+const REGROWTH_PROFILES := {
+    "tree": {"days": 3, "initial_stage": "felled"},
+    "stone": {"days": 2, "initial_stage": "depleted"},
+    "ore": {"days": 2, "initial_stage": "depleted"},
+    "herb": {"days": 1, "initial_stage": "harvested"}
+}
 const UPGRADE_RECIPES := {
     "tinkers-kit": {"name": "Tinker’s Kit", "cost": {"timber": 3, "stone": 2, "ore": 1}}
 }
@@ -84,16 +90,97 @@ func work_resource(resource: Dictionary) -> Dictionary:
         "amount": amount
     }
 
-func sleep_next_day(changes: Dictionary, resources: Array) -> void:
+func regrowth_profile(kind: String) -> Dictionary:
+    return REGROWTH_PROFILES.get(kind, {})
+
+func mark_resource_cleared(resource: Dictionary, changes: Dictionary, states: Dictionary, changed_day: int) -> void:
+    var resource_id := str(resource.get("id", ""))
+    var kind := str(resource.get("kind", ""))
+    var profile := regrowth_profile(kind)
+    if resource_id.is_empty() or profile.is_empty():
+        return
+    changes[resource_id] = true
+    states[resource_id] = {
+        "kind": kind,
+        "stage": str(profile.get("initial_stage", "cleared")),
+        "days_remaining": int(profile.get("days", 1)),
+        "changed_day": changed_day
+    }
+
+func _stage_for(kind: String, days_remaining: int) -> String:
+    if kind == "tree":
+        return "felled" if days_remaining >= 3 else "sprout" if days_remaining == 2 else "young"
+    if kind == "stone":
+        return "depleted" if days_remaining >= 2 else "fractures"
+    if kind == "ore":
+        return "depleted" if days_remaining >= 2 else "crystals"
+    return "harvested"
+
+func advance_regrowth(changes: Dictionary, states: Dictionary, resources: Array, new_day: int) -> Array[String]:
+    var restored: Array[String] = []
+    var resource_by_id: Dictionary = {}
+    for resource_variant in resources:
+        if resource_variant is Dictionary:
+            var resource: Dictionary = resource_variant
+            resource_by_id[str(resource.get("id", ""))] = resource
+    for resource_id_variant in states.keys().duplicate():
+        var resource_id := str(resource_id_variant)
+        if not resource_by_id.has(resource_id):
+            states.erase(resource_id)
+            continue
+        var resource: Dictionary = resource_by_id[resource_id]
+        var kind := str(resource.get("kind", ""))
+        var state: Dictionary = states[resource_id] if states[resource_id] is Dictionary else {}
+        if kind == "herb":
+            changes[resource_id] = false
+            states.erase(resource_id)
+            restored.append(resource_id)
+            continue
+        var remaining := int(state.get("days_remaining", int(regrowth_profile(kind).get("days", 1)))) - 1
+        if remaining <= 0:
+            changes[resource_id] = false
+            states.erase(resource_id)
+            restored.append(resource_id)
+            continue
+        state["days_remaining"] = remaining
+        state["stage"] = _stage_for(kind, remaining)
+        state["last_advanced_day"] = new_day
+        states[resource_id] = state
+    return restored
+
+func normalize_resource_states(changes: Dictionary, states: Dictionary, resources: Array, current_day: int) -> void:
     for resource_variant in resources:
         if not resource_variant is Dictionary:
             continue
         var resource: Dictionary = resource_variant
-        if str(resource.get("kind", "")) == "herb":
-            changes[str(resource.get("id", ""))] = false
+        var resource_id := str(resource.get("id", ""))
+        if not bool(changes.get(resource_id, false)) or states.has(resource_id):
+            continue
+        var profile := regrowth_profile(str(resource.get("kind", "")))
+        if profile.is_empty():
+            continue
+        states[resource_id] = {
+            "kind": str(resource.get("kind", "")),
+            "stage": str(profile.get("initial_stage", "cleared")),
+            "days_remaining": int(profile.get("days", 1)),
+            "changed_day": current_day
+        }
+
+func sleep_next_day(changes: Dictionary, resources: Array, states: Dictionary = {}) -> Array[String]:
     day += 1
+    var restored := advance_regrowth(changes, states, resources, day)
+    # Preserve the original herb contract even for legacy callers that do not
+    # provide the optional resource-state map.
+    if states.is_empty():
+        for resource_variant in resources:
+            if not resource_variant is Dictionary:
+                continue
+            var resource: Dictionary = resource_variant
+            if str(resource.get("kind", "")) == "herb":
+                changes[str(resource.get("id", ""))] = false
     minute_of_day = START_MINUTE
     energy = MAX_ENERGY
+    return restored
 
 func format_clock() -> String:
     var hour := int(minute_of_day / 60)

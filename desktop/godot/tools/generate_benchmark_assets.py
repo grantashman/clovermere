@@ -460,6 +460,49 @@ def tree_state(name: str, debris: bool = False) -> None:
     save(image, f"{name}.png")
 
 
+def tree_regrowth(name: str, young: bool = False) -> None:
+    image, draw = canvas((48, 64))
+    draw.polygon([(4, 56), (39, 54), (46, 59), (38, 63), (7, 62), (1, 59)], fill=P["shadow"])
+    draw.rectangle((21, 45 if young else 50, 28, 57), fill=P["timber"])
+    draw.rectangle((24, 47 if young else 52, 27, 55), fill=P["wood"])
+    if young:
+        draw.line((24, 49, 17, 32), fill=P["timber"], width=2)
+        draw.line((25, 47, 33, 30), fill=P["timber"], width=2)
+        draw.polygon([(9, 32), (14, 25), (22, 27), (24, 34), (18, 39), (11, 38)], fill=P["leaf_dark"])
+        draw.polygon([(26, 31), (31, 24), (40, 27), (42, 34), (35, 38), (28, 37)], fill=P["leaf"])
+        draw.rectangle((13, 27, 18, 30), fill=P["leaf_light"])
+        draw.rectangle((33, 26, 37, 29), fill=P["leaf_light"])
+    else:
+        draw.line((24, 51, 17, 39), fill=P["timber"], width=1)
+        draw.line((25, 50, 32, 40), fill=P["timber"], width=1)
+        draw.rectangle((13, 35, 19, 40), fill=P["leaf"])
+        draw.rectangle((29, 36, 36, 41), fill=P["leaf_light"])
+    save(image, f"{name}.png")
+
+
+def stone_regrowth(name: str) -> None:
+    image, draw = canvas((40, 32))
+    draw.polygon([(2, 25), (7, 21), (12, 23), (17, 19), (23, 22), (30, 19), (37, 25), (31, 30), (9, 30)], fill=P["shadow"])
+    draw.polygon([(5, 23), (10, 19), (15, 22), (18, 17), (23, 21), (29, 18), (34, 24), (28, 28), (11, 27)], fill=P["stone_dark"])
+    draw.line((10, 23, 15, 19), fill=P["stone_light"], width=1)
+    draw.line((15, 19, 20, 24), fill=P["stone_light"], width=1)
+    draw.line((26, 20, 29, 26), fill=P["stone_light"], width=1)
+    draw.rectangle((6, 25, 11, 27), fill=P["moss_light"])
+    draw.rectangle((20, 23, 24, 25), fill=P["moss"])
+    save(image, f"{name}.png")
+
+
+def ore_regrowth(name: str) -> None:
+    image, draw = canvas((40, 32))
+    draw.polygon([(2, 25), (7, 21), (12, 23), (17, 19), (23, 22), (30, 19), (37, 25), (31, 30), (9, 30)], fill=P["shadow"])
+    draw.polygon([(5, 23), (10, 19), (15, 22), (18, 17), (23, 21), (29, 18), (34, 24), (28, 28), (11, 27)], fill=P["stone_dark"])
+    draw.polygon([(14, 22), (17, 9), (20, 21)], fill=P["ore"])
+    draw.polygon([(20, 24), (24, 12), (27, 23)], fill=P["water_light"])
+    draw.rectangle((7, 25, 12, 27), fill=P["stone"])
+    draw.rectangle((29, 24, 33, 27), fill=P["ore"])
+    save(image, f"{name}.png")
+
+
 def stone_state(name: str, ore_state: bool = False) -> None:
     image, draw = canvas((40, 32))
     draw.polygon([(2, 25), (7, 21), (12, 23), (17, 19), (23, 22), (30, 19), (37, 25), (31, 30), (9, 30)], fill=P["shadow"])
@@ -534,8 +577,12 @@ def main() -> None:
     ore()
     tree_state("tree_stump")
     tree_state("tree_debris", True)
+    tree_regrowth("tree_sprout")
+    tree_regrowth("tree_young", True)
     stone_state("stone_fragments")
+    stone_regrowth("stone_fractures")
     stone_state("ore_fragments", True)
+    ore_regrowth("ore_crystals")
     herb_state("herb_stems")
     person("player", P["coat"], P["hair"], P["brass"])
     person("resident", P["coat_blue"], "#362f2b", "#c47c55")

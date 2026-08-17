@@ -12,6 +12,7 @@ const HERB := Color("#cbd996")
 var world
 var grid: Array = []
 var world_changes: Dictionary = {}
+var resource_states: Dictionary = {}
 var anchor_positions: Dictionary = {}
 var building_anchors: Dictionary = {}
 var art_sprites: Dictionary = {}
@@ -26,10 +27,11 @@ var active_resource_id := ""
 var active_work_progress := 0.0
 var regrowth_resource_ids: Dictionary = {}
 
-func configure(_world, _grid: Array, _changes: Dictionary) -> Dictionary:
+func configure(_world, _grid: Array, _changes: Dictionary, _resource_states: Dictionary = {}) -> Dictionary:
     world = _world
     grid = _grid
     world_changes = _changes.duplicate(true)
+    resource_states = _resource_states.duplicate(true)
     anchor_positions.clear()
     building_anchors.clear()
     if world == null:
@@ -218,7 +220,7 @@ func _mount_authored_assets() -> void:
             continue
         var kind := str(resource.get("kind", ""))
         var cleared := bool(world_changes.get(resource_id, false))
-        var state_variant := "debris" if cleared and kind == "tree" and resource_id != "oak-at-the-crossing" else ""
+        var state_variant := _resource_state_variant(resource_id, kind, cleared)
         var asset_id := ArtAssetPack.resource_asset_for(kind, cleared, state_variant)
         if asset_id.is_empty():
             continue
@@ -234,6 +236,19 @@ func _mount_authored_assets() -> void:
             art_sprites["herb"] = sprite
         elif resource_id == "ironroot-vein":
             art_sprites["ore"] = sprite
+
+func _resource_state_variant(resource_id: String, kind: String, cleared: bool) -> String:
+    if not cleared:
+        return ""
+    var state: Dictionary = resource_states.get(resource_id, {}) if resource_states.get(resource_id, {}) is Dictionary else {}
+    var stage := str(state.get("stage", ""))
+    if kind == "tree" and stage == "felled" and resource_id != "oak-at-the-crossing":
+        return "debris"
+    if not stage.is_empty():
+        return stage
+    if kind == "tree" and resource_id != "oak-at-the-crossing":
+        return "debris"
+    return ""
 
 func benchmark_bounds() -> Rect2i:
     if world == null:
@@ -258,12 +273,42 @@ func _draw() -> void:
     _draw_living_terrain()
 
 func _draw_living_terrain() -> void:
+    _draw_resource_state_terrain()
     _draw_water_shimmer()
     _draw_foliage_sway()
     _draw_active_work_feedback()
     _draw_regrowth_feedback()
     if fireflies_visible:
         _draw_fireflies()
+
+func _draw_resource_state_terrain() -> void:
+    for resource_variant in world.resources():
+        if not resource_variant is Dictionary:
+            continue
+        var resource: Dictionary = resource_variant
+        var resource_id := str(resource.get("id", ""))
+        if not anchor_positions.has(resource_id) or not bool(world_changes.get(resource_id, false)):
+            continue
+        var kind := str(resource.get("kind", ""))
+        var state: Dictionary = resource_states.get(resource_id, {}) if resource_states.get(resource_id, {}) is Dictionary else {}
+        var stage := str(state.get("stage", _resource_state_variant(resource_id, kind, true)))
+        var point: Vector2 = _world_point(anchor_positions[resource_id])
+        if kind == "tree":
+            draw_rect(Rect2(point + Vector2(-12, 5), Vector2(24, 4)), Color("#765947", 0.36), true)
+            if stage == "sprout":
+                draw_line(point + Vector2(-7, 5), point + Vector2(-8, -3), Color("#91b961", 0.74), 1.0, false)
+                draw_line(point + Vector2(7, 5), point + Vector2(8, -2), Color("#6f9b58", 0.74), 1.0, false)
+            elif stage == "young":
+                draw_line(point + Vector2(0, 5), point + Vector2(1, -7), Color("#704936", 0.76), 2.0, false)
+                draw_circle(point + Vector2(1, -9), 4.0, Color("#6f9b58", 0.68))
+        elif kind == "stone":
+            draw_rect(Rect2(point + Vector2(-10, 4), Vector2(20, 4)), Color("#5d665d", 0.3), true)
+            if stage == "fractures":
+                draw_line(point + Vector2(-6, 2), point + Vector2(-1, -4), Color("#a7a78d", 0.8), 1.0, false)
+                draw_line(point + Vector2(-1, -4), point + Vector2(6, 1), Color("#a7a78d", 0.72), 1.0, false)
+        elif kind == "ore" and stage == "crystals":
+            draw_colored_polygon(PackedVector2Array([point + Vector2(-5, 4), point + Vector2(-2, -7), point + Vector2(1, 4)]), Color("#91b59e", 0.82))
+            draw_colored_polygon(PackedVector2Array([point + Vector2(1, 4), point + Vector2(5, -5), point + Vector2(7, 4)]), Color("#6f9b8c", 0.82))
 
 func _draw_water_shimmer() -> void:
     var frame_id := "water_shimmer_a" if int(floor(animation_phase * 3.0)) % 2 == 0 else "water_shimmer_b"
