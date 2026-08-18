@@ -273,6 +273,8 @@ func _process(delta: float) -> void:
         pending_building = {}
         pending_interior_interaction = {}
         target_marker.clear_target()
+        if player.has_method("set_facing_direction"):
+            player.set_facing_direction(direction)
         next_position = world.move_player(player_position, direction, delta, active_grid)
     elif not movement_path.is_empty():
         var next_tile: Vector2i = movement_path[0]
@@ -288,7 +290,10 @@ func _process(delta: float) -> void:
             elif movement_path.is_empty() and not pending_building.is_empty():
                 _complete_building_interaction()
         else:
-            next_position = world.move_player(player_position, player_position.direction_to(destination), delta, active_grid, 5.0)
+            var path_direction := player_position.direction_to(destination)
+            if player.has_method("set_facing_direction"):
+                player.set_facing_direction(path_direction)
+            next_position = world.move_player(player_position, path_direction, delta, active_grid, 5.0)
     if next_position != player_position:
         player_position = next_position
         player.position = player_position * World.TILE_SIZE

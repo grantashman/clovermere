@@ -19,6 +19,18 @@ var uses_authored_art := false
 var resident_asset_id := "resident"
 var authored_texture: Texture2D
 
+func set_facing_direction(direction: Vector2) -> void:
+    if direction.length_squared() <= 0.001:
+        return
+    if absf(direction.x) >= 0.05:
+        facing = Vector2.LEFT if direction.x < 0.0 else Vector2.RIGHT
+    queue_redraw()
+
+func walk_frame() -> int:
+    return int(floor(step_phase / (PI * 0.5))) % 4
+
+func idle_frame() -> int:
+    return int(floor(step_phase * 0.5)) % 2
 func set_npc(data: Dictionary) -> void:
     npc = data.duplicate(true)
     skin = Color(str(npc.get("skin", "#d6a27a")))
@@ -54,12 +66,14 @@ func advance_navigation(delta: float, tile_size: float, speed_tiles_per_second: 
     walking = true
     if distance <= step:
         facing = position.direction_to(target)
+        set_facing_direction(facing)
         position = target
         route.pop_front()
         walking = not route.is_empty()
         queue_redraw()
         return true
     facing = position.direction_to(target)
+    set_facing_direction(facing)
     position = position.move_toward(target, step)
     step_phase += delta * 9.0
     queue_redraw()
@@ -75,9 +89,13 @@ func _draw() -> void:
     if cast_shadow:
         _draw_shadow(bob)
     if uses_authored_art and authored_texture != null:
+        var mirror := -1.0 if facing.x < 0.0 else 1.0
+        draw_set_transform(Vector2.ZERO, 0.0, Vector2(mirror, 1.0))
         draw_texture_rect(authored_texture, Rect2(-16, -24 + bob, 32, 48), false)
         _draw_role_prop(bob)
+        _draw_stride_accents(bob)
         _draw_work_effect(bob)
+        draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
         return
     draw_rect(Rect2(-6, -3 + bob, 12, 14), Color("#26362d"), true)
     draw_rect(Rect2(-5, -13 + bob, 10, 16), coat, true)
@@ -92,9 +110,15 @@ func _draw() -> void:
     draw_rect(Rect2(-3, -19 + bob, 2, 2), Color("#2c2923"), true)
     draw_rect(Rect2(2, -19 + bob, 2, 2), Color("#2c2923"), true)
     draw_rect(Rect2(-3, -3 + bob, 6, 2), accent, true)
+    _draw_stride_accents(bob)
     _draw_role_prop(bob)
     _draw_work_effect(bob)
 
+func _draw_stride_accents(bob: float) -> void:
+    var frame := walk_frame() if walking else idle_frame()
+    var stride: Vector2 = [Vector2(-2, 0), Vector2(1, 1), Vector2(3, 0), Vector2(1, -1)][frame]
+    draw_rect(Rect2(Vector2(-7, 8) + stride + Vector2(0, bob), Vector2(4, 3)), Color("#4a3b34", 0.88), true)
+    draw_rect(Rect2(Vector2(2, 8) - stride + Vector2(0, bob), Vector2(4, 3)), Color("#382f2b", 0.88), true)
 func _draw_shadow(bob: float) -> void:
     var shadow_points := PackedVector2Array([
         Vector2(-10, 7 + bob) + shadow_offset, Vector2(-6, 4 + bob) + shadow_offset, Vector2(5, 4 + bob) + shadow_offset,
