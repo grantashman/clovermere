@@ -28,6 +28,15 @@ func _initialize() -> void:
     require(benchmark.art_sprites.has("garden"), "benchmark should mount the authored Garden sprite")
     require(benchmark.art_sprites.has("barn"), "benchmark should mount the authored Barn sprite")
     require(benchmark.art_sprites.has("tree") and benchmark.art_sprites.has("stone") and benchmark.art_sprites.has("herb"), "benchmark should mount authored resource sprites")
+    var road_tile := Vector2i(-1, -1)
+    for y in benchmark.grid.size():
+        for x in benchmark.grid[y].size():
+            if str(benchmark.grid[y][x]) == "p":
+                road_tile = Vector2i(x, y)
+                break
+        if road_tile.x >= 0:
+            break
+    require(road_tile.x >= 0 and benchmark.terrain_asset_for(road_tile).is_empty(), "benchmark should leave village roads to the organic dirt renderer")
     benchmark.set_consequence_flags({"garden_bloom": true, "forge_ember": true, "lane_markers": true})
     require(benchmark.active_consequence_flags().get("garden_bloom", false), "benchmark should expose the active garden consequence")
     require(benchmark.active_consequence_flags().get("forge_ember", false), "benchmark should expose the active forge consequence")

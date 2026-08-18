@@ -86,28 +86,29 @@ func smooth_noise(x: int, y: int, scale: int, seed: int) -> float:
     return lerp(lerp(a, b, eased_x), lerp(c, d, eased_x), eased_y)
 
 func path_routes(village: Dictionary = {}) -> Array:
-    var seed := seed_from_text("%s:%s" % [village.get("name", "Clovermere"), village.get("landscape", "heath")])
     var ox := SETTLEMENT_ORIGIN.x
     var oy := SETTLEMENT_ORIGIN.y
     var routes: Array = [
-        {"start": Vector2(ox + 5, oy + 11), "end": Vector2(ox + 67, oy + 11), "width": 1.0, "bend": 0.0, "bridge": false},
-        {"start": Vector2(ox + 30, oy + 5), "end": Vector2(ox + 30, oy + 50), "width": 1.0, "bend": 0.0, "bridge": false},
-        {"start": Vector2(ox + 14, oy + 6), "end": Vector2(ox + 14, oy + 18), "width": 1.0, "bend": 0.0, "bridge": false},
-        {"start": Vector2(ox + 5, oy + 16), "end": Vector2(ox + 24, oy + 16), "width": 1.0, "bend": 0.0, "bridge": false},
-        {"start": Vector2(ox + 30, oy + 31), "end": Vector2(ox + 67, oy + 31), "width": 1.0, "bend": 0.0, "bridge": true},
-        {"start": Vector2(ox + 12, oy + 44), "end": Vector2(ox + 61, oy + 44), "width": 1.0, "bend": 0.0, "bridge": false}
+        {"id": "village-crossing-lane", "kind": "village-road", "waypoints": [Vector2(ox + 3, oy + 15), Vector2(ox + 9, oy + 14), Vector2(ox + 16, oy + 16), Vector2(ox + 23, oy + 18), Vector2(ox + 31, oy + 17), Vector2(ox + 38, oy + 15), Vector2(ox + 48, oy + 16), Vector2(ox + 61, oy + 19)], "width": 1.0, "bend": 0.8, "bridge": false},
+        {"id": "village-north-arc", "kind": "village-road", "waypoints": [Vector2(ox + 29, oy + 3), Vector2(ox + 28, oy + 8), Vector2(ox + 25, oy + 12), Vector2(ox + 23, oy + 18), Vector2(ox + 29, oy + 23)], "width": 1.0, "bend": 0.65, "bridge": false},
+        {"id": "village-south-loop", "kind": "village-road", "waypoints": [Vector2(ox + 17, oy + 36), Vector2(ox + 25, oy + 34), Vector2(ox + 34, oy + 35), Vector2(ox + 43, oy + 38), Vector2(ox + 54, oy + 42)], "width": 1.0, "bend": 0.7, "bridge": false},
+        {"id": "cottage-footpath", "kind": "village-footpath", "waypoints": [Vector2(ox + 9, oy + 16), Vector2(ox + 10, oy + 13), Vector2(ox + 9, oy + 10), Vector2(ox + 8, oy + 8)], "width": 0.0, "bend": 0.3, "bridge": false},
+        {"id": "hall-footpath", "kind": "village-footpath", "waypoints": [Vector2(ox + 29, oy + 18), Vector2(ox + 30, oy + 14), Vector2(ox + 30, oy + 11), Vector2(ox + 29, oy + 9)], "width": 0.0, "bend": 0.25, "bridge": false},
+        {"id": "workshop-footpath", "kind": "village-footpath", "waypoints": [Vector2(ox + 38, oy + 15), Vector2(ox + 42, oy + 14), Vector2(ox + 46, oy + 14), Vector2(ox + 49, oy + 15)], "width": 0.0, "bend": 0.25, "bridge": false},
+        {"id": "garden-footpath", "kind": "village-footpath", "waypoints": [Vector2(ox + 23, oy + 18), Vector2(ox + 22, oy + 23), Vector2(ox + 22, oy + 27), Vector2(ox + 22, oy + 30)], "width": 0.0, "bend": 0.25, "bridge": false},
+        {"id": "barn-footpath", "kind": "village-footpath", "waypoints": [Vector2(ox + 45, oy + 39), Vector2(ox + 48, oy + 36), Vector2(ox + 51, oy + 33), Vector2(ox + 50, oy + 30)], "width": 0.0, "bend": 0.25, "bridge": false}
     ]
-    var trail_starts := [
-        Vector2(ox + 12, oy + 16),
-        Vector2(ox + 67, oy + 11),
-        Vector2(ox + 61, oy + 44),
-        Vector2(ox + 12, oy + 44)
+    var trail_specs := [
+        {"id": "apple-orchard-trail", "start": Vector2(ox + 4, oy + 40), "end": Vector2(70, 103), "bend": 0.45},
+        {"id": "willowmere-trail", "start": Vector2(ox + 63, oy + 19), "end": Vector2(178, 82), "bend": 0.55},
+        {"id": "stonecutters-trail", "start": Vector2(ox + 62, oy + 45), "end": Vector2(178, 125), "bend": 0.65},
+        {"id": "lookout-trail", "start": Vector2(ox + 4, oy + 44), "end": Vector2(74, 127), "bend": 0.5}
     ]
-    for index in LANDMARKS.size():
-        var landmark: Dictionary = LANDMARKS[index]
-        var target := Vector2(float(landmark.x), float(landmark.y))
-        var start: Vector2 = trail_starts[index]
-        routes.append({"start": start, "end": target, "width": 1.0, "bend": 0.0, "bridge": true})
+    for spec in trail_specs:
+        var start: Vector2 = spec.start
+        var end: Vector2 = spec.end
+        var midpoint := start.lerp(end, 0.48) + Vector2(sin(float(end.y - start.y)) * 5.0, cos(float(end.x - start.x)) * 4.0)
+        routes.append({"id": spec.id, "kind": "field-trail", "waypoints": [start, midpoint, end], "width": 0.0, "bend": float(spec.bend), "bridge": true})
     return routes
 
 func buildings() -> Array:
@@ -232,20 +233,26 @@ func _set_cell(grid: Array, x: int, y: int, tile: String) -> void:
     if x > 0 and y > 5 and x < WORLD_WIDTH - 1 and y < WORLD_HEIGHT - 1 and _inside(grid, x, y):
         grid[y][x] = tile
 
-func _paint_corridor(grid: Array, start: Vector2, finish: Vector2, width: float, _bend: float, bridge: bool) -> void:
+func _paint_corridor(grid: Array, route: Dictionary) -> void:
+    var waypoints: Array = route.get("waypoints", [])
+    if waypoints.size() < 2:
+        waypoints = [route.get("start", Vector2.ZERO), route.get("end", Vector2.ZERO)]
+    var width := float(route.get("width", 0.0))
+    var bridge := bool(route.get("bridge", false))
+    for index in range(waypoints.size() - 1):
+        _paint_segment(grid, Vector2(waypoints[index]), Vector2(waypoints[index + 1]), width, bridge)
+
+func _paint_segment(grid: Array, start: Vector2, finish: Vector2, width: float, bridge: bool) -> void:
     var origin := Vector2i(roundi(start.x), roundi(start.y))
     var target := Vector2i(roundi(finish.x), roundi(finish.y))
-    var pivot := Vector2i(target.x, origin.y)
+    var distance := maxi(abs(target.x - origin.x), abs(target.y - origin.y))
     var cells: Array[Vector2i] = []
-    var current := origin
-    cells.append(current)
-    while current.x != pivot.x:
-        current.x += 1 if pivot.x > current.x else -1
-        cells.append(current)
-    while current.y != target.y:
-        current.y += 1 if target.y > current.y else -1
-        cells.append(current)
-    var radius := 0 if width <= 1.0 else ceili(width * 0.5)
+    for step in range(distance + 1):
+        var ratio := 0.0 if distance == 0 else float(step) / float(distance)
+        var cell := Vector2i(roundi(lerpf(float(origin.x), float(target.x), ratio)), roundi(lerpf(float(origin.y), float(target.y), ratio)))
+        if cells.is_empty() or cells[-1] != cell:
+            cells.append(cell)
+    var radius := 0 if width <= 0.0 else ceili(width * 0.5)
     for centre in cells:
         for offset_y in range(-radius, radius + 1):
             for offset_x in range(-radius, radius + 1):
@@ -305,7 +312,7 @@ func build_grid(village: Dictionary = {}, changes: Dictionary = {}) -> Array:
         for x in range(ox + 11, ox + 15):
             _set_cell(grid, x, y, "w")
     for route in path_routes(village):
-        _paint_corridor(grid, route.start, route.end, route.width, route.bend, route.bridge)
+        _paint_corridor(grid, route)
     _set_cell(grid, START_TILE.x, START_TILE.y, "p")
     _set_cell(grid, ox + 30, oy + 11, "p")
     for y in range(oy + 9, oy + 12):

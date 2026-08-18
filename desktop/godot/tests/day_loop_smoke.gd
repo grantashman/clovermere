@@ -16,7 +16,8 @@ func _initialize() -> void:
     require(scene.day_state.minute_of_day == 480, "new journey should begin at 08:00")
     require(scene.day_label.text.contains("DAY 01"), "gameplay HUD should show the current day")
     require(scene.day_label.text.contains("08:00 AM"), "gameplay HUD should show the current clock")
-    require(scene.stores_label.text.contains("HERBS 00"), "gameplay HUD should show material stores")
+    require(scene.gameplay_hud.resource_slots.size() == 5, "gameplay HUD should expose five icon-led material slots")
+    require(scene.gameplay_hud.resource_slots[3].amount == 0, "herb slot should start empty")
     var herb: Dictionary = scene.world.resources()[5]
     var herb_id := str(herb.get("id", ""))
     var before_minute: int = scene.day_state.minute_of_day
@@ -29,7 +30,7 @@ func _initialize() -> void:
     scene._process(3.5)
     require(scene.day_state.minute_of_day > before_minute, "working a resource in the scene should advance time")
     require(scene.day_state.inventory.get("herbs", 0) == 2, "working herbs in the scene should add herbs to inventory")
-    require(scene.stores_label.text.contains("HERBS 02"), "gameplay HUD should update material stores after work")
+    require(scene.gameplay_hud.resource_slots[3].amount == 2, "gameplay HUD should update the herb icon slot after work")
     require(bool(scene.world_changes.get(herb_id, false)), "working a resource should mark it cleared")
 
     require(scene._save_game(), "the day loop should save through the native ledger")

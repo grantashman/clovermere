@@ -15,7 +15,7 @@ The native client currently includes:
 - Hearth Pantry and Food & Fishing loop: Hearth Tea restores energy immediately; Riverside Stew (1 fish + 1 timber) and Garden Chowder (1 fish + 1 herb) are stored as meals and eaten later for energy plus a one-use next-work effect. Meal inventory, fish, cooking time, and Orin's fish-aware dialogue persist through save/load.
 - First-day loop: Day 1 at 08:00, timed work actions consume time and energy, materials enter a persisted carried pack, sleep at Greenbriar Cottage deposits the pack into home stores, and herbs regrow overnight.
 - Tinker Workshop material sink: three persisted recipes consume field-pack materials; sleeping at Greenbriar Cottage stores the pack, and the Field Pack can return home stores at the cottage. Tinker’s Kit (3 timber + 2 stone + 1 ore) reduces work energy costs by 20%; Wayfarer’s Satchel (5 timber + 2 herbs) reduces work time by 20%; Hearthward Charm (2 stone + 2 herbs + 3 ore) raises the daily energy reserve to 115.
-- Traditional PC-game HUD redesign: compact status card, carried/home-store ledger, toggleable pack and recipe panels, keyboard-accessible action bar, and a full-world minimap in an original forest/timber/parchment/brass pastoral high-fantasy visual language.
+- Authored traditional PC HUD shell: layered Clovermere frames, compact status card, icon-led timber/stone/ore/herb/fish slots, centered action rail with authored glyphs, location ribbon, active PACK/CRAFT/HEARTH tabs, focus/hover/pressed/disabled states, contextual message suppression, and dialogue/pantry/workshop surfaces that keep their visual priority.
 - Enterable authored interiors: Greenbriar Cottage Hearth Room with hearth, bed, storage chest, Hearth Pantry cooking, warm evening light, and sleep/storage actions; Tinker Workshop Workroom, Clovermere Hall Common Room, Herbalist's Garden Glasshouse, and Old Barn Loft are also enterable with distinct authored furniture and interaction points. Scene transitions preserve the exterior position and interior location through save/load.
 - Live resident layer: six role-specific NPC actors follow deterministic morning/work/evening/night schedules with route movement, idle/walk motion, explicit left/right facing with mirrored authored silhouettes, four-step stride accents, role props, work-tool swings, impact sparks, y-depth sorting, authored 32×48 sprites, and offset directional shadows.
 - Authored central-crossing presentation pass: deterministic material clusters, explicit depth bands for terrain/contact/buildings/resources/foreground accents, stronger building shadows, and warm facade windows against clock-driven cooler evening ambient lighting.
@@ -49,6 +49,7 @@ godot --headless --path desktop/godot --script res://tests/day_state_test.gd
 godot --headless --path desktop/godot --script res://tests/storage_recipe_test.gd
 godot --headless --path desktop/godot --script res://tests/minimap_test.gd
 godot --headless --path desktop/godot --script res://tests/gameplay_hud_test.gd
+godot --headless --path desktop/godot --script res://tests/hud_presentation_test.gd
 godot --headless --path desktop/godot --script res://tests/interior_contract_test.gd
 godot --headless --path desktop/godot --script res://tests/interior_scene_test.gd
 godot --headless --path desktop/godot --script res://tests/interior_transition_smoke.gd

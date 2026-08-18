@@ -40,7 +40,9 @@ func _init() -> void:
 
     var routes: Array = world.path_routes(village)
     require(routes.size() >= 10, "settlement should expose authored local and destination routes")
-    require(routes.all(func(route): return is_zero_approx(float(route.bend))), "desktop routes should stay on the authored pixel grid")
+    require(routes.any(func(route): return route.get("waypoints", []).size() >= 4), "village roads should use organic waypoint chains")
+    require(routes.any(func(route): return str(route.get("kind", "")) == "village-road"), "settlement should expose a named village-road network")
+    require(routes.any(func(route): return not is_zero_approx(float(route.get("bend", 0.0)))), "distant trails may retain authored bend metadata")
     require(world.buildings().size() == 5, "settlement should expose five authored buildings")
     require(world.npcs().size() >= 6, "settlement should expose a visible resident roster")
     require(world.resources().size() >= 7, "settlement should expose harvestable timber, stone, ore, and herbs")

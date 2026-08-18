@@ -2,6 +2,9 @@ extends CanvasLayer
 class_name ClovermereGameplayHud
 
 const Minimap = preload("res://scripts/minimap.gd")
+const HudArt = preload("res://scripts/hud_art.gd")
+const ResourceSlot = preload("res://scripts/hud_resource_slot.gd")
+const HudButton = preload("res://scripts/hud_button.gd")
 
 signal pack_requested
 signal craft_requested
@@ -10,6 +13,7 @@ signal recipe_requested(recipe_id: String)
 signal cooking_requested(recipe_id: String)
 signal meal_requested(meal_id: String)
 signal storage_requested
+signal surface_requested
 
 const FOREST_DEEP := Color("#091610")
 const FOREST := Color("#12271f")
@@ -23,11 +27,15 @@ const MOSS := Color("#a7bd6a")
 const INK := Color("#18271f")
 
 var root: Control
+var hud_art: Control
 var status_panel: PanelContainer
 var minimap: Control
 var map_caption: Label
 var management_panel: PanelContainer
+var location_panel: PanelContainer
+var location_label: Label
 var dialogue_panel: PanelContainer
+var action_bar: PanelContainer
 var dialogue_speaker: Label
 var dialogue_text: Label
 var interior_mode := false
@@ -41,6 +49,10 @@ var title_label: Label
 var subtitle_label: Label
 var day_label: Label
 var stores_label: Label
+var home_store_label: Label
+var resource_strip: HBoxContainer
+var resource_slots: Array = []
+var tab_buttons: Dictionary = {}
 var debug_label: Label
 var hint_label: Label
 var interaction_panel: PanelContainer
@@ -56,6 +68,9 @@ func _ready() -> void:
     layer = 40
     _build_root()
 
+func resource_slot_kinds() -> Array[String]:
+    return ["timber", "stone", "ore", "herbs", "fish"]
+
 func _build_root() -> void:
     root = Control.new()
     root.name = "TraditionalPcHud"
@@ -63,25 +78,35 @@ func _build_root() -> void:
     root.mouse_filter = Control.MOUSE_FILTER_IGNORE
     add_child(root)
 
-    status_panel = _panel(Vector2(24, 24), Vector2(344, 158), "StatusPanel")
+    hud_art = HudArt.new()
+    hud_art.name = "AuthoredHudFrames"
+    hud_art.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+    hud_art.z_index = -5
+    root.add_child(hud_art)
+
+    status_panel = _panel(Vector2(24, 20), Vector2(330, 108), "StatusPanel")
     root.add_child(status_panel)
     _build_status_panel()
 
+    location_panel = _panel(Vector2(432, 20), Vector2(416, 42), "LocationRibbon")
+    root.add_child(location_panel)
+    _build_location_panel()
+
     minimap = Minimap.new()
     minimap.name = "ClovermereMinimap"
-    minimap.position = Vector2(1024, 24)
-    minimap.size = Vector2(232, 148)
+    minimap.position = Vector2(1040, 20)
+    minimap.size = Vector2(216, 136)
     root.add_child(minimap)
-    map_caption = _label(root, Vector2(1034, 176), Vector2(212, 18), 10, PARCHMENT_DIM)
+    map_caption = _label(root, Vector2(1048, 160), Vector2(208, 18), 9, PARCHMENT_DIM)
     map_caption.text = "FIELD MAP  ·  CLOVERMERE"
     map_caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 
-    management_panel = _panel(Vector2(874, 194), Vector2(382, 456), "ManagementPanel")
+    management_panel = _panel(Vector2(888, 180), Vector2(368, 440), "ManagementPanel")
     root.add_child(management_panel)
     _build_management_panel()
     management_panel.visible = false
 
-    interaction_panel = _panel(Vector2(252, 626), Vector2(600, 42), "InteractionPanel")
+    interaction_panel = _panel(Vector2(350, 578), Vector2(580, 38), "InteractionPanel")
     root.add_child(interaction_panel)
     var interaction_margin := _margin(interaction_panel, 12, 8, 12, 8)
     interaction_label = _body_label("", 14, BRASS)
@@ -92,8 +117,8 @@ func _build_root() -> void:
 
     dialogue_panel = PanelContainer.new()
     dialogue_panel.name = "DialoguePanel"
-    dialogue_panel.position = Vector2(260, 510)
-    dialogue_panel.size = Vector2(760, 104)
+    dialogue_panel.position = Vector2(260, 486)
+    dialogue_panel.size = Vector2(760, 112)
     dialogue_panel.add_theme_stylebox_override("panel", _style(Color("#ead6a7", 0.97), WOOD_LIGHT, 2, 4))
     root.add_child(dialogue_panel)
     var dialogue_margin := _margin(dialogue_panel, 16, 10, 16, 10)
@@ -114,51 +139,85 @@ func _build_root() -> void:
     _build_action_bar()
     debug_label = _label(root, Vector2(30, 188), Vector2(420, 42), 11, PARCHMENT_DIM)
     debug_label.visible = false
-    hint_label = _label(root, Vector2(30, 682), Vector2(1220, 22), 11, PARCHMENT_DIM)
+    hint_label = _label(root, Vector2(30, 686), Vector2(1220, 18), 10, PARCHMENT_DIM)
     hint_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    hint_label.add_theme_color_override("font_color", PARCHMENT)
+    hint_label.add_theme_color_override("font_outline_color", Color(FOREST_DEEP, 0.95))
+    hint_label.add_theme_constant_override("outline_size", 3)
 
 func _build_status_panel() -> void:
-    var margin := _margin(status_panel, 18, 14, 18, 14)
+    var margin := _margin(status_panel, 14, 3, 14, 3)
     var column := VBoxContainer.new()
-    column.add_theme_constant_override("separation", 4)
+    column.add_theme_constant_override("separation", 2)
     margin.add_child(column)
-    title_label = _title_label("CLOVERMERE", 22)
+    title_label = _title_label("CLOVERMERE", 15)
     title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
     column.add_child(title_label)
-    subtitle_label = _body_label("THE GREEN COUNTRY  ·  6 FOLK", 10, MOSS)
+    subtitle_label = _body_label("THE GREEN COUNTRY  ·  6 FOLK", 8, MOSS)
     column.add_child(subtitle_label)
-    day_label = _body_label("DAY 01  ·  08:00 AM", 13, PARCHMENT)
+    day_label = _body_label("DAY 01  ·  08:00 AM", 10, PARCHMENT)
     column.add_child(day_label)
     var energy_row := HBoxContainer.new()
     energy_row.add_theme_constant_override("separation", 8)
-    energy_label = _body_label("ENERGY", 10, PARCHMENT_DIM)
-    energy_label.custom_minimum_size = Vector2(54, 18)
+    energy_label = _body_label("ENERGY", 8, PARCHMENT_DIM)
+    energy_label.custom_minimum_size = Vector2(54, 12)
     energy_row.add_child(energy_label)
     energy_bar = ProgressBar.new()
-    energy_bar.custom_minimum_size = Vector2(160, 12)
+    energy_bar.custom_minimum_size = Vector2(166, 8)
     energy_bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
     energy_bar.show_percentage = false
     energy_bar.add_theme_stylebox_override("background", _style(Color("#1b3529"), WOOD, 1, 2))
     energy_bar.add_theme_stylebox_override("fill", _style(Color("#b6a165"), BRASS, 1, 2))
     energy_row.add_child(energy_bar)
     column.add_child(energy_row)
-    stores_label = _body_label("PACK  0  ·  STORES  0", 11, MOSS)
-    column.add_child(stores_label)
+    stores_label = _body_label("HOME STORES  ·  00 MATERIALS", 8, MOSS)
+    home_store_label = stores_label
+    stores_label.visible = false
+    resource_strip = HBoxContainer.new()
+    resource_strip.add_theme_constant_override("separation", 4)
+    resource_strip.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    column.add_child(resource_strip)
+    for kind in resource_slot_kinds():
+        var slot = ResourceSlot.new()
+        slot.custom_minimum_size = Vector2(54, 24)
+        resource_strip.add_child(slot)
+        resource_slots.append(slot)
+
+func _build_location_panel() -> void:
+    var margin := _margin(location_panel, 14, 7, 14, 7)
+    var row := HBoxContainer.new()
+    row.alignment = BoxContainer.ALIGNMENT_CENTER
+    margin.add_child(row)
+    var compass := _body_label("✦", 13, BRASS)
+    compass.custom_minimum_size = Vector2(20, 20)
+    compass.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+    row.add_child(compass)
+    location_label = _body_label("THE CROSSING  ·  CLOVERMERE", 12, PARCHMENT)
+    location_label.name = "LocationLabel"
+    location_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    location_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    row.add_child(location_label)
+    var marker := _body_label("✦", 13, BRASS)
+    marker.custom_minimum_size = Vector2(20, 20)
+    marker.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+    marker.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+    row.add_child(marker)
 
 func _build_action_bar() -> void:
-    var bar := PanelContainer.new()
-    bar.name = "ActionBar"
-    bar.position = Vector2(24, 618)
-    bar.size = Vector2(212, 52)
-    bar.add_theme_stylebox_override("panel", _style(Color(FOREST_DEEP, 0.94), WOOD_LIGHT, 1, 3))
-    root.add_child(bar)
+    action_bar = PanelContainer.new()
+    action_bar.name = "ActionBar"
+    action_bar.position = Vector2(430, 622)
+    action_bar.size = Vector2(420, 52)
+    action_bar.add_theme_stylebox_override("panel", _style(Color(FOREST_DEEP, 0.9), WOOD_LIGHT, 1, 4))
+    root.add_child(action_bar)
     var row := HBoxContainer.new()
-    row.add_theme_constant_override("separation", 5)
-    var margin := _margin(bar, 7, 7, 7, 7)
+    row.alignment = BoxContainer.ALIGNMENT_CENTER
+    row.add_theme_constant_override("separation", 7)
+    var margin := _margin(action_bar, 7, 7, 7, 7)
     margin.add_child(row)
-    pack_button = _shortcut_button("B  PACK", func(): open_pack())
-    craft_button = _shortcut_button("C  CRAFT", func(): open_crafting())
-    pause_button = _shortcut_button("ESC  PAUSE", func(): pause_requested.emit())
+    pack_button = _shortcut_button("PACK", "B", "pack", func(): open_pack())
+    craft_button = _shortcut_button("CRAFT", "C", "craft", func(): open_crafting())
+    pause_button = _shortcut_button("MENU", "ESC", "menu", func(): pause_requested.emit())
     row.add_child(pack_button)
     row.add_child(craft_button)
     row.add_child(pause_button)
@@ -181,9 +240,10 @@ func _build_management_panel() -> void:
     column.add_child(mode_hint)
     var tabs := HBoxContainer.new()
     tabs.add_theme_constant_override("separation", 6)
-    var pack_tab := _tab_button("PACK", func(): open_pack())
-    var craft_tab := _tab_button("CRAFT", func(): open_crafting())
-    var cook_tab := _tab_button("HEARTH", func(): open_cooking())
+    var pack_tab := _tab_button("PACK", "pack", func(): open_pack())
+    var craft_tab := _tab_button("CRAFT", "craft", func(): open_crafting())
+    var cook_tab := _tab_button("HEARTH", "hearth", func(): open_cooking())
+    tab_buttons = {"pack": pack_tab, "craft": craft_tab, "cook": cook_tab}
     tabs.add_child(pack_tab)
     tabs.add_child(craft_tab)
     tabs.add_child(cook_tab)
@@ -206,6 +266,7 @@ func _build_management_panel() -> void:
 func _refresh_management() -> void:
     if management_content == null:
         return
+    _refresh_tab_state()
     for child in management_content.get_children():
         child.queue_free()
     if management_mode == "pack":
@@ -220,6 +281,16 @@ func _refresh_management() -> void:
         management_title.text = "HEARTH PANTRY"
         mode_hint.text = "Make one warm thing before the road asks more of you."
         _build_cook_content()
+
+func _refresh_tab_state() -> void:
+    for key in tab_buttons.keys():
+        var button = tab_buttons[key]
+        if button == null:
+            continue
+        var selected: bool = (str(key) == management_mode)
+        button.set_active(selected)
+        button.add_theme_color_override("font_color", BRASS if selected else PARCHMENT_DIM)
+        button.add_theme_stylebox_override("normal", _style(Color("#2b4b38") if selected else Color("#14271e"), BRASS if selected else WOOD, 1, 3))
 
 func _build_pack_content() -> void:
     var carried: Dictionary = _snapshot.get("inventory", {})
@@ -281,11 +352,11 @@ func _build_cook_content() -> void:
             continue
         var card := PanelContainer.new()
         card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-        card.custom_minimum_size = Vector2(320, 126)
+        card.custom_minimum_size = Vector2(320, 92)
         card.add_theme_stylebox_override("panel", _style(Color("#3c3027"), WOOD_LIGHT, 1, 3))
-        var card_margin := _margin(card, 10, 8, 10, 8)
+        var card_margin := _margin(card, 10, 6, 10, 6)
         var card_column := VBoxContainer.new()
-        card_column.add_theme_constant_override("separation", 4)
+        card_column.add_theme_constant_override("separation", 2)
         card_margin.add_child(card_column)
         var row := HBoxContainer.new()
         var name := _body_label(str(recipe.get("name", recipe_id)), 14, PARCHMENT)
@@ -306,12 +377,12 @@ func _build_cook_content() -> void:
             eat.disabled = int(recipe.get("meal_count", 0)) <= 0
             row.add_child(eat)
         card_column.add_child(row)
-        var summary := _body_label(str(recipe.get("summary", "")), 10, PARCHMENT_DIM)
+        var summary := _body_label(str(recipe.get("summary", "")), 9, PARCHMENT_DIM)
         summary.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
         card_column.add_child(summary)
         var timing := "%d ENERGY  ·  %d MINUTES" % [int(recipe.get("energy", 0)), int(recipe.get("minutes", 0))]
-        card_column.add_child(_body_label(timing, 10, BRASS))
-        card_column.add_child(_body_label(_cost_text(recipe.get("cost", {}), recipe), 10, PARCHMENT_DIM))
+        card_column.add_child(_body_label(timing, 9, BRASS))
+        card_column.add_child(_body_label(_cost_text(recipe.get("cost", {}), recipe), 9, PARCHMENT_DIM))
         management_content.add_child(card)
     var meals: Dictionary = _snapshot.get("meals", {})
     if not meals.is_empty():
@@ -334,45 +405,84 @@ func _cost_text(cost: Dictionary, recipe: Dictionary) -> String:
     return "  ·  ".join(parts)
 
 func _material_row(material: String, amount: int, color: Color) -> Control:
+    var surface := PanelContainer.new()
+    surface.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    surface.custom_minimum_size = Vector2(0, 28)
+    surface.add_theme_stylebox_override("panel", _style(Color("#10251b"), Color("#3b5a40"), 1, 2))
+    var margin := _margin(surface, 7, 3, 7, 3)
     var row := HBoxContainer.new()
     row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-    var marker := _body_label("◆", 11, BRASS)
-    marker.custom_minimum_size = Vector2(18, 20)
+    margin.add_child(row)
+    var marker := _body_label("◆", 10, BRASS)
+    marker.custom_minimum_size = Vector2(18, 18)
+    marker.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
     row.add_child(marker)
-    var name := _body_label(material.to_upper(), 12, color)
+    var name := _body_label(material.to_upper(), 11, color)
     name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
     row.add_child(name)
-    var count := _body_label("%02d" % amount, 13, PARCHMENT)
+    var count := _body_label("%02d" % amount, 12, PARCHMENT)
     count.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+    count.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
     row.add_child(count)
-    return row
+    return surface
+
+func set_active_surface(surface: String) -> void:
+    management_mode = surface if surface in ["pack", "craft", "cook"] else management_mode
+    _refresh_tab_state()
+
+func set_hud_frame_state(management: bool, dialogue: bool, interaction: bool, interior: bool) -> void:
+    if hud_art != null:
+        hud_art.set_state(management, dialogue, interaction, interior, management_mode)
+
+func clear_interaction_banner() -> void:
+    if interaction_label != null:
+        interaction_label.text = ""
+    if interaction_panel != null:
+        interaction_panel.visible = false
+    set_hud_frame_state(management_panel.visible, dialogue_panel.visible, false, interior_mode)
 
 func open_pack() -> void:
+    surface_requested.emit()
+    clear_interaction_banner()
+    set_active_surface("pack")
     management_mode = "pack"
     management_panel.visible = true
+    set_hud_frame_state(true, dialogue_panel.visible, interaction_panel.visible, interior_mode)
     _refresh_management()
 
 func open_crafting() -> void:
+    surface_requested.emit()
+    clear_interaction_banner()
+    set_active_surface("craft")
     management_mode = "craft"
     management_panel.visible = true
+    set_hud_frame_state(true, dialogue_panel.visible, interaction_panel.visible, interior_mode)
     _refresh_management()
 
 func open_cooking() -> void:
+    surface_requested.emit()
+    clear_interaction_banner()
+    set_active_surface("cook")
     management_mode = "cook"
     management_panel.visible = true
+    set_hud_frame_state(true, dialogue_panel.visible, interaction_panel.visible, interior_mode)
     _refresh_management()
 
 func close_management() -> void:
     management_panel.visible = false
+    set_hud_frame_state(false, dialogue_panel.visible, interaction_panel.visible, interior_mode)
 
 func show_dialogue(speaker: String, text: String) -> void:
+    clear_interaction_banner()
     dialogue_speaker.text = speaker.to_upper()
     dialogue_text.text = text
     dialogue_panel.visible = true
+    set_hud_frame_state(management_panel.visible, true, interaction_panel.visible, interior_mode)
 
 func hide_dialogue() -> void:
     if dialogue_panel != null:
         dialogue_panel.visible = false
+        set_hud_frame_state(management_panel.visible, false, interaction_panel.visible, interior_mode)
 
 func set_interior_mode(enabled: bool, location_name: String = "") -> void:
     interior_mode = enabled
@@ -382,12 +492,17 @@ func set_interior_mode(enabled: bool, location_name: String = "") -> void:
         map_caption.visible = not enabled
     if enabled and not location_name.is_empty():
         subtitle_label.text = "HEARTH & HOME  ·  %s" % location_name.to_upper()
+        location_label.text = location_name.to_upper()
+    elif not enabled:
+        location_label.text = "THE CROSSING  ·  CLOVERMERE"
+    set_hud_frame_state(management_panel.visible, dialogue_panel.visible, interaction_panel.visible, interior_mode)
     hide_dialogue()
 
 func refresh(snapshot: Dictionary) -> void:
     _snapshot = snapshot.duplicate(true)
     title_label.text = str(snapshot.get("village_name", "CLOVERMERE"))
     subtitle_label.text = "HEARTH & HOME  ·  %s" % str(snapshot.get("location_name", "INTERIOR")).to_upper() if interior_mode else "THE GREEN COUNTRY  ·  %d FOLK  ·  %d%%" % [int(snapshot.get("folk", 6)), roundi(float(snapshot.get("zoom", 0.75)) * 100.0)]
+    location_label.text = str(snapshot.get("location_name", "THE CROSSING  ·  CLOVERMERE")).to_upper() if interior_mode else "THE CROSSING  ·  CLOVERMERE"
     day_label.text = "DAY %02d  ·  %s" % [int(snapshot.get("day", 1)), str(snapshot.get("clock", "08:00 AM"))]
     var energy := int(snapshot.get("energy", 0))
     var max_energy := maxi(1, int(snapshot.get("max_energy", 100)))
@@ -398,15 +513,19 @@ func refresh(snapshot: Dictionary) -> void:
     var storage: Dictionary = snapshot.get("storage", {})
     var carried_total := 0
     var stored_total := 0
-    for material in ["timber", "stone", "ore", "herbs", "fish"]:
+    for material in resource_slot_kinds():
         carried_total += int(inventory.get(material, 0))
         stored_total += int(storage.get(material, 0))
-    stores_label.text = "T%02d  ·  S%02d  ·  O%02d  ·  HERBS %02d  ·  FISH %02d  ·  STORES %02d%s" % [int(inventory.get("timber", 0)), int(inventory.get("stone", 0)), int(inventory.get("ore", 0)), int(inventory.get("herbs", 0)), int(inventory.get("fish", 0)), stored_total, "  ·  KIT FITTED" if bool(snapshot.get("kit_ready", false)) else ""]
+    home_store_label.text = "ON HAND %02d  ·  HOME STORES %02d" % [carried_total, stored_total]
+    for index in range(mini(resource_slots.size(), resource_slot_kinds().size())):
+        var kind := resource_slot_kinds()[index]
+        resource_slots[index].set_resource(kind, int(inventory.get(kind, 0)), int(storage.get(kind, 0)))
     hint_label.text = str(snapshot.get("hint", "Click to walk  ·  B pack  ·  C craft  ·  E interact  ·  Wheel zoom"))
     debug_label.text = str(snapshot.get("debug", ""))
     debug_label.visible = bool(snapshot.get("debug_visible", false))
     interaction_label.text = str(snapshot.get("interaction", ""))
     interaction_panel.visible = not interaction_label.text.is_empty()
+    set_hud_frame_state(management_panel.visible, dialogue_panel.visible, interaction_panel.visible, interior_mode)
     if management_panel.visible:
         _refresh_management()
 
@@ -434,7 +553,8 @@ func _margin(parent: Control, left: int, top: int, right: int, bottom: int) -> M
     margin.add_theme_constant_override("margin_top", top)
     margin.add_theme_constant_override("margin_right", right)
     margin.add_theme_constant_override("margin_bottom", bottom)
-    margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+    margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    margin.size_flags_vertical = Control.SIZE_EXPAND_FILL
     parent.add_child(margin)
     return margin
 
@@ -444,6 +564,9 @@ func _style(background: Color, border: Color, width: int, radius: int) -> StyleB
     style.border_color = border
     style.set_border_width_all(width)
     style.set_corner_radius_all(radius)
+    style.shadow_color = Color(0, 0, 0, 0.28)
+    style.shadow_size = 4
+    style.shadow_offset = Vector2(0, 2)
     style.content_margin_left = 8.0
     style.content_margin_right = 8.0
     style.content_margin_top = 6.0
@@ -461,7 +584,8 @@ func _body_label(text: String, font_size: int, color: Color) -> Label:
     label.text = text
     label.add_theme_font_size_override("font_size", font_size)
     label.add_theme_color_override("font_color", color)
-    label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+    label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    label.autowrap_mode = TextServer.AUTOWRAP_OFF
     label.mouse_filter = Control.MOUSE_FILTER_IGNORE
     return label
 
@@ -473,22 +597,28 @@ func _label(parent: Control, position: Vector2, label_size: Vector2, font_size: 
     return label
 
 func _button(text: String, callback: Callable) -> Button:
-    var button := Button.new()
+    var button = HudButton.new()
     button.text = text
     button.pressed.connect(callback)
     button.add_theme_font_size_override("font_size", 11)
     button.add_theme_color_override("font_color", PARCHMENT)
     button.add_theme_color_override("font_hover_color", BRASS)
+    button.add_theme_color_override("font_pressed_color", BRASS)
+    button.add_theme_color_override("font_focus_color", BRASS)
+    button.add_theme_color_override("font_disabled_color", Color(PARCHMENT_DIM, 0.45))
     button.add_theme_stylebox_override("normal", _style(Color("#1b3529"), WOOD, 1, 2))
     button.add_theme_stylebox_override("hover", _style(Color("#294936"), BRASS, 1, 2))
     button.add_theme_stylebox_override("pressed", _style(Color("#0f2119"), BRASS, 1, 2))
+    button.add_theme_stylebox_override("focus", _style(Color("#294936"), Color("#f0d487"), 2, 2))
     button.add_theme_stylebox_override("disabled", _style(Color("#14261e"), Color("#3d4d3c"), 1, 2))
     return button
 
-func _shortcut_button(text: String, callback: Callable) -> Button:
-    var button := _button(text, callback)
-    button.custom_minimum_size = Vector2(62, 34)
-    button.add_theme_font_size_override("font_size", 9)
+func _shortcut_button(text: String, shortcut: String, glyph: String, callback: Callable) -> Button:
+    var button = _button("  " + text, callback)
+    button.set_glyph(glyph)
+    button.tooltip_text = "%s  ·  %s" % [text, shortcut]
+    button.custom_minimum_size = Vector2(112, 34)
+    button.add_theme_font_size_override("font_size", 10)
     return button
 
 func _small_button(text: String, callback: Callable) -> Button:
@@ -497,7 +627,9 @@ func _small_button(text: String, callback: Callable) -> Button:
     button.add_theme_font_size_override("font_size", 10)
     return button
 
-func _tab_button(text: String, callback: Callable) -> Button:
-    var button := _button(text, callback)
+func _tab_button(text: String, glyph: String, callback: Callable) -> Button:
+    var button := _button("  " + text, callback)
+    button.set_glyph(glyph)
     button.custom_minimum_size = Vector2(96, 28)
+    button.add_theme_font_size_override("font_size", 9)
     return button

@@ -198,6 +198,11 @@ func _mount_terrain_clusters() -> void:
         var node := ArtAssetPack.sprite(asset_id, self, _world_point(placements[cluster_id]), DEPTH_LAYERS["terrain"] + 1)
         terrain_cluster_sprites[cluster_id] = node
 
+func terrain_asset_for(tile: Vector2i) -> String:
+    if tile.y >= 0 and tile.y < grid.size() and tile.x >= 0 and tile.x < grid[tile.y].size() and str(grid[tile.y][tile.x]) in ["p", "d"]:
+        return ""
+    return _terrain_asset_for(tile)
+
 func _terrain_asset_for(tile: Vector2i) -> String:
     if tile.y < 0 or tile.y >= grid.size() or tile.x < 0 or tile.x >= grid[tile.y].size():
         return ""

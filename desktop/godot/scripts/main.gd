@@ -349,8 +349,12 @@ func _unhandled_input(event: InputEvent) -> void:
             else:
                 _handle_resource_action()
         elif event.keycode == KEY_B and game_started:
+            if ui != null:
+                ui.dismiss_toast()
             gameplay_hud.open_pack()
         elif event.keycode == KEY_C and game_started:
+            if ui != null:
+                ui.dismiss_toast()
             gameplay_hud.open_crafting()
         elif event.keycode == KEY_T and game_started and not _in_interior():
             _talk_to_nearest_npc()
@@ -633,6 +637,8 @@ func _cook_recipe(recipe_id: String) -> void:
         return
     var result: Dictionary = day_state.cook_recipe(recipe_id)
     if bool(result.get("ok", false)):
+        if gameplay_hud != null:
+            gameplay_hud.open_cooking()
         var meal_id := str(result.get("meal_id", ""))
         if meal_id.is_empty():
             interaction_message = "%s made  ·  +%d energy  ·  %d minutes" % [str(result.get("name", recipe_id)), int(result.get("energy", 0)), int(result.get("minutes", 0))]
@@ -642,8 +648,6 @@ func _cook_recipe(recipe_id: String) -> void:
         _save_game()
         _refresh_hud()
         _show_interaction_feedback()
-        if gameplay_hud != null:
-            gameplay_hud.open_cooking()
         return
     var reason := str(result.get("reason", ""))
     interaction_message = "Not enough pantry ingredients" if reason == "missing-materials" else "The Hearth Pantry cannot make that yet"
@@ -653,13 +657,13 @@ func _cook_recipe(recipe_id: String) -> void:
 func _eat_meal(meal_id: String) -> void:
     var result: Dictionary = day_state.eat_meal(meal_id)
     if bool(result.get("ok", false)):
+        if gameplay_hud != null:
+            gameplay_hud.open_cooking()
         interaction_message = "%s eaten  ·  +%d energy  ·  next work is improved" % [str(result.get("name", meal_id)), int(result.get("energy", 0))]
         interaction_timeout = 4.0
         _save_game()
         _refresh_hud()
         _show_interaction_feedback()
-        if gameplay_hud != null:
-            gameplay_hud.open_cooking()
         return
     interaction_message = "No prepared meal of that kind is ready"
     interaction_timeout = 2.5
@@ -673,13 +677,13 @@ func _craft_recipe(recipe_id: String) -> void:
         return
     var result: Dictionary = day_state.craft_recipe(recipe_id)
     if bool(result.get("ok", false)):
+        if gameplay_hud != null:
+            gameplay_hud.open_crafting()
         interaction_message = "%s fitted  ·  the village road grows kinder" % str(result.get("name", recipe_id))
         interaction_timeout = 4.0
         _save_game()
         _refresh_hud()
         _show_interaction_feedback()
-        if gameplay_hud != null:
-            gameplay_hud.open_crafting()
         return
     var reason := str(result.get("reason", ""))
     interaction_message = "Already fitted" if reason == "already-owned" else "Not enough materials for that recipe"
@@ -692,6 +696,8 @@ func _withdraw_home_stores() -> void:
         interaction_timeout = 2.5
         _show_interaction_feedback()
         return
+    if gameplay_hud != null:
+        gameplay_hud.open_pack()
     var moved := day_state.withdraw_storage(day_state.storage.duplicate(true))
     if moved.is_empty():
         interaction_message = "Greenbriar Cottage stores are empty"
@@ -701,8 +707,6 @@ func _withdraw_home_stores() -> void:
         _refresh_hud()
     interaction_timeout = 2.5
     _show_interaction_feedback()
-    if gameplay_hud != null:
-        gameplay_hud.open_pack()
 
 func _purchase_workshop_upgrade() -> void:
     var purchase: Dictionary = day_state.purchase_upgrade("tinkers-kit")
@@ -1076,6 +1080,8 @@ func _talk_to_nearest_npc() -> void:
     if ui != null:
         ui.dismiss_toast()
     if gameplay_hud != null:
+        interaction_message = ""
+        interaction_timeout = 0.0
         gameplay_hud.show_dialogue(str(dialogue.get("speaker", npc_id)), str(dialogue.get("text", "")))
     _save_game()
     _refresh_hud()
@@ -1252,6 +1258,14 @@ func _set_zoom(value: float) -> void:
     var effective_zoom := camera_zoom * INTERIOR_ZOOM_MULTIPLIER if _in_interior() else camera_zoom
     camera.zoom = Vector2(effective_zoom, effective_zoom)
 
+func _dismiss_hud_surface() -> void:
+    if ui != null:
+        ui.dismiss_toast()
+    interaction_message = ""
+    interaction_timeout = 0.0
+    if gameplay_hud != null:
+        gameplay_hud.clear_interaction_banner()
+
 func _build_hud() -> void:
     gameplay_hud = GameplayHud.new()
     add_child(gameplay_hud)
@@ -1259,6 +1273,7 @@ func _build_hud() -> void:
     gameplay_hud.cooking_requested.connect(_cook_recipe)
     gameplay_hud.meal_requested.connect(_eat_meal)
     gameplay_hud.storage_requested.connect(_withdraw_home_stores)
+    gameplay_hud.surface_requested.connect(_dismiss_hud_surface)
     gameplay_hud.pause_requested.connect(_pause_journey)
     title_label = gameplay_hud.title_label
     subtitle_label = gameplay_hud.subtitle_label
