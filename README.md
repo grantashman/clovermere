@@ -31,7 +31,7 @@ The native client currently includes:
 - Pause menu with explicit Save Journey and Load Journey actions.
 - Persistent Options page for fullscreen, crisp pixel filtering, starting zoom, and launch metrics.
 - Save schema 7 with migration from schemas 5 and 6; resource recovery timing is persisted in `resource_states` while legacy `world_changes` flags remain compatible.
-- Cached world rendering with verified steady-state performance above the 45 FPS acceptance threshold on the development host; the native-v0.16.0 Hearth Pantry/interior/resource slice measured 145 FPS under headless rendering.
+- Cached world rendering with verified steady-state performance above the 45 FPS acceptance threshold on the development host; the native-v0.17.0 Food & Fishing slice measured 145 FPS under headless rendering.
 
 ## Local Godot commands
 
