@@ -37,10 +37,11 @@ func _initialize() -> void:
         if road_tile.x >= 0:
             break
     require(road_tile.x >= 0 and benchmark.terrain_asset_for(road_tile).is_empty(), "benchmark should leave village roads to the organic dirt renderer")
-    benchmark.set_consequence_flags({"garden_bloom": true, "forge_ember": true, "lane_markers": true})
+    benchmark.set_consequence_flags({"garden_bloom": true, "forge_ember": true, "lane_markers": true, "garden_request": true, "workshop_request": true})
     require(benchmark.active_consequence_flags().get("garden_bloom", false), "benchmark should expose the active garden consequence")
     require(benchmark.active_consequence_flags().get("forge_ember", false), "benchmark should expose the active forge consequence")
     require(benchmark.active_consequence_flags().get("lane_markers", false), "benchmark should expose the active lane-marker consequence")
+    require(benchmark.active_consequence_flags().get("garden_request", false), "benchmark should expose request consequences")
     require(benchmark.has_method("set_consequence_flags"), "benchmark should accept persisted resident consequences")
     benchmark.free()
 

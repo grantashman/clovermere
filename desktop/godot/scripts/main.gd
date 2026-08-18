@@ -16,6 +16,7 @@ const GameplayHud = preload("res://scripts/gameplay_hud.gd")
 const InteriorContract = preload("res://scripts/interior_contract.gd")
 const InteriorScene = preload("res://scripts/interior_scene.gd")
 const VillageMemory = preload("res://scripts/village_memory.gd")
+const RequestBoard = preload("res://scripts/request_board.gd")
 const ProceduralResourceOverlay = preload("res://scripts/procedural_resource_overlay.gd")
 
 
@@ -47,6 +48,8 @@ var village: Dictionary = DEFAULT_VILLAGE.duplicate(true)
 var day_state = DayState.new()
 var village_memory = VillageMemory.new()
 var resident_memory: Dictionary = village_memory.default_state()
+var request_board = RequestBoard.new()
+var request_state: Dictionary = request_board.default_state()
 var player_position := World.START_POSITION
 var camera_zoom := 0.75
 var debug_visible := false
@@ -99,7 +102,7 @@ func _ready() -> void:
     benchmark_scene.name = "CentralCrossingBenchmark"
     benchmark_scene.z_index = 4
     add_child(benchmark_scene)
-    benchmark_scene.configure(world, grid, world_changes, resource_states, village_memory.consequence_flags(resident_memory), village)
+    benchmark_scene.configure(world, grid, world_changes, resource_states, _combined_consequence_flags(), village)
     camera = Camera2D.new()
     camera.position_smoothing_enabled = false
     camera.zoom = Vector2(camera_zoom, camera_zoom)
@@ -498,6 +501,12 @@ func _handle_interior_action() -> void:
         _sleep_at_home()
     elif action == "storage":
         _withdraw_home_stores()
+    elif action == "requests":
+        if gameplay_hud != null:
+            gameplay_hud.open_requests()
+        interaction_message = ""
+        interaction_timeout = 0.0
+        _show_interaction_feedback()
     elif action == "cook":
         interaction_message = "The Hearth Pantry is ready  ·  press MAKE"
         interaction_timeout = 3.0
@@ -1026,6 +1035,22 @@ func _nearest_npc_id(max_distance: float = 2.4) -> String:
             closest_id = str(npc_id)
     return closest_id
 
+func _handle_request_action(request_id: String, action: String) -> void:
+    if gameplay_hud != null:
+        gameplay_hud.open_requests()
+    if action == "accept":
+        var accepted := request_board.accept_request(request_state, request_id, day_state.day)
+        interaction_message = "" if bool(accepted.get("ok", false)) else "Choose one request at a time"
+    elif action == "abandon":
+        var abandoned := request_board.abandon_request(request_state)
+        interaction_message = "" if bool(abandoned.get("ok", false)) else "No active request"
+    else:
+        interaction_message = "Completed requests stay in the village ledger"
+    interaction_timeout = 3.0
+    _save_game()
+    _refresh_hud()
+    _show_interaction_feedback()
+
 func _talk_to_nearest_npc() -> void:
     var npc_id := _nearest_npc_id()
     if npc_id.is_empty():
@@ -1043,6 +1068,20 @@ func _talk_to_nearest_npc() -> void:
     var dialogue: Dictionary = village_memory.dialogue_for(npc_id, resident_memory, context)
     if dialogue.is_empty():
         return
+    var active_request := request_board.accepted_request(request_state, day_state.day)
+    if not active_request.is_empty() and str(active_request.get("requester", "")) == npc_id:
+        var request_cost: Dictionary = active_request.get("cost", {})
+        if day_state.can_afford(request_cost):
+            day_state.spend_materials(request_cost)
+            var request_completion := request_board.complete_request(request_state, str(active_request.get("id", "")), day_state.day)
+            if bool(request_completion.get("ok", false)):
+                day_state.apply_reward(request_completion.get("reward", {}))
+                dialogue["text"] = str(dialogue.get("text", "")) + " The request is done; thank you for carrying Clovermere's work where it needed to go."
+                interaction_message = "%s complete  ·  the village remembers" % str(active_request.get("title", "Request"))
+                interaction_timeout = 4.0
+                _refresh_world_state()
+        else:
+            dialogue["text"] = str(dialogue.get("text", "")) + request_board.reminder(request_state, npc_id, day_state.inventory, day_state.day)
     var resident_state := village_memory.state_for(resident_memory, npc_id)
     var stage := int(resident_state.get("stage", 0))
     dialogue_flags[npc_id] = true
@@ -1098,6 +1137,8 @@ func _start_new_journey() -> void:
     pending_interior_interaction = {}
     dialogue_flags.clear()
     resident_memory = village_memory.default_state()
+    request_state = request_board.default_state()
+    request_board.ensure_day(request_state, 1)
     world_changes.clear()
     resource_states.clear()
     day_state = DayState.new()
@@ -1208,12 +1249,19 @@ func _refresh_player_transform() -> void:
     camera.zoom = Vector2(effective_zoom, effective_zoom)
     camera.reset_smoothing()
 
+func _combined_consequence_flags() -> Dictionary:
+    var flags := village_memory.consequence_flags(resident_memory)
+    var request_flags := request_board.consequence_flags(request_state)
+    for key in request_flags.keys():
+        flags[str(key)] = bool(request_flags[key])
+    return flags
+
 func _refresh_world_state() -> void:
     grid = world.build_grid(village, world_changes)
     if world_view != null:
         world_view.configure(world, grid, village, null, world_changes)
     if benchmark_scene != null:
-        benchmark_scene.configure(world, grid, world_changes, resource_states, village_memory.consequence_flags(resident_memory), village)
+        benchmark_scene.configure(world, grid, world_changes, resource_states, _combined_consequence_flags(), village)
     if procedural_resource_overlay != null:
         procedural_resource_overlay.configure(world, village, world_changes)
     if world_cache != null:
@@ -1273,6 +1321,7 @@ func _build_hud() -> void:
     gameplay_hud.cooking_requested.connect(_cook_recipe)
     gameplay_hud.meal_requested.connect(_eat_meal)
     gameplay_hud.storage_requested.connect(_withdraw_home_stores)
+    gameplay_hud.request_action.connect(_handle_request_action)
     gameplay_hud.surface_requested.connect(_dismiss_hud_surface)
     gameplay_hud.pause_requested.connect(_pause_journey)
     title_label = gameplay_hud.title_label
@@ -1311,6 +1360,7 @@ func _refresh_hud() -> void:
     var recipes: Dictionary = {}
     for recipe_id in day_state.recipe_ids():
         recipes[recipe_id] = day_state.recipe_preview(recipe_id)
+    var request_cards := request_board.board_cards(request_state, day_state.day, day_state.inventory)
     gameplay_hud.refresh({
         "village_name": str(village.get("name", "CLOVERMERE")),
         "folk": world.npcs().size(),
@@ -1323,6 +1373,7 @@ func _refresh_hud() -> void:
         "storage": day_state.storage,
         "kit_ready": day_state.has_upgrade("tinkers-kit"),
         "recipes": recipes,
+        "requests": request_cards,
         "near_workshop": _is_near_workshop(),
         "near_home": _is_near_home(),
         "interior_mode": _in_interior(),
@@ -1376,6 +1427,9 @@ func _load_save() -> bool:
     dialogue_flags = loaded_dialogue_flags.duplicate(true) if loaded_dialogue_flags is Dictionary else {}
     var loaded_resident_memory = normalized.get("resident_memory", {})
     resident_memory = village_memory.from_dict(loaded_resident_memory if loaded_resident_memory is Dictionary else {})
+    var loaded_requests = normalized.get("requests", {})
+    request_state = request_board.from_dict(loaded_requests if loaded_requests is Dictionary else {})
+    request_board.ensure_day(request_state, day_state.day)
     for resident_id in village_memory.resident_ids():
         if bool(dialogue_flags.get(resident_id, false)) and int(resident_memory.get(resident_id, {}).get("stage", 0)) == 0:
             village_memory.mark_introduced(resident_memory, resident_id, day_state.day)
@@ -1403,6 +1457,7 @@ func _save_game() -> bool:
         "interior": {"building_id": interior_location, "player": {"x": player_position.x, "y": player_position.y}} if _in_interior() else {},
         "dialogue_flags": dialogue_flags.duplicate(true),
         "resident_memory": village_memory.to_dict(resident_memory),
+        "requests": request_board.to_dict(request_state),
         "world_changes": world_changes.duplicate(true),
         "resource_states": resource_states.duplicate(true),
         "day_state": day_state.to_dict()

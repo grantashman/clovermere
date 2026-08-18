@@ -544,6 +544,37 @@ func _draw_village_consequences() -> void:
             draw_rect(Rect2(marker + Vector2(-2, -10), Vector2(4, 14)), Color("#6f4d3c", 0.95), true)
             draw_rect(Rect2(marker + Vector2(-9, -12), Vector2(18, 5)), Color("#c69b61", 0.95), true)
             draw_rect(Rect2(marker + Vector2(-4, -11), Vector2(2, 2)), Color(BRASS, 0.9), true)
+    _draw_request_consequences()
+
+func _draw_request_consequences() -> void:
+    var garden_request := bool(consequence_flags.get("garden_request", false))
+    var workshop_request := bool(consequence_flags.get("workshop_request", false))
+    var willow_request := bool(consequence_flags.get("willow_request", false))
+    var orchard_request := bool(consequence_flags.get("orchard_request", false))
+    var lookout_request := bool(consequence_flags.get("lookout_request", false))
+    if garden_request and anchor_positions.has("herbalists-garden"):
+        var garden: Vector2 = _world_point(anchor_positions["herbalists-garden"]) + Vector2(52, 61)
+        draw_rect(Rect2(garden + Vector2(-12, -4), Vector2(24, 8)), Color("#704936"), true)
+        draw_rect(Rect2(garden + Vector2(-9, -2), Vector2(18, 4)), Color("#d0a663"), true)
+        draw_rect(Rect2(garden + Vector2(-5, -6), Vector2(3, 4)), Color("#91b961"), true)
+        draw_rect(Rect2(garden + Vector2(3, -6), Vector2(3, 4)), Color("#d9b56e"), true)
+    if workshop_request and anchor_positions.has("tinker-workshop"):
+        var workshop: Vector2 = _world_point(anchor_positions["tinker-workshop"]) + Vector2(17, 76)
+        draw_rect(Rect2(workshop + Vector2(-14, -4), Vector2(28, 8)), Color("#704936"), true)
+        draw_rect(Rect2(workshop + Vector2(-10, -2), Vector2(20, 3)), Color("#b27c55"), true)
+        draw_rect(Rect2(workshop + Vector2(-4, -8), Vector2(3, 6)), Color("#a4a18a"), true)
+    if willow_request:
+        var willow := _world_point(Vector2(178, 82)) + Vector2(30, 60)
+        draw_rect(Rect2(willow + Vector2(-12, -4), Vector2(24, 8)), Color("#704936"), true)
+        draw_rect(Rect2(willow + Vector2(-8, -2), Vector2(16, 3)), Color("#8fb963"), true)
+    if orchard_request:
+        var orchard := _world_point(Vector2(70, 103)) + Vector2(15, 66)
+        draw_rect(Rect2(orchard + Vector2(-16, -3), Vector2(32, 7)), Color("#704936"), true)
+        draw_rect(Rect2(orchard + Vector2(-12, -7), Vector2(24, 4)), Color("#c69b61"), true)
+    if lookout_request:
+        var lookout := _world_point(Vector2(74, 127)) + Vector2(26, -10)
+        draw_rect(Rect2(lookout + Vector2(-12, -3), Vector2(24, 6)), Color("#704936"), true)
+        draw_rect(Rect2(lookout + Vector2(-9, -8), Vector2(18, 3)), Color("#a4a18a"), true)
 
 func _draw_resource_contacts() -> void:
     for resource_id in ["oak-at-the-crossing", "greycap-boulder", "foxglove-patch"]:

@@ -34,6 +34,11 @@ func _draw() -> void:
     elif glyph == "hearth":
         draw_colored_polygon(PackedVector2Array([centre + Vector2(-7, 5), centre + Vector2(-5, -2), centre + Vector2(0, -7), centre + Vector2(5, -2), centre + Vector2(7, 5)]), Color(ink, 0.75))
         draw_rect(Rect2(centre + Vector2(-3, 0), Vector2(6, 5)), ink, false, 1.0)
+    elif glyph == "board":
+        draw_rect(Rect2(centre + Vector2(-7, -7), Vector2(14, 14)), Color(ink, 0.22), true)
+        draw_rect(Rect2(centre + Vector2(-7, -7), Vector2(14, 14)), ink, false, 1.5)
+        draw_rect(Rect2(centre + Vector2(-4, -3), Vector2(8, 2)), ink, true)
+        draw_rect(Rect2(centre + Vector2(-4, 1), Vector2(6, 2)), ink, true)
     elif glyph == "menu":
         for offset in [-5.0, 0.0, 5.0]:
             draw_line(centre + Vector2(-7, offset), centre + Vector2(7, offset), ink, 1.5, false)

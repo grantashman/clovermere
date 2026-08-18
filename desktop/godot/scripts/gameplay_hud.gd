@@ -12,6 +12,7 @@ signal pause_requested
 signal recipe_requested(recipe_id: String)
 signal cooking_requested(recipe_id: String)
 signal meal_requested(meal_id: String)
+signal request_action(request_id: String, action: String)
 signal storage_requested
 signal surface_requested
 
@@ -240,10 +241,14 @@ func _build_management_panel() -> void:
     column.add_child(mode_hint)
     var tabs := HBoxContainer.new()
     tabs.add_theme_constant_override("separation", 6)
+    var board_tab := _tab_button("BOARD", "board", func(): open_requests())
     var pack_tab := _tab_button("PACK", "pack", func(): open_pack())
     var craft_tab := _tab_button("CRAFT", "craft", func(): open_crafting())
     var cook_tab := _tab_button("HEARTH", "hearth", func(): open_cooking())
-    tab_buttons = {"pack": pack_tab, "craft": craft_tab, "cook": cook_tab}
+    for tab in [board_tab, pack_tab, craft_tab, cook_tab]:
+        tab.custom_minimum_size = Vector2(78, 28)
+    tab_buttons = {"requests": board_tab, "pack": pack_tab, "craft": craft_tab, "cook": cook_tab}
+    tabs.add_child(board_tab)
     tabs.add_child(pack_tab)
     tabs.add_child(craft_tab)
     tabs.add_child(cook_tab)
@@ -277,10 +282,14 @@ func _refresh_management() -> void:
         management_title.text = "WORKSHOP RECIPES"
         mode_hint.text = "Crafting is available at Tinker Workshop."
         _build_craft_content()
-    else:
+    elif management_mode == "cook":
         management_title.text = "HEARTH PANTRY"
         mode_hint.text = "Make one warm thing before the road asks more of you."
         _build_cook_content()
+    else:
+        management_title.text = "REQUEST BOARD"
+        mode_hint.text = "Choose one useful thing for Clovermere today."
+        _build_request_content()
 
 func _refresh_tab_state() -> void:
     for key in tab_buttons.keys():
@@ -291,6 +300,57 @@ func _refresh_tab_state() -> void:
         button.set_active(selected)
         button.add_theme_color_override("font_color", BRASS if selected else PARCHMENT_DIM)
         button.add_theme_stylebox_override("normal", _style(Color("#2b4b38") if selected else Color("#14271e"), BRASS if selected else WOOD, 1, 3))
+
+func _build_request_content() -> void:
+    var requests: Array = _snapshot.get("requests", []) if _snapshot.get("requests", []) is Array else []
+    if requests.is_empty():
+        management_content.add_child(_body_label("No requests are posted today. Check again tomorrow.", 11, PARCHMENT_DIM))
+        return
+    for request_variant in requests:
+        if not request_variant is Dictionary:
+            continue
+        var request: Dictionary = request_variant
+        var card := PanelContainer.new()
+        card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+        card.custom_minimum_size = Vector2(320, 78)
+        card.add_theme_stylebox_override("panel", _style(Color("#2c3829"), WOOD, 1, 3))
+        var card_margin := _margin(card, 8, 3, 8, 3)
+        var column := VBoxContainer.new()
+        column.add_theme_constant_override("separation", 1)
+        card_margin.add_child(column)
+        var row := HBoxContainer.new()
+        var title := _body_label(str(request.get("title", "Request")), 11, PARCHMENT)
+        title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+        row.add_child(title)
+        var status := str(request.get("status", "available"))
+        var status_label := _body_label(status.to_upper(), 8, MOSS if status == "completed" else BRASS if status == "accepted" else PARCHMENT_DIM)
+        status_label.custom_minimum_size = Vector2(72, 18)
+        status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+        row.add_child(status_label)
+        column.add_child(row)
+        var meta := "%s  ·  %s" % [str(request.get("requester_name", "Resident")), str(request.get("location", "Clovermere")).replace("-", " ").to_upper()]
+        column.add_child(_body_label(meta, 8, MOSS))
+        var summary := _body_label(str(request.get("summary", "")), 8, PARCHMENT_DIM)
+        summary.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+        column.add_child(summary)
+        var footer := HBoxContainer.new()
+        var cost := _body_label(_request_cost_text(request.get("cost", {})), 8, BRASS)
+        cost.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+        footer.add_child(cost)
+        var action := "ACCEPT" if status == "available" else "ABANDON" if status == "accepted" else "DONE"
+        var button := _small_button(action, func(id: String = str(request.get("id", "")), chosen_action: String = action.to_lower()): request_action.emit(id, chosen_action))
+        button.custom_minimum_size = Vector2(70, 24)
+        button.add_theme_font_size_override("font_size", 9)
+        button.disabled = status == "completed" or (status == "available" and not bool(request.get("can_accept", false)))
+        footer.add_child(button)
+        column.add_child(footer)
+        management_content.add_child(card)
+
+func _request_cost_text(cost: Dictionary) -> String:
+    var parts: Array[String] = []
+    for material_variant in cost.keys():
+        parts.append("%d %s" % [int(cost[material_variant]), str(material_variant).to_upper()])
+    return "  ·  ".join(parts)
 
 func _build_pack_content() -> void:
     var carried: Dictionary = _snapshot.get("inventory", {})
@@ -427,7 +487,7 @@ func _material_row(material: String, amount: int, color: Color) -> Control:
     return surface
 
 func set_active_surface(surface: String) -> void:
-    management_mode = surface if surface in ["pack", "craft", "cook"] else management_mode
+    management_mode = surface if surface in ["pack", "craft", "cook", "requests"] else management_mode
     _refresh_tab_state()
 
 func set_hud_frame_state(management: bool, dialogue: bool, interaction: bool, interior: bool) -> void:
@@ -440,6 +500,15 @@ func clear_interaction_banner() -> void:
     if interaction_panel != null:
         interaction_panel.visible = false
     set_hud_frame_state(management_panel.visible, dialogue_panel.visible, false, interior_mode)
+
+func open_requests() -> void:
+    surface_requested.emit()
+    clear_interaction_banner()
+    set_active_surface("requests")
+    management_mode = "requests"
+    management_panel.visible = true
+    set_hud_frame_state(true, dialogue_panel.visible, interaction_panel.visible, interior_mode)
+    _refresh_management()
 
 func open_pack() -> void:
     surface_requested.emit()

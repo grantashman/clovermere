@@ -35,7 +35,7 @@ const INTERIOR_DEFINITIONS := {
         "floor_color": "#aa8259",
         "rug_color": "#6c6954",
         "interactions": [
-            {"id": "notice-board", "name": "Notice Board", "x": 4, "y": 4, "action": "inspect"},
+            {"id": "notice-board", "name": "Notice Board", "x": 4, "y": 4, "action": "requests"},
             {"id": "town-table", "name": "Town Table", "x": 9, "y": 5, "action": "inspect"},
             {"id": "village-records", "name": "Village Records", "x": 14, "y": 4, "action": "inspect"}
         ]
