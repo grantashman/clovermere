@@ -24,9 +24,9 @@ The native client currently includes:
 - Persistent resource recovery: tree work moves through felled → sprout → young → restored over three sleeps; stone and ore recover over two sleeps; herbs retain next-day restoration. Recovery stage and timing are saved separately from the legacy `world_changes` flags.
 - Requests & Routine: Hall's Notice Board posts three daily requests from a five-request rotation; accept one, gather the requested material, deliver through resident dialogue, and receive rewards/visible consequences with expiry and save persistence.
 - Village Project: Hall's Town Table turns request/favor support and exact material contributions into three persistent Village Commons stages—foundation, shelter, and planting—with visible authored settlement improvements.
-- Daylight, Shadows & Atmosphere: deterministic dawn/day/dusk/night palette, moving directional shadows under authored buildings and trees, localized warm pools around windows/player, and restrained golden-hour settlement haze.
+- Daylight, Shadows & Atmosphere: deterministic dawn/day/dusk/night palette, moving directional shadows under authored buildings and trees, localized warm pools around windows/player, and restrained golden-hour haze.
+- Living World Polish: authored Commons seating/lantern/green, Hall notice-board dressing, workshop crates/embers, garden drying rack, barn straw, pond and Willowmere reeds/ripples, orchard crates, lookout flag, phase-aware pollen/leaf/ember/firefly/moth movement, and resident activity cues for sorting, watering, hammering, carrying, watching, and resting.
 - Authored route graph: one central settlement hub feeds deliberate Cottage, Hall, Workshop, Garden, and Barn door approaches, while narrower named trails lead to Apple Orchard, Willowmere, Stonecutter's Hollow, and West Lookout. Building-footprint intersection is contract-tested, and legacy benchmark path textures are not double-rendered over the organic routes.
-- Collision-safe keyboard movement and mouse click-to-move pathfinding.
 - Contextual building interaction, target markers, camera tracking, and 50%–200% zoom. Cottage and Workshop buildings open authored rooms with E-driven furniture actions and a short fade transition; `Esc` closes management/dialogue surfaces before pausing.
 - Resident dialogue and Village Memory: press `T` near Alda Fen, Tobin Wren, or Orin Reed for time/location/work-aware conversations. Each resident progresses from introduction → acquainted → trusted through one material-backed favor, with completion and small gameplay rewards persisted in the save. Trusted residents can offer one small gift on later days; completed favors visibly add Garden blooms, a Workshop brazier, or eastern lane markers.
 - Fullscreen-first desktop window behavior with `F11` toggle.
@@ -59,6 +59,7 @@ godot --headless --path desktop/godot --script res://tests/request_routine_smoke
 godot --headless --path desktop/godot --script res://tests/village_project_test.gd
 godot --headless --path desktop/godot --script res://tests/village_project_smoke.gd
 godot --headless --path desktop/godot --script res://tests/atmosphere_presentation_test.gd
+godot --headless --path desktop/godot --script res://tests/living_world_presentation_test.gd
 godot --headless --path desktop/godot --script res://tests/interior_contract_test.gd
 godot --headless --path desktop/godot --script res://tests/interior_scene_test.gd
 godot --headless --path desktop/godot --script res://tests/interior_transition_smoke.gd

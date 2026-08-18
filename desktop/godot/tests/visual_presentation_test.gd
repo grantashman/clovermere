@@ -5,6 +5,7 @@ const ArtAssetPack = preload("res://scripts/art_asset_pack.gd")
 const Benchmark = preload("res://scripts/benchmark_scene.gd")
 const Actor = preload("res://scripts/npc_actor.gd")
 const Lighting = preload("res://scripts/lighting_overlay.gd")
+const LivingFx = preload("res://scripts/living_world_fx.gd")
 
 var failures: Array[String] = []
 
@@ -28,7 +29,10 @@ func _initialize() -> void:
 
     var benchmark = Benchmark.new()
     benchmark.configure(world, world.build_grid({"name": "Clovermere", "landscape": "heath"}), {})
-    require(benchmark.lighting_accents != null, "benchmark should mount a separate facade-light accent layer")
+    require(benchmark.living_world_fx != null, "benchmark should mount the living-world polish layer")
+    if benchmark.living_world_fx != null:
+        require(benchmark.living_world_fx.location_prop_ids().size() >= 9, "living-world layer should expose authored location prop families")
+        require(benchmark.living_world_fx.effects_for_phase("night").has("firefly"), "living-world layer should expose night fireflies")
     if benchmark.lighting_accents != null:
         require(benchmark.lighting_accents.z_index > int(benchmark.depth_layers().get("building", 0)), "facade lights should render above building sprites")
     require(benchmark.has_method("depth_layers"), "benchmark should expose explicit depth bands")

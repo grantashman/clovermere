@@ -4,6 +4,7 @@ class_name ClovermereBenchmarkScene
 const ArtAssetPack = preload("res://scripts/art_asset_pack.gd")
 const LightingAccents = preload("res://scripts/lighting_accents.gd")
 const Atmosphere = preload("res://scripts/atmosphere.gd")
+const LivingWorldFx = preload("res://scripts/living_world_fx.gd")
 const TILE_SIZE := 16.0
 const DEPTH_LAYERS := {
     "terrain": -4,
@@ -34,6 +35,7 @@ var terrain_cluster_sprites: Dictionary = {}
 var terrain_sprite: Sprite2D
 var lighting_accents: Node2D
 var atmosphere := Atmosphere.new()
+var living_world_fx: Node2D
 var animation_phase := 0.0
 var redraw_accumulator := 0.0
 var minute_of_day := 480
@@ -80,6 +82,12 @@ func configure(_world, _grid: Array, _changes: Dictionary, _resource_states: Dic
     _mount_authored_terrain()
     _mount_authored_assets()
     _configure_lighting_accents()
+    if living_world_fx == null:
+        living_world_fx = LivingWorldFx.new()
+        living_world_fx.name = "LivingWorldPolish"
+        living_world_fx.z_index = DEPTH_LAYERS["props"] + 5
+        add_child(living_world_fx)
+    living_world_fx.configure(world, village, consequence_flags, world_changes)
     var initial_palette: Dictionary = atmosphere.palette_for(minute_of_day)
     shadow_direction = initial_palette.get("shadow_direction", Vector2.DOWN)
     shadow_strength = float(initial_palette.get("shadow_strength", 0.19))
@@ -97,6 +105,8 @@ func active_consequence_flags() -> Dictionary:
 
 func set_consequence_flags(flags: Dictionary) -> void:
     consequence_flags = flags.duplicate(true)
+    if living_world_fx != null:
+        living_world_fx.set_consequence_flags(consequence_flags)
     queue_redraw()
 
 func _configure_lighting_accents() -> void:
@@ -144,6 +154,8 @@ func set_time(minutes: int) -> void:
     fireflies_visible = next_fireflies
     shadow_direction = next_direction
     shadow_strength = next_strength
+    if living_world_fx != null:
+        living_world_fx.set_time(next_minute)
     if lighting_accents != null:
         lighting_accents.set_time(minute_of_day)
     queue_redraw()

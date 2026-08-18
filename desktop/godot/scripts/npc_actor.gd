@@ -46,6 +46,23 @@ func set_npc(data: Dictionary) -> void:
 func update_depth(base_z: int = 100) -> void:
     z_index = base_z + floori(position.y / 16.0)
 
+func idle_variant() -> String:
+    if walking:
+        return "walking"
+    match activity:
+        "gathering":
+            return "sorting"
+        "tending":
+            return "watering"
+        "crafting":
+            return "hammering"
+        "stocking", "delivering":
+            return "carrying"
+        "patrolling":
+            return "watching"
+        _:
+            return "resting"
+
 func set_activity(next_activity: String) -> void:
     activity = next_activity
     queue_redraw()
@@ -93,6 +110,7 @@ func _draw() -> void:
         draw_set_transform(Vector2.ZERO, 0.0, Vector2(mirror, 1.0))
         draw_texture_rect(authored_texture, Rect2(-16, -24 + bob, 32, 48), false)
         _draw_role_prop(bob)
+        _draw_activity_cue(bob)
         _draw_stride_accents(bob)
         _draw_work_effect(bob)
         draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
@@ -112,7 +130,31 @@ func _draw() -> void:
     draw_rect(Rect2(-3, -3 + bob, 6, 2), accent, true)
     _draw_stride_accents(bob)
     _draw_role_prop(bob)
+    _draw_activity_cue(bob)
     _draw_work_effect(bob)
+
+func _draw_activity_cue(bob: float) -> void:
+    if walking:
+        return
+    var cue := idle_variant()
+    if cue == "resting":
+        draw_rect(Rect2(-11, -2 + bob, 5, 4), Color("#c18a59", 0.82), true)
+        draw_rect(Rect2(-10, -4 + bob, 3, 2), Color("#e1bf70", 0.76), true)
+    elif cue == "sorting":
+        draw_rect(Rect2(-13, -7 + bob, 6, 5), Color("#88b75a", 0.92), true)
+        draw_rect(Rect2(-12, -10 + bob, 2, 4), Color("#cbd996", 0.86), true)
+    elif cue == "watering":
+        draw_line(Vector2(8, -5 + bob), Vector2(14, 0 + bob), Color("#86c1ac", 0.82), 1.0, false)
+        draw_rect(Rect2(14, 0 + bob, 3, 2), Color("#86c1ac", 0.62), true)
+    elif cue == "hammering":
+        var pulse := 0.5 + 0.5 * sin(step_phase * 2.0)
+        draw_line(Vector2(8, -5 + bob), Vector2(14, -11 + bob + pulse * 4.0), Color("#a56d4b", 0.9), 2.0, false)
+        draw_rect(Rect2(12, -13 + bob + pulse * 4.0, 7, 2), Color("#d7b576", 0.90), true)
+    elif cue == "carrying":
+        draw_rect(Rect2(-14, -4 + bob, 7, 6), Color("#80563f", 0.88), true)
+        draw_rect(Rect2(-12, -3 + bob, 3, 2), Color("#d7b576", 0.82), true)
+    elif cue == "watching":
+        draw_rect(Rect2(8, -17 + bob, 2, 14), Color("#d7b576", 0.72), true)
 
 func _draw_stride_accents(bob: float) -> void:
     var frame := walk_frame() if walking else idle_frame()
