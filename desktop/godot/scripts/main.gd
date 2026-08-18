@@ -628,7 +628,11 @@ func _cook_recipe(recipe_id: String) -> void:
         return
     var result: Dictionary = day_state.cook_recipe(recipe_id)
     if bool(result.get("ok", false)):
-        interaction_message = "%s made  ·  +%d energy  ·  %d minutes" % [str(result.get("name", recipe_id)), int(result.get("energy", 0)), int(result.get("minutes", 0))]
+        var meal_id := str(result.get("meal_id", ""))
+        if meal_id.is_empty():
+            interaction_message = "%s made  ·  +%d energy  ·  %d minutes" % [str(result.get("name", recipe_id)), int(result.get("energy", 0)), int(result.get("minutes", 0))]
+        else:
+            interaction_message = "%s prepared  ·  READY in the Hearth Pantry" % str(result.get("name", recipe_id))
         interaction_timeout = 4.0
         _save_game()
         _refresh_hud()
@@ -638,6 +642,21 @@ func _cook_recipe(recipe_id: String) -> void:
         return
     var reason := str(result.get("reason", ""))
     interaction_message = "Not enough pantry ingredients" if reason == "missing-materials" else "The Hearth Pantry cannot make that yet"
+    interaction_timeout = 2.5
+    _show_interaction_feedback()
+
+func _eat_meal(meal_id: String) -> void:
+    var result: Dictionary = day_state.eat_meal(meal_id)
+    if bool(result.get("ok", false)):
+        interaction_message = "%s eaten  ·  +%d energy  ·  next work is improved" % [str(result.get("name", meal_id)), int(result.get("energy", 0))]
+        interaction_timeout = 4.0
+        _save_game()
+        _refresh_hud()
+        _show_interaction_feedback()
+        if gameplay_hud != null:
+            gameplay_hud.open_cooking()
+        return
+    interaction_message = "No prepared meal of that kind is ready"
     interaction_timeout = 2.5
     _show_interaction_feedback()
 
@@ -952,6 +971,8 @@ func _enter_interior(building_id: String, with_transition: bool = true, restored
     if gameplay_hud != null:
         gameplay_hud.close_management()
         gameplay_hud.set_interior_mode(true, str(interior_contract.definition_for(building_id).get("short_name", building_id)))
+    if ui != null:
+        ui.dismiss_toast()
     interaction_message = "Entering %s" % str(interior_contract.definition_for(building_id).get("short_name", building_id))
     interaction_timeout = 2.0
     _refresh_player_transform()
@@ -1231,6 +1252,7 @@ func _build_hud() -> void:
     add_child(gameplay_hud)
     gameplay_hud.recipe_requested.connect(_craft_recipe)
     gameplay_hud.cooking_requested.connect(_cook_recipe)
+    gameplay_hud.meal_requested.connect(_eat_meal)
     gameplay_hud.storage_requested.connect(_withdraw_home_stores)
     gameplay_hud.pause_requested.connect(_pause_journey)
     title_label = gameplay_hud.title_label
@@ -1285,6 +1307,8 @@ func _refresh_hud() -> void:
         "near_home": _is_near_home(),
         "interior_mode": _in_interior(),
         "cooking": _cooking_snapshot(),
+        "meals": day_state.meals.duplicate(true),
+        "next_work_effects": day_state.next_work_effects.duplicate(true),
         "location_name": interior_contract.definition_for(interior_location).get("short_name", "Interior") if _in_interior() else "Clovermere",
         "interaction": interaction_message,
         "hint": "Click to walk  ·  E interact  ·  B pack  ·  C craft  ·  T talk  ·  Esc pause" if _in_interior() else "Click ground  walk     Click a house  visit     Click a resource  work     B  pack     C  craft     E  interact     T  talk     Wheel  zoom     WASD  wander",

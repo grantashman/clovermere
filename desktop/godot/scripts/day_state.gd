@@ -27,7 +27,9 @@ const RECIPE_CATALOG := {
 }
 const UPGRADE_RECIPES := RECIPE_CATALOG
 const COOKING_RECIPES := {
-    "hearth-tea": {"name": "Hearth Tea", "cost": {"timber": 1, "herbs": 2}, "summary": "Steep a warm tonic and restore 25 energy.", "energy": 25, "minutes": 10}
+    "hearth-tea": {"name": "Hearth Tea", "cost": {"timber": 1, "herbs": 2}, "summary": "Steep a warm tonic and restore 25 energy.", "energy": 25, "minutes": 10},
+    "riverside-stew": {"name": "Riverside Stew", "cost": {"fish": 1, "timber": 1}, "summary": "A filling meal that makes the next work action cost less energy.", "energy": 30, "minutes": 15, "meal_id": "riverside-stew", "effects": {"energy_discount": 0.15}},
+    "garden-chowder": {"name": "Garden Chowder", "cost": {"fish": 1, "herbs": 1}, "summary": "A bright meal that makes the next work action take less time.", "energy": 20, "minutes": 12, "meal_id": "garden-chowder", "effects": {"minutes_discount": 0.2}}
 }
 
 var day := START_DAY
@@ -41,6 +43,15 @@ var inventory: Dictionary = {
     "fish": 0
 }
 var upgrades: Dictionary = {}
+var meals: Dictionary = {
+    "riverside-stew": 0,
+    "garden-chowder": 0
+}
+var next_work_effects: Dictionary = {
+    "energy_discount": 0.0,
+    "minutes_discount": 0.0,
+    "uses": 0
+}
 var storage: Dictionary = {
     "timber": 0,
     "stone": 0,
@@ -59,7 +70,10 @@ func recipe_ids() -> Array[String]:
     return ["tinkers-kit", "wayfarers-satchel", "hearthward-charm"]
 
 func cooking_ids() -> Array[String]:
-    return ["hearth-tea"]
+    return ["hearth-tea", "riverside-stew", "garden-chowder"]
+
+func meal_ids() -> Array[String]:
+    return ["riverside-stew", "garden-chowder"]
 
 func cooking_preview(recipe_id: String) -> Dictionary:
     var recipe: Dictionary = COOKING_RECIPES.get(recipe_id, {})
@@ -82,7 +96,10 @@ func cooking_preview(recipe_id: String) -> Dictionary:
         "cost": cost.duplicate(true),
         "missing": missing,
         "energy": int(recipe.get("energy", 0)),
-        "minutes": int(recipe.get("minutes", 0))
+        "minutes": int(recipe.get("minutes", 0)),
+        "meal_id": str(recipe.get("meal_id", "")),
+        "meal_count": int(meals.get(str(recipe.get("meal_id", "")), 0)),
+        "effects": recipe.get("effects", {}).duplicate(true)
     }
 
 func cook_recipe(recipe_id: String) -> Dictionary:
@@ -94,8 +111,21 @@ func cook_recipe(recipe_id: String) -> Dictionary:
     var recipe: Dictionary = COOKING_RECIPES[recipe_id]
     _consume_materials(recipe.get("cost", {}))
     var minutes := int(recipe.get("minutes", 0))
-    var energy_restored := int(recipe.get("energy", 0))
     minute_of_day = mini(23 * 60 + 59, minute_of_day + minutes)
+    var meal_id := str(recipe.get("meal_id", ""))
+    if not meal_id.is_empty():
+        meals[meal_id] = int(meals.get(meal_id, 0)) + 1
+        return {
+            "ok": true,
+            "recipe": recipe_id,
+            "name": str(recipe.get("name", recipe_id)),
+            "minutes": minutes,
+            "meal_id": meal_id,
+            "meal_count": int(meals.get(meal_id, 0)),
+            "cost": recipe.get("cost", {}).duplicate(true),
+            "effects": recipe.get("effects", {}).duplicate(true)
+        }
+    var energy_restored := int(recipe.get("energy", 0))
     energy = mini(max_energy(), energy + energy_restored)
     return {
         "ok": true,
@@ -104,6 +134,34 @@ func cook_recipe(recipe_id: String) -> Dictionary:
         "minutes": minutes,
         "energy": energy_restored,
         "cost": recipe.get("cost", {}).duplicate(true)
+    }
+
+func eat_meal(meal_id: String) -> Dictionary:
+    if not meal_ids().has(meal_id):
+        return {"ok": false, "reason": "unknown-meal", "meal_id": meal_id}
+    var count := int(meals.get(meal_id, 0))
+    if count <= 0:
+        return {"ok": false, "reason": "missing-meal", "meal_id": meal_id}
+    var recipe: Dictionary = COOKING_RECIPES.get(meal_id, {})
+    if recipe.is_empty():
+        return {"ok": false, "reason": "unknown-meal", "meal_id": meal_id}
+    meals[meal_id] = count - 1
+    energy = mini(max_energy(), energy + int(recipe.get("energy", 0)))
+    minute_of_day = mini(23 * 60 + 59, minute_of_day + 5)
+    var effects: Dictionary = recipe.get("effects", {})
+    next_work_effects = {
+        "energy_discount": float(effects.get("energy_discount", 0.0)),
+        "minutes_discount": float(effects.get("minutes_discount", 0.0)),
+        "uses": 1
+    }
+    return {
+        "ok": true,
+        "meal_id": meal_id,
+        "name": str(recipe.get("name", meal_id)),
+        "energy": int(recipe.get("energy", 0)),
+        "minutes": 5,
+        "effects": next_work_effects.duplicate(true),
+        "remaining": meals[meal_id]
     }
 
 func recipe_preview(recipe_id: String) -> Dictionary:
@@ -217,6 +275,12 @@ func preview_work(resource: Dictionary) -> Dictionary:
         adjusted_energy = maxi(1, roundi(float(energy_cost) * 0.8))
     if has_upgrade("wayfarers-satchel"):
         adjusted_minutes = maxi(5, roundi(float(adjusted_minutes) * 0.8))
+    var effect_uses := int(next_work_effects.get("uses", 0))
+    if effect_uses > 0:
+        var energy_discount := clampf(float(next_work_effects.get("energy_discount", 0.0)), 0.0, 0.8)
+        var minutes_discount := clampf(float(next_work_effects.get("minutes_discount", 0.0)), 0.0, 0.8)
+        adjusted_energy = maxi(1, roundi(float(adjusted_energy) * (1.0 - energy_discount)))
+        adjusted_minutes = maxi(5, roundi(float(adjusted_minutes) * (1.0 - minutes_discount)))
     if energy < adjusted_energy:
         return {"ok": false, "reason": "too-tired", "required_energy": adjusted_energy}
     return {
@@ -238,6 +302,10 @@ func work_resource(resource: Dictionary) -> Dictionary:
     energy -= energy_cost
     minute_of_day = mini(23 * 60 + 59, minute_of_day + minutes)
     inventory[yield_key] = int(inventory.get(yield_key, 0)) + amount
+    if int(next_work_effects.get("uses", 0)) > 0:
+        next_work_effects["uses"] = 0
+        next_work_effects["energy_discount"] = 0.0
+        next_work_effects["minutes_discount"] = 0.0
     return {
         "ok": true,
         "minutes": minutes,
@@ -354,7 +422,9 @@ func to_dict() -> Dictionary:
         "energy": energy,
         "inventory": inventory.duplicate(true),
         "storage": storage.duplicate(true),
-        "upgrades": upgrades.duplicate(true)
+        "upgrades": upgrades.duplicate(true),
+        "meals": meals.duplicate(true),
+        "next_work_effects": next_work_effects.duplicate(true)
     }
 
 func from_dict(source: Dictionary) -> void:
@@ -385,3 +455,14 @@ func from_dict(source: Dictionary) -> void:
             if bool(source_upgrades.get(upgrade_id, false)):
                 upgrades[upgrade_id] = true
     energy = clampi(int(source.get("energy", max_energy())), 0, max_energy())
+    meals = {"riverside-stew": 0, "garden-chowder": 0}
+    var source_meals = source.get("meals", {})
+    if source_meals is Dictionary:
+        for meal_id in meals.keys():
+            meals[meal_id] = maxi(0, int(source_meals.get(meal_id, 0)))
+    next_work_effects = {"energy_discount": 0.0, "minutes_discount": 0.0, "uses": 0}
+    var source_effects = source.get("next_work_effects", {})
+    if source_effects is Dictionary:
+        next_work_effects["energy_discount"] = clampf(float(source_effects.get("energy_discount", 0.0)), 0.0, 0.8)
+        next_work_effects["minutes_discount"] = clampf(float(source_effects.get("minutes_discount", 0.0)), 0.0, 0.8)
+        next_work_effects["uses"] = mini(1, maxi(0, int(source_effects.get("uses", 0))))

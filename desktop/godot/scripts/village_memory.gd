@@ -173,6 +173,7 @@ func dialogue_for(npc_id: String, state: Dictionary, context: Dictionary = {}) -
     var minute := posmod(int(context.get("minute", 8 * 60)), 1440)
     var moment := _moment_for(minute)
     var inventory = context.get("inventory", {})
+    var fish_count := int(inventory.get("fish", 0)) if inventory is Dictionary else 0
     var current_day := maxi(1, int(context.get("day", 1)))
     var favor_ready := _has_cost(inventory, definition.get("cost", {}))
     var completed_day := int(resident_state.get("completed_day", 0))
@@ -185,6 +186,8 @@ func dialogue_for(npc_id: String, state: Dictionary, context: Dictionary = {}) -
     elif stage == 2:
         text = str(definition.get("gift", "")) if gift_ready else str(definition.get("trusted", {}).get(moment, ""))
     text = _contextualize(text, str(context.get("location", "village")), bool(context.get("work_active", false)), stage)
+    if npc_id == "orin-reed" and stage >= 1 and fish_count > 0:
+        text += " Orin notices the fish in your pack and nods toward the water. The river has started to know you."
     return {
         "npc_id": npc_id,
         "speaker": str(definition.get("speaker", npc_id)),

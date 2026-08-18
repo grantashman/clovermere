@@ -12,6 +12,7 @@ The native client currently includes:
 
 - Deterministic 240×160 explorable world with varied terrain, material-edge shading, organic life, landmarks, pixel-grid roads, six live residents, and authored settlement buildings.
 - Interactive timber, stone, ore, and herb nodes with persistent cut/mined/gathered world states and warm world-space lantern/player lighting.
+- Hearth Pantry and Food & Fishing loop: Hearth Tea restores energy immediately; Riverside Stew (1 fish + 1 timber) and Garden Chowder (1 fish + 1 herb) are stored as meals and eaten later for energy plus a one-use next-work effect. Meal inventory, fish, cooking time, and Orin's fish-aware dialogue persist through save/load.
 - First-day loop: Day 1 at 08:00, timed work actions consume time and energy, materials enter a persisted carried pack, sleep at Greenbriar Cottage deposits the pack into home stores, and herbs regrow overnight.
 - Tinker Workshop material sink: three persisted recipes consume field-pack materials; sleeping at Greenbriar Cottage stores the pack, and the Field Pack can return home stores at the cottage. Tinker’s Kit (3 timber + 2 stone + 1 ore) reduces work energy costs by 20%; Wayfarer’s Satchel (5 timber + 2 herbs) reduces work time by 20%; Hearthward Charm (2 stone + 2 herbs + 3 ore) raises the daily energy reserve to 115.
 - Traditional PC-game HUD redesign: compact status card, carried/home-store ledger, toggleable pack and recipe panels, keyboard-accessible action bar, and a full-world minimap in an original forest/timber/parchment/brass pastoral high-fantasy visual language.
@@ -56,6 +57,8 @@ godot --headless --path desktop/godot --script res://tests/village_memory_test.g
 godot --headless --path desktop/godot --script res://tests/village_memory_smoke.gd
 godot --headless --path desktop/godot --script res://tests/pantry_test.gd
 godot --headless --path desktop/godot --script res://tests/pantry_smoke.gd
+godot --headless --path desktop/godot --script res://tests/food_fishing_test.gd
+godot --headless --path desktop/godot --script res://tests/food_fishing_smoke.gd
 godot --headless --path desktop/godot --script res://tests/procedural_resource_test.gd
 godot --headless --path desktop/godot --script res://tests/procedural_resource_overlay_test.gd
 

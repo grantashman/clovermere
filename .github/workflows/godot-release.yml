@@ -64,9 +64,12 @@ jobs:
         run: |
           Godot_v${GODOT_VERSION}-stable_linux.x86_64 --headless --path desktop/godot --script res://tests/pantry_test.gd
           Godot_v${GODOT_VERSION}-stable_linux.x86_64 --headless --path desktop/godot --script res://tests/pantry_smoke.gd
-      - name: Run procedural resource coverage before export
+      - name: Run food, fishing, and procedural resource coverage before export
         run: |
+          Godot_v${GODOT_VERSION}-stable_linux.x86_64 --headless --path desktop/godot --script res://tests/food_fishing_test.gd
+          Godot_v${GODOT_VERSION}-stable_linux.x86_64 --headless --path desktop/godot --script res://tests/food_fishing_smoke.gd
           Godot_v${GODOT_VERSION}-stable_linux.x86_64 --headless --path desktop/godot --script res://tests/procedural_resource_test.gd
+          Godot_v${GODOT_VERSION}-stable_linux.x86_64 --headless --path desktop/godot --script res://tests/procedural_resource_overlay_test.gd
       - name: Run work-action, workshop, and benchmark contracts before export
         run: |
           Godot_v${GODOT_VERSION}-stable_linux.x86_64 --headless --path desktop/godot --script res://tests/work_action_test.gd

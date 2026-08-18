@@ -53,8 +53,10 @@ jobs:
         run: |
           godot --headless --path desktop/godot --script res://tests/pantry_test.gd
           godot --headless --path desktop/godot --script res://tests/pantry_smoke.gd
-      - name: Run procedural resource coverage
+      - name: Run food, fishing, and procedural resource coverage
         run: |
+          godot --headless --path desktop/godot --script res://tests/food_fishing_test.gd
+          godot --headless --path desktop/godot --script res://tests/food_fishing_smoke.gd
           godot --headless --path desktop/godot --script res://tests/procedural_resource_test.gd
           godot --headless --path desktop/godot --script res://tests/procedural_resource_overlay_test.gd
       - name: Run work-action and workshop contracts

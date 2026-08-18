@@ -13,7 +13,7 @@ func _initialize() -> void:
     var state = DayState.new()
     state.energy = 60
     state.inventory = {"timber": 1, "stone": 0, "ore": 0, "herbs": 2}
-    require(state.cooking_ids() == ["hearth-tea"], "Cottage pantry should expose the Hearth Tea recipe")
+    require(state.cooking_ids().has("hearth-tea"), "Cottage pantry should expose the Hearth Tea recipe")
     var preview: Dictionary = state.cooking_preview("hearth-tea")
     require(bool(preview.get("craftable", false)), "Hearth Tea should be craftable from two herbs and one timber")
     require(preview.get("cost", {}).get("herbs", 0) == 2, "Hearth Tea should require two herbs")

@@ -8,6 +8,7 @@ signal craft_requested
 signal pause_requested
 signal recipe_requested(recipe_id: String)
 signal cooking_requested(recipe_id: String)
+signal meal_requested(meal_id: String)
 signal storage_requested
 
 const FOREST_DEEP := Color("#091610")
@@ -80,7 +81,7 @@ func _build_root() -> void:
     _build_management_panel()
     management_panel.visible = false
 
-    interaction_panel = _panel(Vector2(252, 626), Vector2(776, 42), "InteractionPanel")
+    interaction_panel = _panel(Vector2(252, 626), Vector2(600, 42), "InteractionPanel")
     root.add_child(interaction_panel)
     var interaction_margin := _margin(interaction_panel, 12, 8, 12, 8)
     interaction_label = _body_label("", 14, BRASS)
@@ -274,7 +275,7 @@ func _build_craft_content() -> void:
 func _build_cook_content() -> void:
     var cooking: Dictionary = _snapshot.get("cooking", {})
     var near_home := bool(_snapshot.get("near_home", false)) and bool(_snapshot.get("interior_mode", false))
-    for recipe_id in ["hearth-tea"]:
+    for recipe_id in ["hearth-tea", "riverside-stew", "garden-chowder"]:
         var recipe: Dictionary = cooking.get(recipe_id, {})
         if recipe.is_empty():
             continue
@@ -290,9 +291,20 @@ func _build_cook_content() -> void:
         var name := _body_label(str(recipe.get("name", recipe_id)), 14, PARCHMENT)
         name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
         row.add_child(name)
-        var cook := _small_button("MAKE", func(id: String = recipe_id): cooking_requested.emit(id))
+        var meal_id := str(recipe.get("meal_id", ""))
+        if not meal_id.is_empty() and int(recipe.get("meal_count", 0)) > 0:
+            var meal_count := _body_label("READY %02d" % int(recipe.get("meal_count", 0)), 10, MOSS)
+            meal_count.custom_minimum_size = Vector2(62, 30)
+            meal_count.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+            row.add_child(meal_count)
+        var cook_text := "COOK" if not meal_id.is_empty() else "MAKE"
+        var cook := _small_button(cook_text, func(id: String = recipe_id): cooking_requested.emit(id))
         cook.disabled = not near_home or not bool(recipe.get("craftable", false))
         row.add_child(cook)
+        if not meal_id.is_empty():
+            var eat := _small_button("EAT", func(id: String = meal_id): meal_requested.emit(id))
+            eat.disabled = int(recipe.get("meal_count", 0)) <= 0
+            row.add_child(eat)
         card_column.add_child(row)
         var summary := _body_label(str(recipe.get("summary", "")), 10, PARCHMENT_DIM)
         summary.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -301,6 +313,12 @@ func _build_cook_content() -> void:
         card_column.add_child(_body_label(timing, 10, BRASS))
         card_column.add_child(_body_label(_cost_text(recipe.get("cost", {}), recipe), 10, PARCHMENT_DIM))
         management_content.add_child(card)
+    var meals: Dictionary = _snapshot.get("meals", {})
+    if not meals.is_empty():
+        management_content.add_child(_section_label("PREPARED MEALS"))
+        for meal_id in ["riverside-stew", "garden-chowder"]:
+            var count := int(meals.get(meal_id, 0))
+            management_content.add_child(_body_label("%s  ·  %02d ready" % [meal_id.replace("-", " ").to_upper(), count], 11, MOSS if count > 0 else PARCHMENT_DIM))
     if not near_home:
         var note := _body_label("Stand at the Cottage Hearth Pantry to cook.", 11, PARCHMENT_DIM)
         note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART

@@ -30,6 +30,8 @@ func _initialize() -> void:
     require(scene.gameplay_hud.management_mode == "craft", "craft command should select the craft tab")
     scene.gameplay_hud.open_cooking()
     require(scene.gameplay_hud.management_mode == "cook", "cooking command should select the hearth tab")
+    require(scene.gameplay_hud.has_signal("meal_requested"), "cooking HUD should expose meal eating")
+    require(scene.gameplay_hud.management_content.get_child_count() >= 3, "cooking HUD should show Hearth Tea and the two meal recipes")
     scene.gameplay_hud.close_management()
     require(not scene.gameplay_hud.management_panel.visible, "management panel should close cleanly")
 
