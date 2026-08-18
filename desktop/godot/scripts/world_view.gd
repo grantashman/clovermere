@@ -122,6 +122,7 @@ func _draw() -> void:
             _draw_tile(x, y, str(grid[y][x]))
     _draw_biome_stamps(bounds)
     _draw_pixel_paths(bounds)
+    _draw_trailheads(bounds)
     _draw_structures(bounds)
     _draw_landmarks(bounds)
     _draw_resources(bounds)
@@ -367,8 +368,8 @@ func _draw_pixel_paths(bounds: Rect2) -> void:
         if not bounds.grow(64.0).intersects(route_bounds):
             continue
         var kind := str(route.get("kind", "field-trail"))
-        var edge_width := 15.0 if kind == "village-road" else 10.0
-        var dirt_width := 9.0 if kind == "village-road" else 6.0
+        var edge_width := 13.0 if kind == "village-road" else 7.0
+        var dirt_width := 7.0 if kind == "village-road" else 4.0
         var edge_color := Color(COLORS.path_edge, 0.62 if kind == "village-road" else 0.48)
         var dirt_color := Color(COLORS.path, 0.84 if kind == "village-road" else 0.68)
         draw_polyline(points, edge_color, edge_width, true)
@@ -390,18 +391,29 @@ func _draw_pixel_paths(bounds: Rect2) -> void:
 func _smooth_route_points(waypoints: Array) -> PackedVector2Array:
     var points := PackedVector2Array()
     for segment in range(waypoints.size() - 1):
-        var p0 := Vector2(waypoints[maxi(0, segment - 1)])
-        var p1 := Vector2(waypoints[segment])
-        var p2 := Vector2(waypoints[segment + 1])
-        var p3 := Vector2(waypoints[mini(waypoints.size() - 1, segment + 2)])
-        for sample in range(5):
-            var t := float(sample) / 5.0
-            var t2 := t * t
-            var t3 := t2 * t
-            var point := 0.5 * ((2.0 * p1) + (-p0 + p2) * t + (2.0 * p0 - 5.0 * p1 + 4.0 * p2 - p3) * t2 + (-p0 + 3.0 * p1 - 3.0 * p2 + p3) * t3)
-            points.append(point * TILE + Vector2(8, 8))
+        var start := Vector2(waypoints[segment])
+        var finish := Vector2(waypoints[segment + 1])
+        var distance := maxi(1, ceili(start.distance_to(finish)))
+        for sample in range(distance):
+            var ratio := float(sample) / float(distance)
+            points.append(start.lerp(finish, ratio) * TILE + Vector2(8, 8))
     points.append(Vector2(waypoints[-1]) * TILE + Vector2(8, 8))
     return points
+
+func _draw_trailheads(bounds: Rect2) -> void:
+    for route_variant in routes:
+        var route: Dictionary = route_variant
+        if str(route.get("kind", "")) != "field-trail":
+            continue
+        var points: Array = route.get("waypoints", [])
+        if points.is_empty():
+            continue
+        var start := Vector2(points[0]) * TILE + Vector2(8, 8)
+        if not bounds.grow(24.0).has_point(start):
+            continue
+        draw_rect(Rect2(start + Vector2(-2, -8), Vector2(4, 10)), COLORS.wood_dark, true)
+        draw_rect(Rect2(start + Vector2(-6, -10), Vector2(12, 4)), COLORS.path_edge, true)
+        draw_rect(Rect2(start + Vector2(-4, -9), Vector2(8, 2)), COLORS.path_light, true)
 
 func _draw_structures(bounds: Rect2) -> void:
     for building in world.buildings():

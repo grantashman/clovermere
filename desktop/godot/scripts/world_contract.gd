@@ -88,28 +88,22 @@ func smooth_noise(x: int, y: int, scale: int, seed: int) -> float:
 func path_routes(village: Dictionary = {}) -> Array:
     var ox := SETTLEMENT_ORIGIN.x
     var oy := SETTLEMENT_ORIGIN.y
-    var routes: Array = [
-        {"id": "village-crossing-lane", "kind": "village-road", "waypoints": [Vector2(ox + 3, oy + 15), Vector2(ox + 9, oy + 14), Vector2(ox + 16, oy + 16), Vector2(ox + 23, oy + 18), Vector2(ox + 31, oy + 17), Vector2(ox + 38, oy + 15), Vector2(ox + 48, oy + 16), Vector2(ox + 61, oy + 19)], "width": 1.0, "bend": 0.8, "bridge": false},
-        {"id": "village-north-arc", "kind": "village-road", "waypoints": [Vector2(ox + 29, oy + 3), Vector2(ox + 28, oy + 8), Vector2(ox + 25, oy + 12), Vector2(ox + 23, oy + 18), Vector2(ox + 29, oy + 23)], "width": 1.0, "bend": 0.65, "bridge": false},
-        {"id": "village-south-loop", "kind": "village-road", "waypoints": [Vector2(ox + 17, oy + 36), Vector2(ox + 25, oy + 34), Vector2(ox + 34, oy + 35), Vector2(ox + 43, oy + 38), Vector2(ox + 54, oy + 42)], "width": 1.0, "bend": 0.7, "bridge": false},
-        {"id": "cottage-footpath", "kind": "village-footpath", "waypoints": [Vector2(ox + 9, oy + 16), Vector2(ox + 10, oy + 13), Vector2(ox + 9, oy + 10), Vector2(ox + 8, oy + 8)], "width": 0.0, "bend": 0.3, "bridge": false},
-        {"id": "hall-footpath", "kind": "village-footpath", "waypoints": [Vector2(ox + 29, oy + 18), Vector2(ox + 30, oy + 14), Vector2(ox + 30, oy + 11), Vector2(ox + 29, oy + 9)], "width": 0.0, "bend": 0.25, "bridge": false},
-        {"id": "workshop-footpath", "kind": "village-footpath", "waypoints": [Vector2(ox + 38, oy + 15), Vector2(ox + 42, oy + 14), Vector2(ox + 46, oy + 14), Vector2(ox + 49, oy + 15)], "width": 0.0, "bend": 0.25, "bridge": false},
-        {"id": "garden-footpath", "kind": "village-footpath", "waypoints": [Vector2(ox + 23, oy + 18), Vector2(ox + 22, oy + 23), Vector2(ox + 22, oy + 27), Vector2(ox + 22, oy + 30)], "width": 0.0, "bend": 0.25, "bridge": false},
-        {"id": "barn-footpath", "kind": "village-footpath", "waypoints": [Vector2(ox + 45, oy + 39), Vector2(ox + 48, oy + 36), Vector2(ox + 51, oy + 33), Vector2(ox + 50, oy + 30)], "width": 0.0, "bend": 0.25, "bridge": false}
+    var hub := Vector2(ox + 30, oy + 17)
+    return [
+        {"id": "west-gate-road", "from": "west-gate", "to": "central-hub", "kind": "village-road", "waypoints": [Vector2(ox - 4, oy + 17), Vector2(ox + 5, oy + 16), Vector2(ox + 14, oy + 17), hub], "width": 1.0, "bend": 0.0, "bridge": false},
+        {"id": "east-gate-road", "from": "central-hub", "to": "east-gate", "kind": "village-road", "waypoints": [hub, Vector2(ox + 39, oy + 18), Vector2(ox + 50, oy + 19), Vector2(ox + 61, oy + 20)], "width": 1.0, "bend": 0.0, "bridge": false},
+        {"id": "cottage-approach", "from": "central-hub", "to": "greenbriar-cottage-door", "kind": "village-footpath", "building_id": "greenbriar-cottage", "waypoints": [hub, Vector2(ox + 23, oy + 17), Vector2(ox + 16, oy + 15), Vector2(ox + 8, oy + 12)], "width": 0.0, "bend": 0.0, "bridge": false},
+        {"id": "hall-approach", "from": "central-hub", "to": "clovermere-hall-door", "kind": "village-footpath", "building_id": "clovermere-hall", "waypoints": [hub, Vector2(ox + 30, oy + 14), Vector2(ox + 28, oy + 11)], "width": 0.0, "bend": 0.0, "bridge": false},
+        {"id": "workshop-approach", "from": "central-hub", "to": "tinker-workshop-door", "kind": "village-footpath", "building_id": "tinker-workshop", "waypoints": [hub, Vector2(ox + 37, oy + 17), Vector2(ox + 43, oy + 16)], "width": 0.0, "bend": 0.0, "bridge": false},
+        {"id": "garden-approach", "from": "south-junction", "to": "herbalists-garden-door", "kind": "village-footpath", "building_id": "herbalists-garden", "waypoints": [Vector2(ox + 31, oy + 33), Vector2(ox + 26, oy + 32), Vector2(ox + 22, oy + 32)], "width": 0.0, "bend": 0.0, "bridge": false},
+        {"id": "barn-approach", "from": "south-junction", "to": "old-barn-door", "kind": "village-footpath", "building_id": "old-barn", "waypoints": [Vector2(ox + 31, oy + 33), Vector2(ox + 40, oy + 34), Vector2(ox + 50, oy + 34)], "width": 0.0, "bend": 0.0, "bridge": false},
+        {"id": "south-lane", "from": "central-hub", "to": "south-junction", "kind": "village-road", "waypoints": [hub, Vector2(ox + 30, oy + 25), Vector2(ox + 31, oy + 33)], "width": 1.0, "bend": 0.0, "bridge": false},
+        {"id": "southwest-lane", "from": "south-junction", "to": "west-south-junction", "kind": "village-road", "waypoints": [Vector2(ox + 31, oy + 33), Vector2(ox + 22, oy + 33), Vector2(ox + 15, oy + 33)], "width": 1.0, "bend": 0.0, "bridge": false},
+        {"id": "apple-orchard-trail", "from": "west-south-junction", "to": "apple-orchard-trailhead", "kind": "field-trail", "landmark_id": "apple-orchard", "waypoints": [Vector2(ox + 15, oy + 33), Vector2(ox + 5, oy + 37), Vector2(84, 105), Vector2(76, 101)], "width": 0.0, "bend": 0.0, "bridge": true},
+        {"id": "willowmere-trail", "from": "east-gate", "to": "willowmere-trailhead", "kind": "field-trail", "landmark_id": "willowmere", "waypoints": [Vector2(ox + 61, oy + 20), Vector2(ox + 69, oy + 17), Vector2(ox + 77, oy + 13), Vector2(177, 87)], "width": 0.0, "bend": 0.0, "bridge": true},
+        {"id": "stonecutters-trail", "from": "east-gate", "to": "stonecutters-trailhead", "kind": "field-trail", "landmark_id": "stonecutters-hollow", "waypoints": [Vector2(ox + 61, oy + 20), Vector2(ox + 67, oy + 28), Vector2(ox + 72, oy + 37), Vector2(177, 124)], "width": 0.0, "bend": 0.0, "bridge": true},
+        {"id": "lookout-trail", "from": "west-gate", "to": "west-lookout-trailhead", "kind": "field-trail", "landmark_id": "west-lookout", "waypoints": [Vector2(ox - 4, oy + 17), Vector2(ox + 1, oy + 28), Vector2(ox - 5, oy + 38), Vector2(83, 126)], "width": 0.0, "bend": 0.0, "bridge": true}
     ]
-    var trail_specs := [
-        {"id": "apple-orchard-trail", "start": Vector2(ox + 4, oy + 40), "end": Vector2(70, 103), "bend": 0.45},
-        {"id": "willowmere-trail", "start": Vector2(ox + 63, oy + 19), "end": Vector2(178, 82), "bend": 0.55},
-        {"id": "stonecutters-trail", "start": Vector2(ox + 62, oy + 45), "end": Vector2(178, 125), "bend": 0.65},
-        {"id": "lookout-trail", "start": Vector2(ox + 4, oy + 44), "end": Vector2(74, 127), "bend": 0.5}
-    ]
-    for spec in trail_specs:
-        var start: Vector2 = spec.start
-        var end: Vector2 = spec.end
-        var midpoint := start.lerp(end, 0.48) + Vector2(sin(float(end.y - start.y)) * 5.0, cos(float(end.x - start.x)) * 4.0)
-        routes.append({"id": spec.id, "kind": "field-trail", "waypoints": [start, midpoint, end], "width": 0.0, "bend": float(spec.bend), "bridge": true})
-    return routes
 
 func buildings() -> Array:
     return BUILDINGS.duplicate(true)

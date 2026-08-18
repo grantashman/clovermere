@@ -43,6 +43,7 @@ jobs:
       - name: Run world and save contract before export
         run: |
           Godot_v${GODOT_VERSION}-stable_linux.x86_64 --headless --path desktop/godot --script res://tests/world_contract_test.gd
+          Godot_v${GODOT_VERSION}-stable_linux.x86_64 --headless --path desktop/godot --script res://tests/road_network_test.gd
           Godot_v${GODOT_VERSION}-stable_linux.x86_64 --headless --path desktop/godot --script res://tests/regrowth_state_test.gd
       - name: Run day-state and storage/recipe contracts before export
         run: |

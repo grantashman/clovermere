@@ -210,7 +210,7 @@ func _terrain_asset_for(tile: Vector2i) -> String:
     if tile_kind in ["b", "f", "s", "h"]:
         return ""
     if tile_kind in ["p", "d"]:
-        return _path_asset(tile)
+        return ""
     if tile_kind == "w":
         return "water"
     var oak_tile := Vector2i(roundi(float(anchor_positions.get("oak-at-the-crossing", Vector2(-999, -999)).x)), roundi(float(anchor_positions.get("oak-at-the-crossing", Vector2(-999, -999)).y)))

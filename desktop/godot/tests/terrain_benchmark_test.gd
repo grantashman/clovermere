@@ -16,9 +16,9 @@ func _initialize() -> void:
     require(anchors.has("central-crossing"), "benchmark should anchor the central crossing")
     require(benchmark.terrain_sprite != null and benchmark.terrain_sprite.texture != null, "benchmark should composite authored terrain into one texture")
     require(benchmark.terrain_sprites.size() > 100, "benchmark should mount a substantial authored terrain field")
-    require(benchmark.terrain_sprites.has(Vector2i(world.SETTLEMENT_ORIGIN.x + 30, world.SETTLEMENT_ORIGIN.y + 11)), "benchmark should author the crossing tile")
+    require(not benchmark.terrain_sprites.has(Vector2i(world.SETTLEMENT_ORIGIN.x + 30, world.SETTLEMENT_ORIGIN.y + 11)), "benchmark should leave the crossing to the organic road renderer")
     var crossing_asset: String = benchmark.terrain_sprites.get(Vector2i(world.SETTLEMENT_ORIGIN.x + 30, world.SETTLEMENT_ORIGIN.y + 11), "")
-    require(crossing_asset.begins_with("path_"), "central crossing should use an authored path texture")
+    require(crossing_asset.is_empty(), "central crossing should be rendered by the organic road graph, not a duplicate tile texture")
     var woodland_found := false
     var soil_found := false
     for asset_variant in benchmark.terrain_sprites.values():

@@ -22,7 +22,7 @@ The native client currently includes:
 - First authored benchmark asset pack: hand-built pixel PNGs for Greenbriar Cottage, Tinker Workshop, Clovermere Hall, Herbalist's Garden, Old Barn, the crossing tree, boulder, foxglove patch, player, six role-specific residents, and meadow/forest-floor/village-verge material clusters, all using a locked Clovermere palette.
 - Living resource states: authored tree stumps/debris, tree sprout/young stages, stone fractures, ore crystals, harvested herb stems, active-work pulses, herb regrowth sprouts, water shimmer, foliage sway, and restrained evening fireflies.
 - Persistent resource recovery: tree work moves through felled → sprout → young → restored over three sleeps; stone and ore recover over two sleeps; herbs retain next-day restoration. Recovery stage and timing are saved separately from the legacy `world_changes` flags.
-- Authored-scale world presentation: deterministic meadow, woodland, wetland, rocky, and village-verge families; six large biome stamps add distant clearings, orchard approaches, reed banks, willow water, woodland masses, and stepped rock shelves; landmark dressing adds orchard rails, willow banks, stonecutters worktables, and a lookout flag.
+- Authored route graph: one central settlement hub feeds deliberate Cottage, Hall, Workshop, Garden, and Barn door approaches, while narrower named trails lead to Apple Orchard, Willowmere, Stonecutter's Hollow, and West Lookout. Building-footprint intersection is contract-tested, and legacy benchmark path textures are not double-rendered over the organic routes.
 - Collision-safe keyboard movement and mouse click-to-move pathfinding.
 - Contextual building interaction, target markers, camera tracking, and 50%–200% zoom. Cottage and Workshop buildings open authored rooms with E-driven furniture actions and a short fade transition; `Esc` closes management/dialogue surfaces before pausing.
 - Resident dialogue and Village Memory: press `T` near Alda Fen, Tobin Wren, or Orin Reed for time/location/work-aware conversations. Each resident progresses from introduction → acquainted → trusted through one material-backed favor, with completion and small gameplay rewards persisted in the save. Trusted residents can offer one small gift on later days; completed favors visibly add Garden blooms, a Workshop brazier, or eastern lane markers.
@@ -37,6 +37,7 @@ The native client currently includes:
 ```bash
 # Run the deterministic world/save contract
 godot --headless --path desktop/godot --script res://tests/world_contract_test.gd
+godot --headless --path desktop/godot --script res://tests/road_network_test.gd
 
 # Run the deterministic resource destruction/regrowth contract
 godot --headless --path desktop/godot --script res://tests/regrowth_state_test.gd

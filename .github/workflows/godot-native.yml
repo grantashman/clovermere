@@ -32,6 +32,7 @@ jobs:
       - name: Run world and save contract
         run: |
           godot --headless --path desktop/godot --script res://tests/world_contract_test.gd
+          godot --headless --path desktop/godot --script res://tests/road_network_test.gd
           godot --headless --path desktop/godot --script res://tests/regrowth_state_test.gd
       - name: Run day-state and storage/recipe contracts
         run: |

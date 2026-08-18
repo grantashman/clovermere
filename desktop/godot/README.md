@@ -29,7 +29,7 @@ This directory contains the canonical native desktop client. The former browser/
 - Resource recovery is deterministic and persistent: trees recover through felled → sprout → young → restored over three sleeps, stone/ore recover over two sleeps, and herbs retain their established next-day restoration. Cleared terrain receives resource-specific scars, fractures, or crystal cues.
 
 - Terrain foundation pack at `assets/benchmark/`: three sparse grass variants, woodland and soil pockets, connectivity-selected path straights/corners/T-junctions/crossings, and registered water/bank tiles. The benchmark terrain is composited into one texture so it does not add thousands of live scene nodes; distant terrain remains procedural and cached
-- Authored-scale world presentation pass: deterministic meadow, woodland, wetland, rocky, and village-verge terrain families; six large biome stamps add clearings, orchard approaches, reed banks, willow water, woodland masses, and stepped rock shelves across the distant quadrants; landmark dressing adds orchard rails, willow banks, stonecutters worktables, and a lookout flag.
+- Authored route graph correction: a single central-hub settlement network now feeds deliberate Cottage, Hall, Workshop, Garden, and Barn door approaches plus named Orchard, Willowmere, Stonecutter, and Lookout trailheads; route geometry is sampled against building footprints, field trails are narrower than village roads, and the benchmark no longer double-renders legacy path textures.
 - Material contact-edge shading and a separate world-space lighting compositor for window glows, player lantern radius, and future shadow/dusk expansion
 - Mouse controls: left-click ground to walk, left-click a building to approach and interact, right-click to cancel or revisit, and mouse wheel to zoom
 - Welcome/loading flow that opens before gameplay and defaults to fullscreen on desktop
@@ -41,6 +41,7 @@ This directory contains the canonical native desktop client. The former browser/
 ```bash
 # World/save/movement contract test
 godot --headless --path . --script res://tests/world_contract_test.gd
+godot --headless --path . --script res://tests/road_network_test.gd
 
 # Day-state contract
 godot --headless --path . --script res://tests/day_state_test.gd
