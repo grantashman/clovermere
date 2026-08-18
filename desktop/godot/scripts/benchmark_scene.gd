@@ -3,6 +3,7 @@ class_name ClovermereBenchmarkScene
 
 const ArtAssetPack = preload("res://scripts/art_asset_pack.gd")
 const LightingAccents = preload("res://scripts/lighting_accents.gd")
+const Atmosphere = preload("res://scripts/atmosphere.gd")
 const TILE_SIZE := 16.0
 const DEPTH_LAYERS := {
     "terrain": -4,
@@ -32,6 +33,7 @@ var resource_art_assets: Dictionary = {}
 var terrain_cluster_sprites: Dictionary = {}
 var terrain_sprite: Sprite2D
 var lighting_accents: Node2D
+var atmosphere := Atmosphere.new()
 var animation_phase := 0.0
 var redraw_accumulator := 0.0
 var minute_of_day := 480
@@ -39,6 +41,8 @@ var fireflies_visible := false
 var active_resource_id := ""
 var active_work_progress := 0.0
 var regrowth_resource_ids: Dictionary = {}
+var shadow_direction := Vector2.DOWN
+var shadow_strength := 0.19
 
 func configure(_world, _grid: Array, _changes: Dictionary, _resource_states: Dictionary = {}, _consequence_flags: Dictionary = {}, _village: Dictionary = {}) -> Dictionary:
     world = _world
@@ -76,6 +80,9 @@ func configure(_world, _grid: Array, _changes: Dictionary, _resource_states: Dic
     _mount_authored_terrain()
     _mount_authored_assets()
     _configure_lighting_accents()
+    var initial_palette: Dictionary = atmosphere.palette_for(minute_of_day)
+    shadow_direction = initial_palette.get("shadow_direction", Vector2.DOWN)
+    shadow_strength = float(initial_palette.get("shadow_strength", 0.19))
     queue_redraw()
     return anchor_positions
 
@@ -128,10 +135,15 @@ func _process(delta: float) -> void:
 func set_time(minutes: int) -> void:
     var next_minute := posmod(minutes, 1440)
     var next_fireflies := next_minute >= 1110 or next_minute < 330
-    if next_minute == minute_of_day and next_fireflies == fireflies_visible:
+    var next_palette: Dictionary = atmosphere.palette_for(next_minute)
+    var next_direction: Vector2 = next_palette.get("shadow_direction", Vector2.DOWN)
+    var next_strength: float = float(next_palette.get("shadow_strength", 0.19))
+    if next_minute == minute_of_day and next_fireflies == fireflies_visible and next_direction == shadow_direction and is_equal_approx(next_strength, shadow_strength):
         return
     minute_of_day = next_minute
     fireflies_visible = next_fireflies
+    shadow_direction = next_direction
+    shadow_strength = next_strength
     if lighting_accents != null:
         lighting_accents.set_time(minute_of_day)
     queue_redraw()
@@ -335,6 +347,7 @@ func is_authored_area(tile: Vector2i) -> bool:
 func _draw() -> void:
     if world == null:
         return
+    _draw_directional_shadows()
     _draw_crossing()
     for building_id in ["greenbriar-cottage", "clovermere-hall", "tinker-workshop", "herbalists-garden", "old-barn"]:
         _draw_building_contact(building_id)
@@ -355,6 +368,41 @@ func _draw_living_terrain() -> void:
     _draw_regrowth_feedback()
     if fireflies_visible:
         _draw_fireflies()
+
+func _draw_directional_shadows() -> void:
+    if shadow_strength <= 0.0:
+        return
+    for building_variant in world.buildings():
+        if not building_variant is Dictionary:
+            continue
+        var building: Dictionary = building_variant
+        var rect := Rect2(Vector2(float(building.get("x", 0)), float(building.get("y", 0))) * TILE_SIZE, Vector2(float(building.get("w", 1)), float(building.get("h", 1))) * TILE_SIZE)
+        var cast := shadow_direction * (maxf(rect.size.x, rect.size.y) * 0.30)
+        var polygon := PackedVector2Array([
+            rect.position + Vector2(5, rect.size.y - 3),
+            rect.position + Vector2(rect.size.x - 5, rect.size.y - 3),
+            rect.position + Vector2(rect.size.x - 5, rect.size.y - 3) + cast,
+            rect.position + Vector2(5, rect.size.y - 3) + cast
+        ])
+        draw_colored_polygon(polygon, Color(SHADOW, shadow_strength))
+    for resource_variant in world.resources(village):
+        if not resource_variant is Dictionary:
+            continue
+        var resource: Dictionary = resource_variant
+        if str(resource.get("kind", "")) != "tree":
+            continue
+        var resource_id := str(resource.get("id", ""))
+        if not anchor_positions.has(resource_id) or bool(world_changes.get(resource_id, false)):
+            continue
+        var point: Vector2 = _world_point(anchor_positions[resource_id]) + Vector2(0, 6) + shadow_direction * 10.0
+        _draw_shadow_ellipse(point, Vector2(15, 4.5), shadow_strength * 0.9)
+
+func _draw_shadow_ellipse(center: Vector2, radius: Vector2, alpha: float) -> void:
+    var points := PackedVector2Array()
+    for index in range(16):
+        var angle := TAU * float(index) / 16.0
+        points.append(center + Vector2(cos(angle) * radius.x, sin(angle) * radius.y))
+    draw_colored_polygon(points, Color(SHADOW, alpha))
 
 func _draw_resource_state_terrain() -> void:
     for resource_variant in world.resources(village):

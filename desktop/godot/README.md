@@ -22,6 +22,7 @@ This directory contains the canonical native desktop client. The former browser/
 - Authored traditional PC HUD shell: layered Clovermere frames, compact status card, icon-led timber/stone/ore/herb/fish slots, centered action rail with authored glyphs, location ribbon, active PACK/CRAFT/HEARTH tabs, focus/hover/pressed/disabled states, contextual message suppression, and dialogue/pantry/workshop surfaces that keep their visual priority
 - Enterable authored interiors: Greenbriar Cottage Hearth Room includes a hearth, bed, storage chest, Hearth Pantry cooking, and warm evening light; Tinker Workshop Workroom, Clovermere Hall Common Room, Herbalist's Garden Glasshouse, and Old Barn Loft are also enterable with distinct authored furniture and interaction points. A short transition blocks input, hides the exterior/minimap, and saves the exterior position plus interior location without changing schema 7.
 - Requests & Routine: Clovermere Hall's Notice Board posts three deterministic daily requests from a five-request rotation. Accept one request, carry the listed materials to its linked resident/location, and complete it with `T`; requests rotate/expire on sleep, rewards and visible consequence props persist through schema 7, and the authored HUD exposes a `BOARD` surface with active/available/completed states.
+- Daylight, Shadows & Atmosphere: the native renderer now uses a deterministic dawn/day/dusk/night palette, moving directional shadows under authored buildings and trees, stronger localized warm pools around windows/player, and restrained golden-hour settlement haze; the atmosphere presentation contract locks the phase palette, shadow motion, and sun arc.
 - Village Project: Hall's Town Table exposes a shared Village Commons project with three staged contributions—foundation, shelter, planting.
 - Deterministic resident schedules: morning opening, role-specific work, evening strolling, and night resting; live route movement, idle/walk bob, explicit left/right facing with mirrored authored silhouettes, four-step stride accents, role props, work-tool animation, impact sparks, and offset directional shadows
 - Authored central-crossing benchmark layer with explicit terrain/contact/building/resource/foreground depth bands, stronger building contact shadows, cottage/workshop props, crossing accents, material cluster overlays, six role-specific resident sprites, and clock-driven cooler evening ambient lighting with warm facade window accents.
@@ -56,6 +57,7 @@ godot --headless --path . --script res://tests/request_board_test.gd
 godot --headless --path . --script res://tests/request_routine_smoke.gd
 godot --headless --path . --script res://tests/village_project_test.gd
 godot --headless --path . --script res://tests/village_project_smoke.gd
+godot --headless --path . --script res://tests/atmosphere_presentation_test.gd
 godot --headless --path . --script res://tests/interior_contract_test.gd
 godot --headless --path . --script res://tests/interior_scene_test.gd
 godot --headless --path . --script res://tests/interior_transition_smoke.gd

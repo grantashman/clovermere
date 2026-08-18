@@ -43,6 +43,10 @@ func _initialize() -> void:
     require(benchmark.active_consequence_flags().get("lane_markers", false), "benchmark should expose the active lane-marker consequence")
     require(benchmark.active_consequence_flags().get("garden_request", false), "benchmark should expose request consequences")
     require(benchmark.active_consequence_flags().get("commons_complete", false), "benchmark should expose village project completion")
+    var day_shadow: Vector2 = benchmark.shadow_direction
+    benchmark.set_time(1020)
+    require(day_shadow != benchmark.shadow_direction, "benchmark shadows should move with the daylight phase")
+    require(benchmark.shadow_strength > 0.0, "benchmark should expose a live directional shadow strength")
     require(benchmark.has_method("set_consequence_flags"), "benchmark should accept persisted resident consequences")
     benchmark.free()
 
