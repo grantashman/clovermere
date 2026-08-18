@@ -15,9 +15,9 @@ func _initialize() -> void:
     var hud = GameplayHud.new()
     require(hud.has_method("set_active_surface"), "HUD should expose active-surface state")
     require(hud.has_method("set_hud_frame_state"), "HUD should expose authored frame state")
-    require(hud.has_signal("request_action"), "HUD should expose request-board actions")
-    hud.set_active_surface("requests")
-    require(hud.management_mode == "requests", "HUD should support the request board surface")
+    require(hud.has_signal("project_action"), "HUD should expose village project actions")
+    hud.set_active_surface("project")
+    require(hud.management_mode == "project", "HUD should support the village project surface")
     require(hud.has_method("resource_slot_kinds"), "HUD should expose icon-led resource slot kinds")
     require(hud.resource_slot_kinds() == ["timber", "stone", "ore", "herbs", "fish"], "HUD resource order should be stable")
 

@@ -545,6 +545,7 @@ func _draw_village_consequences() -> void:
             draw_rect(Rect2(marker + Vector2(-9, -12), Vector2(18, 5)), Color("#c69b61", 0.95), true)
             draw_rect(Rect2(marker + Vector2(-4, -11), Vector2(2, 2)), Color(BRASS, 0.9), true)
     _draw_request_consequences()
+    _draw_village_project()
 
 func _draw_request_consequences() -> void:
     var garden_request := bool(consequence_flags.get("garden_request", false))
@@ -575,6 +576,30 @@ func _draw_request_consequences() -> void:
         var lookout := _world_point(Vector2(74, 127)) + Vector2(26, -10)
         draw_rect(Rect2(lookout + Vector2(-12, -3), Vector2(24, 6)), Color("#704936"), true)
         draw_rect(Rect2(lookout + Vector2(-9, -8), Vector2(18, 3)), Color("#a4a18a"), true)
+
+func _draw_village_project() -> void:
+    var foundation := bool(consequence_flags.get("commons_foundation", false))
+    var shelter := bool(consequence_flags.get("commons_shelter", false))
+    var complete := bool(consequence_flags.get("commons_complete", false))
+    if not foundation:
+        return
+    var commons := _world_point(Vector2(float(world.SETTLEMENT_ORIGIN.x + 30), float(world.SETTLEMENT_ORIGIN.y + 26)))
+    for index in range(8):
+        var angle := TAU * float(index) / 8.0
+        var stone := commons + Vector2(cos(angle) * 36.0, sin(angle) * 15.0)
+        draw_rect(Rect2(stone + Vector2(-5, -4), Vector2(10, 6)), Color("#a4a18a"), true)
+        draw_rect(Rect2(stone + Vector2(-3, -4), Vector2(6, 2)), Color("#c4b98f"), true)
+    draw_rect(Rect2(commons + Vector2(-42, 14), Vector2(84, 6)), Color("#704936"), true)
+    if shelter:
+        draw_rect(Rect2(commons + Vector2(-29, -30), Vector2(58, 8)), Color("#704936"), true)
+        draw_colored_polygon(PackedVector2Array([commons + Vector2(-34, -23), commons + Vector2(0, -42), commons + Vector2(34, -23)]), Color("#53654e"))
+        draw_rect(Rect2(commons + Vector2(-30, -23), Vector2(60, 3)), Color("#a5794d"), true)
+        draw_rect(Rect2(commons + Vector2(-2, -22), Vector2(4, 22)), Color("#704936"), true)
+        draw_rect(Rect2(commons + Vector2(16, -19), Vector2(5, 3)), Color("#e6c878"), true)
+    if complete:
+        draw_circle(commons + Vector2(-17, -7), 5.0, Color("#d9b56e"), true)
+        draw_circle(commons + Vector2(17, -7), 5.0, Color("#8fb963"), true)
+        draw_rect(Rect2(commons + Vector2(-4, -14), Vector2(8, 8)), Color("#e6c878"), true)
 
 func _draw_resource_contacts() -> void:
     for resource_id in ["oak-at-the-crossing", "greycap-boulder", "foxglove-patch"]:

@@ -22,7 +22,8 @@ The native client currently includes:
 - First authored benchmark asset pack: hand-built pixel PNGs for Greenbriar Cottage, Tinker Workshop, Clovermere Hall, Herbalist's Garden, Old Barn, the crossing tree, boulder, foxglove patch, player, six role-specific residents, and meadow/forest-floor/village-verge material clusters, all using a locked Clovermere palette.
 - Living resource states: authored tree stumps/debris, tree sprout/young stages, stone fractures, ore crystals, harvested herb stems, active-work pulses, herb regrowth sprouts, water shimmer, foliage sway, and restrained evening fireflies.
 - Persistent resource recovery: tree work moves through felled → sprout → young → restored over three sleeps; stone and ore recover over two sleeps; herbs retain next-day restoration. Recovery stage and timing are saved separately from the legacy `world_changes` flags.
-- Requests & Routine vertical slice: Clovermere Hall's authored Notice Board posts three deterministic daily requests chosen from a five-request rotation. Accept one request, carry the requested herbs/stone/ore/fish/timber to the linked resident/location, and complete it through existing `T` dialogue. Request acceptance, completion, expiry, rewards, visible consequence flags, and save/load state persist through schema 7.
+- Requests & Routine: Hall's Notice Board posts three daily requests from a five-request rotation; accept one, gather the requested material, deliver through resident dialogue, and receive rewards/visible consequences with expiry and save persistence.
+- Village Project: Hall's Town Table turns request/favor support and exact material contributions into three persistent Village Commons stages—foundation, shelter, and planting—with visible authored settlement improvements.
 - Authored route graph: one central settlement hub feeds deliberate Cottage, Hall, Workshop, Garden, and Barn door approaches, while narrower named trails lead to Apple Orchard, Willowmere, Stonecutter's Hollow, and West Lookout. Building-footprint intersection is contract-tested, and legacy benchmark path textures are not double-rendered over the organic routes.
 - Collision-safe keyboard movement and mouse click-to-move pathfinding.
 - Contextual building interaction, target markers, camera tracking, and 50%–200% zoom. Cottage and Workshop buildings open authored rooms with E-driven furniture actions and a short fade transition; `Esc` closes management/dialogue surfaces before pausing.
@@ -54,6 +55,8 @@ godot --headless --path desktop/godot --script res://tests/gameplay_hud_test.gd
 godot --headless --path desktop/godot --script res://tests/hud_presentation_test.gd
 godot --headless --path desktop/godot --script res://tests/request_board_test.gd
 godot --headless --path desktop/godot --script res://tests/request_routine_smoke.gd
+godot --headless --path desktop/godot --script res://tests/village_project_test.gd
+godot --headless --path desktop/godot --script res://tests/village_project_smoke.gd
 godot --headless --path desktop/godot --script res://tests/interior_contract_test.gd
 godot --headless --path desktop/godot --script res://tests/interior_scene_test.gd
 godot --headless --path desktop/godot --script res://tests/interior_transition_smoke.gd

@@ -436,4 +436,6 @@ func normalize_save(source: Dictionary = {}) -> Dictionary:
     result["resident_memory"] = raw_resident_memory.duplicate(true) if raw_resident_memory is Dictionary else {}
     var raw_requests = source.get("requests", {})
     result["requests"] = raw_requests.duplicate(true) if raw_requests is Dictionary else {}
+    var raw_project = source.get("village_project", {})
+    result["village_project"] = raw_project.duplicate(true) if raw_project is Dictionary else {}
     return result

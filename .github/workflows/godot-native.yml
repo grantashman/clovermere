@@ -43,6 +43,8 @@ jobs:
           godot --headless --path desktop/godot --script res://tests/hud_presentation_test.gd
           godot --headless --path desktop/godot --script res://tests/request_board_test.gd
           godot --headless --path desktop/godot --script res://tests/request_routine_smoke.gd
+          godot --headless --path desktop/godot --script res://tests/village_project_test.gd
+          godot --headless --path desktop/godot --script res://tests/village_project_smoke.gd
       - name: Run interior renderer and transition contracts
         run: |
           godot --headless --path desktop/godot --script res://tests/interior_contract_test.gd

@@ -13,6 +13,7 @@ signal recipe_requested(recipe_id: String)
 signal cooking_requested(recipe_id: String)
 signal meal_requested(meal_id: String)
 signal request_action(request_id: String, action: String)
+signal project_action(action: String)
 signal storage_requested
 signal surface_requested
 
@@ -241,17 +242,16 @@ func _build_management_panel() -> void:
     column.add_child(mode_hint)
     var tabs := HBoxContainer.new()
     tabs.add_theme_constant_override("separation", 6)
+    var project_tab := _tab_button("PROJECT", "project", func(): open_project())
     var board_tab := _tab_button("BOARD", "board", func(): open_requests())
     var pack_tab := _tab_button("PACK", "pack", func(): open_pack())
     var craft_tab := _tab_button("CRAFT", "craft", func(): open_crafting())
     var cook_tab := _tab_button("HEARTH", "hearth", func(): open_cooking())
-    for tab in [board_tab, pack_tab, craft_tab, cook_tab]:
-        tab.custom_minimum_size = Vector2(78, 28)
-    tab_buttons = {"requests": board_tab, "pack": pack_tab, "craft": craft_tab, "cook": cook_tab}
-    tabs.add_child(board_tab)
-    tabs.add_child(pack_tab)
-    tabs.add_child(craft_tab)
-    tabs.add_child(cook_tab)
+    for tab in [project_tab, board_tab, pack_tab, craft_tab, cook_tab]:
+        tab.custom_minimum_size = Vector2(62, 28)
+    tab_buttons = {"project": project_tab, "requests": board_tab, "pack": pack_tab, "craft": craft_tab, "cook": cook_tab}
+    for tab in [project_tab, board_tab, pack_tab, craft_tab, cook_tab]:
+        tabs.add_child(tab)
     column.add_child(tabs)
     var rule := HSeparator.new()
     rule.add_theme_stylebox_override("separator", _style(WOOD_LIGHT, WOOD_LIGHT, 0, 1))
@@ -274,7 +274,11 @@ func _refresh_management() -> void:
     _refresh_tab_state()
     for child in management_content.get_children():
         child.queue_free()
-    if management_mode == "pack":
+    if management_mode == "project":
+        management_title.text = "VILLAGE PROJECT"
+        mode_hint.text = "Build one shared place for everyone in Clovermere."
+        _build_project_content()
+    elif management_mode == "pack":
         management_title.text = "FIELD PACK"
         mode_hint.text = "Carry what you need. Home stores wait at Greenbriar Cottage."
         _build_pack_content()
@@ -286,7 +290,7 @@ func _refresh_management() -> void:
         management_title.text = "HEARTH PANTRY"
         mode_hint.text = "Make one warm thing before the road asks more of you."
         _build_cook_content()
-    else:
+    elif management_mode == "requests":
         management_title.text = "REQUEST BOARD"
         mode_hint.text = "Choose one useful thing for Clovermere today."
         _build_request_content()
@@ -300,6 +304,45 @@ func _refresh_tab_state() -> void:
         button.set_active(selected)
         button.add_theme_color_override("font_color", BRASS if selected else PARCHMENT_DIM)
         button.add_theme_stylebox_override("normal", _style(Color("#2b4b38") if selected else Color("#14271e"), BRASS if selected else WOOD, 1, 3))
+
+func _build_project_content() -> void:
+    var project: Dictionary = _snapshot.get("project", {}) if _snapshot.get("project", {}) is Dictionary else {}
+    var stage: Dictionary = project.get("stage", {}) if project.get("stage", {}) is Dictionary else {}
+    var complete := bool(project.get("complete", false))
+    var title := _body_label(str(project.get("name", "Village Commons")), 14, PARCHMENT)
+    management_content.add_child(title)
+    var summary := _body_label(str(project.get("summary", "")), 9, PARCHMENT_DIM)
+    summary.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+    management_content.add_child(summary)
+    var progress := _body_label("STAGE %d / %d  ·  SUPPORT %02d / %02d" % [int(project.get("stage_index", 0)), int(project.get("stage_count", 3)), int(project.get("support", 0)), int(stage.get("support", 0))], 10, MOSS if bool(project.get("support_ready", false)) else BRASS)
+    management_content.add_child(progress)
+    var card := PanelContainer.new()
+    card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    card.custom_minimum_size = Vector2(320, 120)
+    card.add_theme_stylebox_override("panel", _style(Color("#2c3829"), WOOD, 1, 3))
+    var margin := _margin(card, 10, 8, 10, 8)
+    var column := VBoxContainer.new()
+    column.add_theme_constant_override("separation", 4)
+    margin.add_child(column)
+    column.add_child(_body_label(str(stage.get("name", "Village Commons Complete")), 13, BRASS))
+    var stage_summary := _body_label(str(stage.get("summary", "Clovermere has a shared place to gather.")), 9, PARCHMENT_DIM)
+    stage_summary.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+    column.add_child(stage_summary)
+    column.add_child(_body_label(_project_cost_text(stage.get("cost", {})), 9, PARCHMENT))
+    var action := _small_button("COMPLETE" if complete else "CONTRIBUTE", func(): project_action.emit("contribute"))
+    action.disabled = complete or not bool(project.get("can_contribute", false))
+    column.add_child(action)
+    management_content.add_child(card)
+    if complete:
+        management_content.add_child(_body_label("The Commons is ready. Clovermere has a place that belongs to everyone.", 10, MOSS))
+    elif not bool(project.get("support_ready", false)):
+        management_content.add_child(_body_label("Complete requests or resident favors to build community support.", 10, PARCHMENT_DIM))
+
+func _project_cost_text(cost: Dictionary) -> String:
+    var parts: Array[String] = []
+    for material_variant in cost.keys():
+        parts.append("%d %s" % [int(cost[material_variant]), str(material_variant).to_upper()])
+    return "  ·  ".join(parts) if not parts.is_empty() else "COMPLETE"
 
 func _build_request_content() -> void:
     var requests: Array = _snapshot.get("requests", []) if _snapshot.get("requests", []) is Array else []
@@ -487,7 +530,7 @@ func _material_row(material: String, amount: int, color: Color) -> Control:
     return surface
 
 func set_active_surface(surface: String) -> void:
-    management_mode = surface if surface in ["pack", "craft", "cook", "requests"] else management_mode
+    management_mode = surface if surface in ["project", "pack", "craft", "cook", "requests"] else management_mode
     _refresh_tab_state()
 
 func set_hud_frame_state(management: bool, dialogue: bool, interaction: bool, interior: bool) -> void:
@@ -500,6 +543,15 @@ func clear_interaction_banner() -> void:
     if interaction_panel != null:
         interaction_panel.visible = false
     set_hud_frame_state(management_panel.visible, dialogue_panel.visible, false, interior_mode)
+
+func open_project() -> void:
+    surface_requested.emit()
+    clear_interaction_banner()
+    set_active_surface("project")
+    management_mode = "project"
+    management_panel.visible = true
+    set_hud_frame_state(true, dialogue_panel.visible, interaction_panel.visible, interior_mode)
+    _refresh_management()
 
 func open_requests() -> void:
     surface_requested.emit()

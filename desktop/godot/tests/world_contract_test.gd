@@ -31,6 +31,7 @@ func _init() -> void:
     require(migrated.resource_states is Dictionary, "legacy saves should gain an empty resource-state map")
     require(migrated.resident_memory is Dictionary, "legacy saves should gain an empty resident-memory map")
     require(migrated.requests is Dictionary, "legacy saves should gain an empty request-board map")
+    require(migrated.village_project is Dictionary, "legacy saves should gain an empty village-project map")
     var schema_six: Dictionary = world.normalize_save({"version": 6, "player": {"x": World.START_POSITION.x, "y": World.START_POSITION.y}})
     require(schema_six.player == World.START_POSITION, "schema-6 world coordinates should not be offset during schema-7 migration")
 

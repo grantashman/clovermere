@@ -17,6 +17,7 @@ const InteriorContract = preload("res://scripts/interior_contract.gd")
 const InteriorScene = preload("res://scripts/interior_scene.gd")
 const VillageMemory = preload("res://scripts/village_memory.gd")
 const RequestBoard = preload("res://scripts/request_board.gd")
+const VillageProject = preload("res://scripts/village_project.gd")
 const ProceduralResourceOverlay = preload("res://scripts/procedural_resource_overlay.gd")
 
 
@@ -50,6 +51,8 @@ var village_memory = VillageMemory.new()
 var resident_memory: Dictionary = village_memory.default_state()
 var request_board = RequestBoard.new()
 var request_state: Dictionary = request_board.default_state()
+var village_project = VillageProject.new()
+var project_state: Dictionary = village_project.default_state()
 var player_position := World.START_POSITION
 var camera_zoom := 0.75
 var debug_visible := false
@@ -501,6 +504,12 @@ func _handle_interior_action() -> void:
         _sleep_at_home()
     elif action == "storage":
         _withdraw_home_stores()
+    elif action == "project":
+        if gameplay_hud != null:
+            gameplay_hud.open_project()
+        interaction_message = ""
+        interaction_timeout = 0.0
+        _show_interaction_feedback()
     elif action == "requests":
         if gameplay_hud != null:
             gameplay_hud.open_requests()
@@ -768,6 +777,7 @@ func _sleep_at_home() -> bool:
         return false
     var deposited := day_state.deposit_inventory()
     var restored_ids: Array[String] = day_state.sleep_next_day(world_changes, world.resources(village), resource_states)
+    request_board.ensure_day(request_state, day_state.day)
     movement_path.clear()
     pending_building = {}
     pending_resource = {}
@@ -1051,6 +1061,35 @@ func _handle_request_action(request_id: String, action: String) -> void:
     _refresh_hud()
     _show_interaction_feedback()
 
+func _handle_project_action(action: String) -> void:
+    if action != "contribute":
+        return
+    if not _in_interior() or interior_location != "clovermere-hall":
+        interaction_message = "Bring materials to Clovermere Hall's Town Table"
+        interaction_timeout = 3.0
+        _show_interaction_feedback()
+        return
+    var result: Dictionary = village_project.contribute(project_state, day_state.inventory, day_state.day)
+    if bool(result.get("ok", false)):
+        interaction_message = ""
+        interaction_timeout = 0.0
+        _refresh_world_state()
+        _save_game()
+        _refresh_hud()
+        _show_interaction_feedback()
+        if gameplay_hud != null:
+            gameplay_hud.open_project()
+        return
+    var reason := str(result.get("reason", ""))
+    if reason == "needs-support":
+        interaction_message = "The village needs more shared work before this stage can begin"
+    elif reason == "missing-materials":
+        interaction_message = "Bring the materials shown on the project card"
+    else:
+        interaction_message = "The Village Commons is already complete"
+    interaction_timeout = 3.0
+    _show_interaction_feedback()
+
 func _talk_to_nearest_npc() -> void:
     var npc_id := _nearest_npc_id()
     if npc_id.is_empty():
@@ -1073,9 +1112,10 @@ func _talk_to_nearest_npc() -> void:
         var request_cost: Dictionary = active_request.get("cost", {})
         if day_state.can_afford(request_cost):
             day_state.spend_materials(request_cost)
-            var request_completion := request_board.complete_request(request_state, str(active_request.get("id", "")), day_state.day)
+            var request_completion: Dictionary = request_board.complete_request(request_state, str(active_request.get("id", "")), day_state.day)
             if bool(request_completion.get("ok", false)):
                 day_state.apply_reward(request_completion.get("reward", {}))
+                village_project.record_support(project_state, "request", str(active_request.get("id", "")))
                 dialogue["text"] = str(dialogue.get("text", "")) + " The request is done; thank you for carrying Clovermere's work where it needed to go."
                 interaction_message = "%s complete  ·  the village remembers" % str(active_request.get("title", "Request"))
                 interaction_timeout = 4.0
@@ -1095,8 +1135,9 @@ func _talk_to_nearest_npc() -> void:
             var completion: Dictionary = village_memory.complete_favor(resident_memory, npc_id, day_state.day)
             if bool(completion.get("ok", false)):
                 day_state.apply_reward(completion.get("reward", {}))
+                village_project.record_support(project_state, "favor", npc_id)
                 if benchmark_scene != null:
-                    benchmark_scene.set_consequence_flags(village_memory.consequence_flags(resident_memory))
+                    benchmark_scene.set_consequence_flags(_combined_consequence_flags())
                 dialogue = village_memory.dialogue_for(npc_id, resident_memory, context)
                 interaction_message = "%s complete  ·  trust grows in Clovermere" % str(completion.get("name", "Favor"))
                 interaction_timeout = 4.0
@@ -1139,6 +1180,7 @@ func _start_new_journey() -> void:
     resident_memory = village_memory.default_state()
     request_state = request_board.default_state()
     request_board.ensure_day(request_state, 1)
+    project_state = village_project.default_state()
     world_changes.clear()
     resource_states.clear()
     day_state = DayState.new()
@@ -1252,8 +1294,11 @@ func _refresh_player_transform() -> void:
 func _combined_consequence_flags() -> Dictionary:
     var flags := village_memory.consequence_flags(resident_memory)
     var request_flags := request_board.consequence_flags(request_state)
+    var project_flags := village_project.consequence_flags(project_state)
     for key in request_flags.keys():
         flags[str(key)] = bool(request_flags[key])
+    for key in project_flags.keys():
+        flags[str(key)] = bool(project_flags[key])
     return flags
 
 func _refresh_world_state() -> void:
@@ -1322,6 +1367,7 @@ func _build_hud() -> void:
     gameplay_hud.meal_requested.connect(_eat_meal)
     gameplay_hud.storage_requested.connect(_withdraw_home_stores)
     gameplay_hud.request_action.connect(_handle_request_action)
+    gameplay_hud.project_action.connect(_handle_project_action)
     gameplay_hud.surface_requested.connect(_dismiss_hud_surface)
     gameplay_hud.pause_requested.connect(_pause_journey)
     title_label = gameplay_hud.title_label
@@ -1361,6 +1407,18 @@ func _refresh_hud() -> void:
     for recipe_id in day_state.recipe_ids():
         recipes[recipe_id] = day_state.recipe_preview(recipe_id)
     var request_cards := request_board.board_cards(request_state, day_state.day, day_state.inventory)
+    var project_stage := village_project.current_stage(project_state)
+    var project_snapshot := {
+        "name": village_project.definition().get("name", "Village Commons"),
+        "summary": village_project.definition().get("summary", ""),
+        "stage": project_stage,
+        "stage_index": int(project_state.get("stage", 0)),
+        "stage_count": village_project.stage_count(),
+        "support": village_project.support_points(project_state),
+        "support_ready": village_project.support_points(project_state) >= int(project_stage.get("support", 0)),
+        "can_contribute": _in_interior() and interior_location == "clovermere-hall" and village_project.can_contribute(project_state, day_state.inventory),
+        "complete": village_project.is_complete(project_state)
+    }
     gameplay_hud.refresh({
         "village_name": str(village.get("name", "CLOVERMERE")),
         "folk": world.npcs().size(),
@@ -1374,6 +1432,7 @@ func _refresh_hud() -> void:
         "kit_ready": day_state.has_upgrade("tinkers-kit"),
         "recipes": recipes,
         "requests": request_cards,
+        "project": project_snapshot,
         "near_workshop": _is_near_workshop(),
         "near_home": _is_near_home(),
         "interior_mode": _in_interior(),
@@ -1430,6 +1489,8 @@ func _load_save() -> bool:
     var loaded_requests = normalized.get("requests", {})
     request_state = request_board.from_dict(loaded_requests if loaded_requests is Dictionary else {})
     request_board.ensure_day(request_state, day_state.day)
+    var loaded_project = normalized.get("village_project", {})
+    project_state = village_project.from_dict(loaded_project if loaded_project is Dictionary else {})
     for resident_id in village_memory.resident_ids():
         if bool(dialogue_flags.get(resident_id, false)) and int(resident_memory.get(resident_id, {}).get("stage", 0)) == 0:
             village_memory.mark_introduced(resident_memory, resident_id, day_state.day)
@@ -1458,6 +1519,7 @@ func _save_game() -> bool:
         "dialogue_flags": dialogue_flags.duplicate(true),
         "resident_memory": village_memory.to_dict(resident_memory),
         "requests": request_board.to_dict(request_state),
+        "village_project": village_project.to_dict(project_state),
         "world_changes": world_changes.duplicate(true),
         "resource_states": resource_states.duplicate(true),
         "day_state": day_state.to_dict()
