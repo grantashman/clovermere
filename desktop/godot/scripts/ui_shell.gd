@@ -1,6 +1,8 @@
 extends CanvasLayer
 class_name ClovermereUi
 
+const UiIllustration = preload("res://scripts/ui_illustration.gd")
+
 signal new_journey_requested
 signal continue_requested
 signal save_requested
@@ -91,11 +93,15 @@ func _build_loading_screen() -> Control:
     centre.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
     screen.add_child(centre)
     var column := VBoxContainer.new()
-    column.custom_minimum_size = Vector2(520, 260)
+    column.custom_minimum_size = Vector2(520, 320)
     column.alignment = BoxContainer.ALIGNMENT_CENTER
     column.add_theme_constant_override("separation", 12)
     centre.add_child(column)
-    column.add_child(_logo(68))
+    var illustration := UiIllustration.new()
+    illustration.name = "LoadingIllustration"
+    illustration.custom_minimum_size = Vector2(0, 112)
+    illustration.configure("loading")
+    column.add_child(illustration)
     var title := _title_label("CLOVERMERE", 30)
     column.add_child(title)
     var subtitle := _body_label("A quiet life, shared.", 16, MUTED)
@@ -122,18 +128,22 @@ func _build_welcome_screen() -> Control:
     centre.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
     screen.add_child(centre)
     var panel := PanelContainer.new()
-    panel.custom_minimum_size = Vector2(560, 590)
+    panel.custom_minimum_size = Vector2(620, 590)
     panel.add_theme_stylebox_override("panel", _style(Color("#10251d"), Color("#9f8952"), 2, 14))
     centre.add_child(panel)
     var column := VBoxContainer.new()
-    column.add_theme_constant_override("separation", 10)
-    column.add_theme_constant_override("margin_left", 42)
-    column.add_theme_constant_override("margin_right", 42)
-    column.add_theme_constant_override("margin_top", 34)
-    column.add_theme_constant_override("margin_bottom", 34)
+    column.add_theme_constant_override("separation", 7)
+    column.add_theme_constant_override("margin_left", 34)
+    column.add_theme_constant_override("margin_right", 34)
+    column.add_theme_constant_override("margin_top", 18)
+    column.add_theme_constant_override("margin_bottom", 18)
     panel.add_child(column)
 
-    column.add_child(_logo(86))
+    var illustration := UiIllustration.new()
+    illustration.name = "WelcomeIllustration"
+    illustration.custom_minimum_size = Vector2(0, 96)
+    illustration.configure("welcome")
+    column.add_child(illustration)
     var eyebrow := _body_label("FIELD NOTES  /  A DESKTOP SLICE", 11, MUTED)
     eyebrow.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
     column.add_child(eyebrow)
@@ -148,13 +158,18 @@ func _build_welcome_screen() -> Control:
     column.add_child(welcome_save_note)
 
     welcome_continue = _button("Continue Journey", func(): continue_requested.emit())
+    welcome_continue.custom_minimum_size.x = 420.0
     column.add_child(welcome_continue)
     column.add_child(_button("Begin New Journey", func(): new_journey_requested.emit()))
     column.add_child(_button("Options", func(): options_requested.emit()))
-    column.add_spacer(false)
+    var action_gap := Control.new()
+    action_gap.custom_minimum_size = Vector2(0, 10)
+    column.add_child(action_gap)
     column.add_child(_button("Quit to Desktop", func(): quit_requested.emit(), false))
     var footer := _body_label("Fullscreen by default  ·  F11 toggles window mode", 11, Color("#7e9a7b"))
     footer.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    footer.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+    footer.custom_minimum_size = Vector2(0, 18)
     column.add_child(footer)
     return screen
 
@@ -358,6 +373,9 @@ func _refresh_save_state() -> void:
     welcome_save_note.text = "A local journey is ready to continue." if has_save else "No local journey yet. Begin a new day, then save from the pause menu."
     welcome_save_note.add_theme_color_override("font_color", MUTED if has_save else PARCHMENT_DARK)
 
+func presentation_markers() -> Array[String]:
+    return ["loading-illustration", "welcome-illustration", "journey-actions", "accessible-focus"]
+
 func _refresh_zoom_label(value: float) -> void:
     if zoom_value_label != null:
         zoom_value_label.text = "%d%%" % roundi(value * 100.0)
@@ -432,6 +450,7 @@ func _button(text: String, callback: Callable, primary: bool = true) -> Button:
     button.add_theme_stylebox_override("hover", _style(BRASS if primary else Color("#2b523e"), Color("#f5d88a"), 2, 6))
     button.add_theme_stylebox_override("pressed", _style(BRASS.darkened(0.24) if primary else Color("#12271f"), Color("#f5d88a"), 1, 6))
     button.add_theme_stylebox_override("disabled", _style(Color("#263c32"), Color("#4e6855"), 1, 6))
+    button.add_theme_stylebox_override("focus", _style(Color("#f5d88a", 0.34) if primary else Color("#d7c07a", 0.22), Color("#f5d88a"), 2, 2))
     button.pressed.connect(callback)
     return button
 

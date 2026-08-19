@@ -86,6 +86,36 @@ func landmark_dressing_ids() -> Array[String]:
 func biome_stamp_ids() -> Array[String]:
     return BIOME_STAMP_IDS.duplicate()
 
+func road_render_profile(kind: String) -> Dictionary:
+    match kind:
+        "village-road":
+            return {"shoulder_width": 16.0, "base_width": 9.0, "highlight_width": 1.5, "shadow_width": 19.0, "shadow_alpha": 0.28, "shoulder_alpha": 0.78, "base_alpha": 0.94, "highlight_alpha": 0.34}
+        "village-footpath":
+            return {"shoulder_width": 11.0, "base_width": 6.0, "highlight_width": 1.0, "shadow_width": 13.0, "shadow_alpha": 0.22, "shoulder_alpha": 0.62, "base_alpha": 0.88, "highlight_alpha": 0.26}
+        _:
+            return {"shoulder_width": 8.0, "base_width": 4.0, "highlight_width": 0.0, "shadow_width": 10.0, "shadow_alpha": 0.16, "shoulder_alpha": 0.50, "base_alpha": 0.72, "highlight_alpha": 0.0}
+
+func route_junction_points() -> Array[Vector2]:
+    var counts: Dictionary = {}
+    var positions: Dictionary = {}
+    for route_variant in routes:
+        var route: Dictionary = route_variant
+        var waypoints: Array = route.get("waypoints", [])
+        if waypoints.size() < 2:
+            continue
+        for point_variant in [waypoints.front(), waypoints.back()]:
+            var point := Vector2(point_variant)
+            var tile := Vector2i(roundi(point.x), roundi(point.y))
+            var key := "%d:%d" % [tile.x, tile.y]
+            counts[key] = int(counts.get(key, 0)) + 1
+            positions[key] = point
+    var junctions: Array[Vector2] = []
+    for key_variant in counts.keys():
+        var key: String = str(key_variant)
+        if int(counts[key]) >= 2:
+            junctions.append(Vector2(positions[key]) * TILE + Vector2(8, 8))
+    return junctions
+
 func resource_variant_for(kind: String, variant: int) -> String:
     var suffix := posmod(variant, 3)
     if kind == "tree":
@@ -356,37 +386,66 @@ func _draw_distant_tree(point: Vector2, scale_value: float, variant: int) -> voi
 func _draw_pixel_paths(bounds: Rect2) -> void:
     if routes.is_empty():
         return
-    for route_variant in routes:
-        var route: Dictionary = route_variant
-        var waypoints: Array = route.get("waypoints", [])
-        if waypoints.size() < 2:
+    for kind in ["village-road", "village-footpath", "field-trail"]:
+        for route_variant in routes:
+            var route: Dictionary = route_variant
+            if str(route.get("kind", "field-trail")) != kind:
+                continue
+            _draw_route(route, bounds)
+    _draw_route_junctions(bounds)
+
+func _draw_route(route: Dictionary, bounds: Rect2) -> void:
+    var waypoints: Array = route.get("waypoints", [])
+    if waypoints.size() < 2:
+        return
+    var points := _smooth_route_points(waypoints)
+    var route_bounds := Rect2(points[0], Vector2.ZERO)
+    for point in points:
+        route_bounds = route_bounds.expand(point)
+    if not bounds.grow(64.0).intersects(route_bounds):
+        return
+    var kind := str(route.get("kind", "field-trail"))
+    var profile := road_render_profile(kind)
+    draw_polyline(_offset_points(points, Vector2(0, 3)), Color(COLORS.path_edge, float(profile.get("shadow_alpha", 0.16))), float(profile.get("shadow_width", 10.0)), true)
+    draw_polyline(points, Color(COLORS.path_edge, float(profile.get("shoulder_alpha", 0.50))), float(profile.get("shoulder_width", 8.0)), true)
+    draw_polyline(points, Color(COLORS.path, float(profile.get("base_alpha", 0.72))), float(profile.get("base_width", 4.0)), true)
+    var highlight_width := float(profile.get("highlight_width", 0.0))
+    if highlight_width > 0.0:
+        draw_polyline(points, Color(COLORS.path_light, float(profile.get("highlight_alpha", 0.0))), highlight_width, true)
+    if kind == "village-road":
+        _draw_road_stones(points)
+    elif route.has("building_id"):
+        _draw_doorstep(points[points.size() - 1])
+
+func _offset_points(points: PackedVector2Array, offset: Vector2) -> PackedVector2Array:
+    var shifted := PackedVector2Array()
+    for point in points:
+        shifted.append(point + offset)
+    return shifted
+
+func _draw_road_stones(points: PackedVector2Array) -> void:
+    for point_index in range(points.size() - 1):
+        var segment_start: Vector2 = points[point_index]
+        var segment_end: Vector2 = points[point_index + 1]
+        var segment_length := segment_start.distance_to(segment_end)
+        var stone_count := maxi(1, floori(segment_length / 42.0))
+        for stone_index in range(stone_count):
+            var ratio := float(stone_index + 1) / float(stone_count + 1)
+            var stone_point := segment_start.lerp(segment_end, ratio)
+            var grain: float = world.hash2d(point_index * 13 + stone_index, int(stone_point.y), world_seed + 1701)
+            draw_rect(Rect2(stone_point + Vector2(-1.0, -1.0), Vector2(2, 1)), COLORS.path_light.darkened(0.22 + grain * 0.25), true)
+
+func _draw_doorstep(point: Vector2) -> void:
+    draw_circle(point + Vector2(0, 2), 6.0, Color(COLORS.path_edge, 0.32), true, -1.0, false)
+    draw_rect(Rect2(point + Vector2(-5, -1), Vector2(10, 3)), Color(COLORS.path_light, 0.74), true)
+
+func _draw_route_junctions(bounds: Rect2) -> void:
+    for point in route_junction_points():
+        if not bounds.grow(24.0).has_point(point):
             continue
-        var points := _smooth_route_points(waypoints)
-        var route_bounds := Rect2(points[0], Vector2.ZERO)
-        for point in points:
-            route_bounds = route_bounds.expand(point)
-        if not bounds.grow(64.0).intersects(route_bounds):
-            continue
-        var kind := str(route.get("kind", "field-trail"))
-        var edge_width := 13.0 if kind == "village-road" else 7.0
-        var dirt_width := 7.0 if kind == "village-road" else 4.0
-        var edge_color := Color(COLORS.path_edge, 0.62 if kind == "village-road" else 0.48)
-        var dirt_color := Color(COLORS.path, 0.84 if kind == "village-road" else 0.68)
-        draw_polyline(points, edge_color, edge_width, true)
-        draw_polyline(points, dirt_color, dirt_width, true)
-        for point_index in range(points.size()):
-            draw_circle(points[point_index], dirt_width * 0.5, dirt_color, true, -1.0, false)
-        if kind == "village-road":
-            for point_index in range(points.size() - 1):
-                var segment_start: Vector2 = points[point_index]
-                var segment_end: Vector2 = points[point_index + 1]
-                var segment_length := segment_start.distance_to(segment_end)
-                var stone_count := maxi(1, floori(segment_length / 42.0))
-                for stone_index in range(stone_count):
-                    var ratio := float(stone_index + 1) / float(stone_count + 1)
-                    var stone_point := segment_start.lerp(segment_end, ratio)
-                    var grain: float = world.hash2d(point_index * 13 + stone_index, int(stone_point.y), world_seed + 1701)
-                    draw_rect(Rect2(stone_point + Vector2(-1.0, -1.0), Vector2(2, 1)), COLORS.path_light.darkened(0.22 + grain * 0.25), true)
+        draw_circle(point + Vector2(0, 3), 11.0, Color(COLORS.path_edge, 0.30), true, -1.0, false)
+        draw_circle(point, 7.0, Color(COLORS.path_light, 0.48), true, -1.0, false)
+        draw_rect(Rect2(point + Vector2(-2, -2), Vector2(4, 4)), Color(COLORS.path, 0.82), true)
 
 func _smooth_route_points(waypoints: Array) -> PackedVector2Array:
     var points := PackedVector2Array()

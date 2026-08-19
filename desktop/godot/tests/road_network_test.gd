@@ -1,6 +1,7 @@
 extends SceneTree
 
 const World = preload("res://scripts/world_contract.gd")
+const WorldView = preload("res://scripts/world_view.gd")
 
 var failures: Array[String] = []
 
@@ -69,6 +70,21 @@ func _initialize() -> void:
 
     require(routes.any(func(route): return str(route.get("from", "")) == "central-hub"), "road graph should have a central hub")
     require(routes.any(func(route): return str(route.get("from", "")) == "west-gate" or str(route.get("to", "")) == "west-gate"), "road graph should have a west settlement gate")
+
+    var view := WorldView.new()
+    view.configure(world, grid, village, null, {})
+    require(view.has_method("road_render_profile"), "road renderer should expose a stable visual profile")
+    require(view.has_method("route_junction_points"), "road renderer should expose authored junction points")
+    if view.has_method("road_render_profile"):
+        var village_profile: Dictionary = view.road_render_profile("village-road")
+        var footpath_profile: Dictionary = view.road_render_profile("village-footpath")
+        var trail_profile: Dictionary = view.road_render_profile("field-trail")
+        require(float(village_profile.get("base_width", 0.0)) > float(footpath_profile.get("base_width", 0.0)), "village roads should be wider than building footpaths")
+        require(float(footpath_profile.get("base_width", 0.0)) > float(trail_profile.get("base_width", 0.0)), "building footpaths should be wider than field trails")
+        require(float(village_profile.get("shoulder_width", 0.0)) > float(village_profile.get("base_width", 0.0)), "village roads should have a readable shoulder")
+    if view.has_method("route_junction_points"):
+        require(view.route_junction_points().size() >= 3, "road renderer should mark the central and settlement junctions")
+    view.free()
 
     if failures.is_empty():
         print("Godot road network contract: PASS")

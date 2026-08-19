@@ -54,6 +54,7 @@ godot --headless --path . --script res://tests/storage_recipe_test.gd
 godot --headless --path . --script res://tests/minimap_test.gd
 godot --headless --path . --script res://tests/gameplay_hud_test.gd
 godot --headless --path . --script res://tests/hud_presentation_test.gd
+godot --headless --path . --script res://tests/screen_presentation_test.gd
 godot --headless --path . --script res://tests/request_board_test.gd
 godot --headless --path . --script res://tests/request_routine_smoke.gd
 godot --headless --path . --script res://tests/village_project_test.gd
